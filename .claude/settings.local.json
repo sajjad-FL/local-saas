@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node D:\\\\sajj-proj\\\\local-saas\\\\server\\\\test.js)",
+      "PowerShell(Copy-Item D:\\\\sajj-proj\\\\local-saas\\\\server\\\\.env.example D:\\\\sajj-proj\\\\local-saas\\\\server\\\\.env)",
+      "PowerShell(docker compose -f D:\\\\sajj-proj\\\\local-saas\\\\docker-compose.yml up -d)",
+      "PowerShell(Get-Service | Where-Object { $_.Name -match 'mongo|docker' } | Select-Object Name, Status; Test-NetConnection -ComputerName localhost -Port 27017 -InformationLevel Quiet -WarningAction SilentlyContinue)",
+      "PowerShell($body = @{ name='Test Owner'; phone='9999999999'; password='test1234' } | ConvertTo-Json; try { $r = Invoke-RestMethod -Uri http://localhost:4000/api/auth/register -Method Post -ContentType 'application/json' -Body $body } catch { $r = $_.Exception.Message }; $r | ConvertTo-Json -Depth 3)",
+      "PowerShell(\\(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 5173,5174,5175 } | Select-Object LocalPort, OwningProcess\\) | Format-Table -AutoSize)",
+      "PowerShell(python \"C:\\\\Users\\\\FL_LPT-484\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\ui-ux-pro-max\\\\2.6.2\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"saas fintech payment collections dashboard mobile-first trustworthy\" --design-system -p \"Collections\" --density 6)",
+      "Bash(npx vite:*)",
+      "Bash(npm ls:*)",
+      "Read(//c/Users/FL_LPT-484/AppData/Local/**)",
+      "Bash(npx --no-install playwright --version)",
+      "Bash(npm i:*)",
+      "Bash(curl -s -X POST http://localhost:4000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"phone\"\"\"\":\"\"\"\"9999999999\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"test1234\"\"\"\"}')",
+      "Bash(curl -s -X POST http://localhost:4000/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"phone\"\"\"\":\"\"\"\"9999999999\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"test1234\"\"\"\"}')",
+      "Bash(node shots.mjs)",
+      "Bash(ls shots-*.png)"
+    ]
+  }
+}
