@@ -12,6 +12,16 @@ export function dueStatuses(dues, totalPaid) {
   });
 }
 
+// Pure billing logic: what is still owed on each due after allocating totalPaid oldest first.
+export function dueRemaining(dues, totalPaid) {
+  let left = totalPaid;
+  return dues.map((d) => {
+    const covered = Math.min(left, d.amount);
+    left -= covered;
+    return d.amount - covered;
+  });
+}
+
 // Pure helper: months in a plan cycle, or 0 when the cycle is a plain day count
 export function cycleMonths(cycleDays) {
   if (cycleDays === 30 || cycleDays === 31) return 1;

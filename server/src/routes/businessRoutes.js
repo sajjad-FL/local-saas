@@ -15,7 +15,7 @@ import { getPlans, createPlan } from '../controllers/planController.js';
 import { getRooms, createRoom } from '../controllers/roomController.js';
 import { getMembers, createMember } from '../controllers/memberController.js';
 import { getDashboardData } from '../controllers/dashboardController.js';
-import { exportPaymentsCsv, exportBalancesCsv, exportBackupJson } from '../controllers/exportController.js';
+import { exportPaymentsCsv, exportBalancesCsv, exportDuesCsv, exportBackupJson } from '../controllers/exportController.js';
 
 export const businessRoutes = Router();
 
@@ -55,6 +55,7 @@ businessRoutes.get('/:bizId/dashboard', getDashboardData);
 // CSV Exports
 businessRoutes.get('/:bizId/export/payments.csv', exportPaymentsCsv);
 businessRoutes.get('/:bizId/export/balances.csv', exportBalancesCsv);
+businessRoutes.get('/:bizId/export/dues.csv', exportDuesCsv);
 businessRoutes.get('/:bizId/export/backup.json', exportBackupJson);
 
 export default businessRoutes;

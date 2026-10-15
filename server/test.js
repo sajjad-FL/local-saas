@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { dueStatuses, rollForward, addPlanCycle, ledger, csv } from './src/services/billingService.js';
+import { dueStatuses, dueRemaining, rollForward, addPlanCycle, ledger, csv } from './src/services/billingService.js';
 
 const utc = (s) => new Date(`${s}T00:00:00.000Z`);
 
@@ -10,6 +10,9 @@ assert.deepEqual(dueStatuses(dues, 100), ['paid', 'unpaid']);
 assert.deepEqual(dueStatuses(dues, 150), ['paid', 'partial']);
 assert.deepEqual(dueStatuses(dues, 250), ['paid', 'paid']); // overpaid = advance
 assert.deepEqual(dueStatuses([], 500), []);
+assert.deepEqual(dueRemaining(dues, 150), [0, 50]);
+assert.deepEqual(dueRemaining(dues, 0), [100, 100]);
+assert.deepEqual(dueRemaining(dues, 999), [0, 0]);
 
 // cycle roll: catches up multiple missed cycles, no-op when period is current
 const periods = rollForward(utc('2026-01-01'), 30, utc('2026-02-15'));
