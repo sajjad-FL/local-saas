@@ -36,6 +36,7 @@ export async function resolveMemberParam(req, res, next, id) {
     const biz = member && await Business.findOne({ _id: member.businessId, ...mine(req.userId) });
     if (!biz) return res.status(404).json({ error: 'member not found' });
     req.member = member;
+    req.business = biz;
     next();
   } catch (err) {
     next(err);

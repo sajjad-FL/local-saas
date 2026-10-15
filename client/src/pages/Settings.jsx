@@ -112,6 +112,15 @@ export default function Settings() {
                 <FileSpreadsheetIcon size={14} /> Balances CSV
               </button>
             </div>
+            {isOwner && (
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+                onClick={() => download(`/businesses/${biz._id}/export/backup.json`, `${biz.name}-full-backup.json`)}>
+                <DownloadIcon size={14} /> Full Backup (JSON): every member, due and payment
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -366,27 +375,22 @@ function StaffAccountsSettings() {
   );
 }
 
-// 3. Notification Preferences Settings Component
+// 3. Automatic reminders. Only settings the server actually acts on live here.
 function NotificationPreferencesSettings() {
   const biz = useBiz();
   const qc = useQueryClient();
-
-  const [prefs, setPrefs] = useState({
-    renewalReminders: biz.notifications?.renewalReminders ?? true,
-    dailySummary: biz.notifications?.dailySummary ?? false,
-    welcomeMessage: biz.notifications?.welcomeMessage ?? true,
-    overdueAlerts: biz.notifications?.overdueAlerts ?? true,
-  });
+  const isOwner = biz.ownerId === userId();
+  const [enabled, setEnabled] = useState(biz.notifications?.renewalReminders ?? true);
+  const [everyDays, setEveryDays] = useState(biz.reminderEveryDays || 3);
 
   const save = useMutation({
-    mutationFn: (newPrefs) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { notifications: newPrefs } }),
+    mutationFn: (body) => api(`/businesses/${biz._id}`, { method: 'PATCH', body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
   });
 
-  const handleToggle = (key) => {
-    const updated = { ...prefs, [key]: !prefs[key] };
-    setPrefs(updated);
-    save.mutate(updated);
+  const toggle = () => {
+    setEnabled(!enabled);
+    save.mutate({ notifications: { renewalReminders: !enabled } });
   };
 
   return (
@@ -395,74 +399,52 @@ function NotificationPreferencesSettings() {
         <div>
           <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <BellIcon size={17} style={{ color: 'var(--primary)' }} />
-            Notification Preferences
+            Automatic Reminders
           </h3>
           <span className="analytics-card-subtitle">
-            Configure automated WhatsApp notifications and staff payment alerts
+            Daily at 10 AM, members who owe money get a WhatsApp reminder with your UPI link and their statement
           </span>
         </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {/* Toggle 1: Renewal reminders */}
         <div className="switch-wrap">
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Renewal reminders (3 days before)</div>
-            <div className="small muted" style={{ marginTop: 1 }}>Send automated expiry reminders to upcoming members</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Send automatic WhatsApp reminders</div>
+            <div className="small muted" style={{ marginTop: 1 }}>Needs the WhatsApp Cloud API keys on the server (WA_TOKEN, WA_PHONE_ID)</div>
           </div>
           <button
             type="button"
-            className={`switch-toggle ${prefs.renewalReminders ? 'active' : ''}`}
-            aria-checked={prefs.renewalReminders}
-            onClick={() => handleToggle('renewalReminders')}>
+            role="switch"
+            className={`switch-toggle ${enabled ? 'active' : ''}`}
+            aria-checked={enabled}
+            aria-label="Send automatic WhatsApp reminders"
+            disabled={!isOwner}
+            onClick={toggle}>
             <span className="switch-thumb" />
           </button>
         </div>
 
-        {/* Toggle 2: Daily revenue summary */}
         <div className="switch-wrap">
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Daily revenue summary (9 AM WhatsApp)</div>
-            <div className="small muted" style={{ marginTop: 1 }}>Receive daily collection report on owner's phone</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Remind the same member at most every</div>
+            <div className="small muted" style={{ marginTop: 1 }}>Fewer messages keep members from muting you</div>
           </div>
-          <button
-            type="button"
-            className={`switch-toggle ${prefs.dailySummary ? 'active' : ''}`}
-            aria-checked={prefs.dailySummary}
-            onClick={() => handleToggle('dailySummary')}>
-            <span className="switch-thumb" />
-          </button>
+          <select
+            value={everyDays}
+            disabled={!isOwner || !enabled}
+            aria-label="Reminder spacing"
+            style={{ width: 'auto' }}
+            onChange={(e) => {
+              setEveryDays(Number(e.target.value));
+              save.mutate({ reminderEveryDays: Number(e.target.value) });
+            }}>
+            <option value={3}>3 days</option>
+            <option value={5}>5 days</option>
+            <option value={7}>7 days</option>
+          </select>
         </div>
-
-        {/* Toggle 3: New member welcome message */}
-        <div className="switch-wrap">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>New member welcome message</div>
-            <div className="small muted" style={{ marginTop: 1 }}>Send receipt and welcome pack when a member joins</div>
-          </div>
-          <button
-            type="button"
-            className={`switch-toggle ${prefs.welcomeMessage ? 'active' : ''}`}
-            aria-checked={prefs.welcomeMessage}
-            onClick={() => handleToggle('welcomeMessage')}>
-            <span className="switch-thumb" />
-          </button>
-        </div>
-
-        {/* Toggle 4: Overdue payment alerts */}
-        <div className="switch-wrap">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Overdue payment alerts</div>
-            <div className="small muted" style={{ marginTop: 1 }}>Alert staff when a subscription has elapsed overdue</div>
-          </div>
-          <button
-            type="button"
-            className={`switch-toggle ${prefs.overdueAlerts ? 'active' : ''}`}
-            aria-checked={prefs.overdueAlerts}
-            onClick={() => handleToggle('overdueAlerts')}>
-            <span className="switch-thumb" />
-          </button>
-        </div>
+        {save.error && <p className="error" role="alert">{save.error.message}</p>}
       </div>
     </div>
   );

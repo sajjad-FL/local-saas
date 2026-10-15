@@ -2663,3 +2663,47 @@ input:focus, select:focus, textarea:focus {
   margin-top: auto;
   padding-top: 8px;
 }
+
+/* Member statement (public /s/:token page) */
+.statement {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.statement h1 { font-size: 22px; margin: 2px 0; color: var(--text); }
+.statement-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.statement-empty { text-align: center; padding: 40px 20px; }
+.statement-balance { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.statement-balance.owe { border-left: 4px solid var(--red); }
+.statement-balance.clear { border-left: 4px solid var(--green); }
+.statement-amount { font-size: 32px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.statement-pay { justify-content: center; min-width: 220px; }
+.statement-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.statement-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.statement-table th { text-align: left; font-weight: 600; color: var(--text-3); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.statement-table td { padding: 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+.statement-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.statement-foot { text-align: center; }
+.ledger-balance { font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) {
+  .statement-head { flex-direction: column; }
+  .statement-table th:nth-child(2), .statement-table td:nth-child(2) { max-width: 120px; }
+}
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .statement .analytics-card { box-shadow: none; border: 1px solid #ccc; }
+}
+.btn-link {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  min-height: 0;
+  color: var(--text-3);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-link:hover:not(:disabled) { background: none; color: var(--text); }

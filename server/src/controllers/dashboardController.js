@@ -132,7 +132,7 @@ export async function getDashboardData(req, res, next) {
         planBreakdownMap.get(pName).count += 1;
       }
     }
-    if (projectedNextMonth === 0) projectedNextMonth = curRev || 6000;
+    if (projectedNextMonth === 0) projectedNextMonth = curRev;
 
     // Avg Member Fee (ARPU) rounded to nearest ₹10
     const avgFee = activeMembersCount > 0 ? Math.round((totalMonthlyFees / activeMembersCount) / 10) * 10 : 0;

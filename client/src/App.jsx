@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, lazy, Suspense } from 'react';
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -21,12 +21,14 @@ import {
   BIZ_TYPES,
 } from './ui.jsx';
 import Login from './pages/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Members from './pages/Members.jsx';
-import MemberDetail from './pages/MemberDetail.jsx';
-import Reports from './pages/Reports.jsx';
-import Setup from './pages/Setup.jsx';
-import Settings from './pages/Settings.jsx';
+// pages load on demand so a member opening a statement link doesn't download the whole dashboard
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Members = lazy(() => import('./pages/Members.jsx'));
+const MemberDetail = lazy(() => import('./pages/MemberDetail.jsx'));
+const Reports = lazy(() => import('./pages/Reports.jsx'));
+const Setup = lazy(() => import('./pages/Setup.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const Statement = lazy(() => import('./pages/Statement.jsx'));
 
 const BizContext = createContext(null);
 export const useBiz = () => useContext(BizContext);
@@ -48,6 +50,18 @@ export default function App() {
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
+
+  // member statement links are public: no login, whatever the browser's session
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/s/')) {
+    return (
+      <Suspense fallback={<p className="center">Loading statement…</p>}>
+        <Routes>
+          <Route path="/s/:token" element={<Statement />} />
+        </Routes>
+      </Suspense>
+    );
+  }
 
   if (!token) {
     return (
@@ -232,6 +246,7 @@ function Shell({ onLogout }) {
           </header>
 
           <main>
+            <Suspense fallback={<div className="card skeleton" style={{ minHeight: 220 }} aria-hidden="true" />}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/members" element={<Members />} />
@@ -241,6 +256,7 @@ function Shell({ onLogout }) {
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
           </main>
         </div>
 

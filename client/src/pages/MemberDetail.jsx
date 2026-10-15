@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { api, waLink, rupees, remindMsg } from '../api.js';
+import { api, waLink, rupees, remindMsg, userId } from '../api.js';
 import { useBiz } from '../App.jsx';
 import {
   Avatar, Field, Rise, WhatsAppIcon, PauseIcon, PlayIcon,
   RupeeIcon, CalendarIcon, CheckIcon, CreditCardIcon, UsersIcon,
   PhoneIcon, TagIcon, ChevronIcon, ClockIcon, AlertIcon,
-  ConfirmDialog, CheckCircleIcon,
+  ConfirmDialog, CheckCircleIcon, TrashIcon, LinkIcon, BuildingIcon,
 } from '../ui.jsx';
 
 export default function MemberDetail() {
@@ -18,7 +18,8 @@ export default function MemberDetail() {
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState('cash');
-  const [confirmModal, setConfirmModal] = useState(null); // { type: 'pause' | 'resume' | 'leave' }
+  const [confirmModal, setConfirmModal] = useState(null); // { type: 'pause' | 'resume' | 'leave' | 'reverse' }
+  const [lastPayment, setLastPayment] = useState(null); // for the "send receipt" prompt after recording
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['member', id],
@@ -27,9 +28,23 @@ export default function MemberDetail() {
     retry: false,
   });
 
+  // statement link token (created on first view); links below are plain hrefs so popup blockers don't interfere
+  const { data: share } = useQuery({
+    queryKey: ['share', id],
+    queryFn: () => api(`/members/${id}/share`, { method: 'POST' }),
+    enabled: !!id,
+    staleTime: Infinity,
+  });
+  const rotateShare = useMutation({
+    mutationFn: () => api(`/members/${id}/share`, { method: 'POST', body: { rotate: true } }),
+    onSuccess: (data) => qc.setQueryData(['share', id], data),
+  });
+  const statementUrl = share?.token && `${location.origin}/s/${share.token}`;
+
   const pay = useMutation({
     mutationFn: () => api(`/members/${id}/payments`, { method: 'POST', body: { amount: Number(amount), mode } }),
-    onSuccess: () => {
+    onSuccess: (payment) => {
+      setLastPayment(payment);
       setAmount('');
       qc.invalidateQueries();
     },
@@ -41,6 +56,11 @@ export default function MemberDetail() {
       qc.invalidateQueries();
       navigate('/members');
     },
+  });
+
+  const reversePayment = useMutation({
+    mutationFn: (paymentId) => api(`/members/${id}/payments/${paymentId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries(),
   });
 
   const pauseResume = useMutation({
@@ -73,11 +93,23 @@ export default function MemberDetail() {
   const { member, balance, subscription, payments = [], dues = [] } = data;
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+  const isOwner = biz.ownerId === userId();
 
+  // oldest first to compute the balance after each entry (same-day due before its payment), then newest on top
+  let running = 0;
   const ledger = [
     ...dues.map((d) => ({ ...d, kind: 'due', when: d.dueDate })),
     ...payments.map((p) => ({ ...p, kind: 'payment', when: p.date })),
-  ].sort((a, b) => new Date(b.when) - new Date(a.when));
+  ]
+    .sort((a, b) => new Date(a.when) - new Date(b.when) || (a.kind === 'due' ? -1 : 1))
+    .map((item) => ({ ...item, balanceAfter: running += item.kind === 'due' ? item.amount : -item.amount }))
+    .reverse();
+
+  const receiptMsg = lastPayment &&
+    `Hi ${member.name}, received ${rupees(lastPayment.amount)} (${(lastPayment.mode || 'cash').toUpperCase()}) on ` +
+    `${new Date(lastPayment.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} for ${biz.name}. ` +
+    (balance > 0 ? `Balance due: ${rupees(balance)}.` : balance < 0 ? `Advance: ${rupees(-balance)}.` : 'You are all paid up.') +
+    ' Thank you!' + (statementUrl ? ` Statement: ${statementUrl}` : '');
 
   return (
     <>
@@ -192,8 +224,8 @@ export default function MemberDetail() {
             </div>
 
             {/* Action Toolbar */}
-            <div className="row" style={{ paddingTop: 12, borderTop: '1px solid var(--border-subtle)', justifyContent: 'space-between' }}>
-              <div>
+            <div className="row" style={{ paddingTop: 12, borderTop: '1px solid var(--border-subtle)', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
                 {member.phone && balance > 0 && (
                   <motion.a
                     className="btn wa"
@@ -202,9 +234,32 @@ export default function MemberDetail() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
-                    href={waLink(member.phone, remindMsg(biz, member.name, balance))}>
+                    href={waLink(member.phone, remindMsg(biz, member.name, balance) + (statementUrl ? ` See your statement: ${statementUrl}` : ''))}>
                     <WhatsAppIcon size={14} /> Send WhatsApp Reminder
                   </motion.a>
+                )}
+                {statementUrl && (
+                  <a
+                    className="btn btn-secondary"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
+                    title="A read-only page with every due and payment. No app or login needed."
+                    href={member.phone
+                      ? waLink(member.phone, `Hi ${member.name}, here is your account statement from ${biz.name}: ${statementUrl}`)
+                      : statementUrl}>
+                    <LinkIcon size={13} /> Share Statement
+                  </a>
+                )}
+                {statementUrl && (
+                  <button
+                    type="button"
+                    className="btn-link small muted"
+                    title="Stop the current link working and issue a new one"
+                    disabled={rotateShare.isPending}
+                    onClick={() => rotateShare.mutate()}>
+                    Reset link
+                  </button>
                 )}
               </div>
 
@@ -234,7 +289,7 @@ export default function MemberDetail() {
                   <button
                     type="button"
                     className="btn-secondary red-text"
-                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
+                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5, whiteSpace: 'nowrap' }}
                     disabled={markLeft.isPending}
                     onClick={() => setConfirmModal({ type: 'leave' })}>
                     Mark as Left
@@ -315,10 +370,24 @@ export default function MemberDetail() {
                 </div>
               </form>
               {pay.error && <p className="error" role="alert">{pay.error.message}</p>}
+              {lastPayment && member.phone && (
+                <div className="row" style={{ marginTop: 10, gap: 8, alignItems: 'center' }}>
+                  <CheckCircleIcon size={15} style={{ color: 'var(--green)' }} />
+                  <span className="small grow">Recorded {rupees(lastPayment.amount)}.</span>
+                  <a className="btn wa" target="_blank" rel="noreferrer"
+                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
+                    href={waLink(member.phone, receiptMsg)}
+                    onClick={() => setLastPayment(null)}>
+                    <WhatsAppIcon size={14} /> Send Receipt
+                  </a>
+                </div>
+              )}
             </div>
           </Rise>
         )}
       </div>
+
+      {biz.type === 'hostel' && <DepositNotice member={member} />}
 
       {/* Transaction Ledger Timeline */}
       <Rise i={2}>
@@ -354,9 +423,22 @@ export default function MemberDetail() {
                     </div>
                   </div>
 
-                  <span className={`amount ${item.kind === 'payment' ? 'green-text' : 'red-text'}`} style={{ fontSize: 14 }}>
-                    {item.kind === 'payment' ? '+' : '-'}{rupees(item.amount)}
-                  </span>
+                  <div style={{ textAlign: 'right', marginLeft: 12 }}>
+                    <span className={`amount ${item.kind === 'payment' ? 'green-text' : 'red-text'}`} style={{ fontSize: 14 }}>
+                      {item.kind === 'payment' ? '+' : '-'}{rupees(item.amount)}
+                    </span>
+                    <div className="ledger-balance">Bal {rupees(item.balanceAfter)}</div>
+                  </div>
+                  {isOwner && item.kind === 'payment' && (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Reverse this payment"
+                      aria-label={`Reverse payment of ${rupees(item.amount)}`}
+                      onClick={() => setConfirmModal({ type: 'reverse', payment: item })}>
+                      <TrashIcon size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -401,6 +483,21 @@ export default function MemberDetail() {
       />
 
       <ConfirmDialog
+        isOpen={confirmModal?.type === 'reverse'}
+        onClose={() => setConfirmModal(null)}
+        onConfirm={() => {
+          reversePayment.mutate(confirmModal.payment._id);
+          setConfirmModal(null);
+        }}
+        title={`Reverse payment of ${rupees(confirmModal?.payment?.amount)}?`}
+        message="Use this for a payment entered by mistake. It is removed from the ledger and the member's balance goes back up by this amount."
+        confirmText="Reverse Payment"
+        danger
+        icon={TrashIcon}
+        busy={reversePayment.isPending}
+      />
+
+      <ConfirmDialog
         isOpen={confirmModal?.type === 'leave'}
         onClose={() => setConfirmModal(null)}
         onConfirm={() => {
@@ -415,5 +512,69 @@ export default function MemberDetail() {
         busy={markLeft.isPending}
       />
     </>
+  );
+}
+
+// Hostel: security deposit and notice date. Both show on the member's statement link,
+// so the tenant sees exactly what the owner recorded and when.
+function DepositNotice({ member }) {
+  const qc = useQueryClient();
+  const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
+  const [form, setForm] = useState({
+    amount: member.deposit?.amount ?? '',
+    refundedAmount: member.deposit?.refundedAmount ?? '',
+    refundedOn: day(member.deposit?.refundedOn),
+    noticeGivenOn: day(member.noticeGivenOn),
+  });
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = useMutation({
+    mutationFn: () => api(`/members/${member._id}`, {
+      method: 'PATCH',
+      body: {
+        deposit: {
+          amount: form.amount === '' ? undefined : Number(form.amount),
+          refundedAmount: form.refundedAmount === '' ? undefined : Number(form.refundedAmount),
+          refundedOn: form.refundedOn || undefined,
+        },
+        noticeGivenOn: form.noticeGivenOn || null,
+      },
+    }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['member', member._id] }),
+  });
+
+  return (
+    <Rise i={2}>
+      <form className="analytics-card" style={{ marginBottom: 18 }} onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
+        <div className="card-header-row" style={{ marginBottom: 12 }}>
+          <div>
+            <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <BuildingIcon size={17} style={{ color: 'var(--primary)' }} />
+              Deposit & Notice
+            </h3>
+            <span className="analytics-card-subtitle">Shown on the tenant's statement link, so both sides see the same record</span>
+          </div>
+        </div>
+        <div className="form-grid two-col" style={{ marginBottom: 12 }}>
+          <Field label="Security deposit held (₹)" icon={RupeeIcon}>
+            <input type="number" min="0" inputMode="decimal" value={form.amount} onChange={set('amount')} />
+          </Field>
+          <Field label="Notice given on" icon={CalendarIcon}>
+            <input type="date" value={form.noticeGivenOn} onChange={set('noticeGivenOn')} />
+          </Field>
+          <Field label="Deposit refunded (₹)" icon={RupeeIcon}>
+            <input type="number" min="0" inputMode="decimal" value={form.refundedAmount} onChange={set('refundedAmount')} />
+          </Field>
+          <Field label="Refunded on" icon={CalendarIcon}>
+            <input type="date" value={form.refundedOn} onChange={set('refundedOn')} />
+          </Field>
+        </div>
+        <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+          {save.isSuccess && <span className="small green-text">Saved</span>}
+          {save.error && <span className="small red-text" role="alert">{save.error.message}</span>}
+          <button disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
+        </div>
+      </form>
+    </Rise>
   );
 }

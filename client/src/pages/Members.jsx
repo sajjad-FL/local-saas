@@ -1,4 +1,3 @@
-import { useState, useMemo } from 'react';
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -28,13 +27,10 @@ export default function Members() {
 
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' | 'owing' | 'soon' | 'clear' | 'left'
   const [filter, setFilter] = useState(() => searchParams.get('filter') || 'all'); // 'all' | 'owing' | 'soon' | 'clear' | 'left'
   const [planFilter, setPlanFilter] = useState('all');
-  const [renewalFilter, setRenewalFilter] = useState('all'); // 'all' | '7d' | '15d' | '30d' | 'overdue'
   const [renewalFilter, setRenewalFilter] = useState(() => searchParams.get('renewal') || searchParams.get('renewalFilter') || 'all'); // 'all' | '7d' | '15d' | '30d' | 'overdue'
   const [groupFilter, setGroupFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('renewal_asc'); // 'renewal_asc' | 'joined_desc' | 'name_asc' | 'balance_desc'
   const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || searchParams.get('sort') || 'renewal_asc'); // 'renewal_asc' | 'joined_desc' | 'name_asc' | 'balance_desc'
 
   const [selectedMemberId, setSelectedMemberId] = useState(null);

@@ -8,6 +8,7 @@ const businessSchema = new Schema({
   name: { type: String, required: true },
   type: { type: String, enum: ['mess', 'tuition', 'gym', 'hostel'], required: true },
   upiId: String,            // appended to reminder messages as a pay link
+  reminderEveryDays: { type: Number, enum: [3, 5, 7], default: 3 },
   staffIds: [ref('User')],  // full access except staff/UPI management
   notifications: {
     renewalReminders: { type: Boolean, default: true },

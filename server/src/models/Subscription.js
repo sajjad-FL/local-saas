@@ -10,6 +10,7 @@ const subscriptionSchema = new Schema({
   periodEnd: Date,
   status: { type: String, enum: ['active', 'paused', 'stopped'], default: 'active' },
   pausedAt: Date,
+  anchorDay: Number, // day of month monthly cycles renew on (1–31)
 });
 
 export const Subscription = model('Subscription', subscriptionSchema);
