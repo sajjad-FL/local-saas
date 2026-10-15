@@ -1,4 +1,4 @@
-import { User, Business, Member, Due, Payment, Subscription, Plan, Group, Room } from '../models/index.js';
+import { User, Business, Member, Due, Payment, Subscription, Plan, Group, Room, Reminder } from '../models/index.js';
 import { mine } from '../middlewares/authMiddleware.js';
 
 export async function getBusinesses(req, res, next) {
@@ -26,9 +26,10 @@ export async function updateBusiness(req, res, next) {
     if (!req.business.ownerId.equals(req.userId)) {
       return res.status(403).json({ error: 'owner only' });
     }
-    const { name, upiId, notifications } = req.body;
+    const { name, upiId, notifications, reminderEveryDays } = req.body;
     if (name !== undefined) req.business.name = name;
     if (upiId !== undefined) req.business.upiId = upiId;
+    if (reminderEveryDays !== undefined) req.business.reminderEveryDays = reminderEveryDays;
     if (notifications !== undefined) {
       req.business.notifications = { ...req.business.notifications?.toObject(), ...notifications };
     }
@@ -51,6 +52,7 @@ export async function clearBusinessData(req, res, next) {
       Due.deleteMany({ memberId: { $in: memberIds } }),
       Subscription.deleteMany({ memberId: { $in: memberIds } }),
       Member.deleteMany({ businessId: req.business._id }),
+      Reminder.deleteMany({ businessId: req.business._id }),
     ]);
     res.json({ ok: true });
   } catch (err) {
@@ -74,6 +76,7 @@ export async function deleteBusiness(req, res, next) {
       Plan.deleteMany({ businessId: bizId }),
       Group.deleteMany({ businessId: bizId }),
       Room.deleteMany({ businessId: bizId }),
+      Reminder.deleteMany({ businessId: bizId }),
       Business.deleteOne({ _id: bizId }),
     ]);
     res.json({ ok: true });

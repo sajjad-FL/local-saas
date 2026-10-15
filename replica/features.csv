@@ -1,0 +1,9 @@
+id,feature,priority,original,status,notes
+F1,Member statement link (read-only shareable ledger with running balance + UPI pay),must,no,done,angle A; fixes.md
+F2,Payment receipt page + WhatsApp received/balance message,must,no,done,fixes.md
+F3,Running balance in member ledger,must,no,done,fixes.md
+F4,Duplicate-due guard (unique subscription+period),must,no,done,fixes.md
+F5,Owner-set reminder spacing,should,no,done,fixes.md
+F6,Full JSON backup export,should,no,done,fixes.md
+F7,Hostel deposit + notice tracking,should,no,done,fixes.md
+F8,Honest flat pricing / no ads,must,no,todo,replica-launch

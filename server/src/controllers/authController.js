@@ -4,7 +4,7 @@ import { signToken } from '../middlewares/authMiddleware.js';
 
 export async function register(req, res, next) {
   try {
-    const { name, phone, password } = req.body;
+    const { name, phone, password } = req.body ?? {};
     if (!phone || !password) {
       return res.status(400).json({ error: 'phone and password required' });
     }
@@ -24,7 +24,7 @@ export async function register(req, res, next) {
 
 export async function login(req, res, next) {
   try {
-    const { phone, password } = req.body;
+    const { phone, password } = req.body ?? {};
     const user = await User.findOne({ phone });
     if (!user || !(await bcrypt.compare(password || '', user.passwordHash))) {
       return res.status(401).json({ error: 'invalid phone or password' });

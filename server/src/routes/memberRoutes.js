@@ -7,6 +7,8 @@ import {
   pauseMember,
   resumeMember,
   recordPayment,
+  deletePayment,
+  shareStatement,
   deleteMember,
 } from '../controllers/memberController.js';
 
@@ -21,6 +23,8 @@ memberRoutes.post('/:memberId/subscribe', subscribeMember);
 memberRoutes.post('/:memberId/pause', pauseMember);
 memberRoutes.post('/:memberId/resume', resumeMember);
 memberRoutes.post('/:memberId/payments', recordPayment);
+memberRoutes.delete('/:memberId/payments/:paymentId', deletePayment);
+memberRoutes.post('/:memberId/share', shareStatement);
 
 export default memberRoutes;
 

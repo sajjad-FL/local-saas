@@ -2663,3 +2663,190 @@ input:focus, select:focus, textarea:focus {
   margin-top: auto;
   padding-top: 8px;
 }
+
+/* Member statement (public /s/:token page) */
+.statement {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.statement h1 { font-size: 22px; margin: 2px 0; color: var(--text); }
+.statement-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.statement-empty { text-align: center; padding: 40px 20px; }
+.statement-balance { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.statement-balance.owe { border-left: 4px solid var(--red); }
+.statement-balance.clear { border-left: 4px solid var(--green); }
+.statement-amount { font-size: 32px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.statement-pay { justify-content: center; min-width: 220px; }
+.statement-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.statement-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.statement-table th { text-align: left; font-weight: 600; color: var(--text-3); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.statement-table td { padding: 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+.statement-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.statement-foot { text-align: center; }
+.ledger-balance { font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) {
+  .statement-head { flex-direction: column; }
+  .statement-table th:nth-child(2), .statement-table td:nth-child(2) { max-width: 120px; }
+}
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .statement .analytics-card { box-shadow: none; border: 1px solid #ccc; }
+}
+.btn-link {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  min-height: 0;
+  color: var(--text-3);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-link:hover:not(:disabled) { background: none; color: var(--text); }
+
+/* ==========================================================================
+   Mobile hardening
+   ========================================================================== */
+
+/* A grid track never grows past its container: a wide table or long name
+   scrolls or wraps inside its card instead of zooming the whole page out. */
+main > *,
+.stats-kpi-grid > *, .bottom-row-grid > *, .analytics-charts-grid > *, .settings-grid > *,
+.form-grid > *, .plans-grid > *, .profile-meta-grid > *, .compact-stat-grid > *,
+.sheet-stats-row > *, .type-grid > *, .statement-facts > * {
+  min-width: 0;
+}
+.analytics-card, .meta-value, .kpi-value { overflow-wrap: break-word; }
+
+/* Card headers: title and controls stack when there isn't room side by side. */
+.card-header-row { flex-wrap: wrap; gap: 10px; }
+
+/* Data tables keep their natural width and scroll sideways inside the card. */
+.analytics-table-wrap { -webkit-overflow-scrolling: touch; }
+.analytics-table th, .analytics-table td { white-space: nowrap; }
+
+/* Reports: three KPI cards. Two columns on phones with the last one full width. */
+.stats-kpi-grid.kpi-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stats-kpi-grid.kpi-3 > :last-child { grid-column: 1 / -1; }
+@media (min-width: 640px) {
+  .stats-kpi-grid.kpi-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stats-kpi-grid.kpi-3 > :last-child { grid-column: auto; }
+}
+
+/* Touch screens: finger-sized targets, and 16px inputs so iOS doesn't zoom on focus. */
+@media (pointer: coarse) {
+  button, .btn, .btn-secondary, select, textarea,
+  input:not([type=checkbox]):not([type=radio]):not([type=range]) {
+    min-height: 40px !important;
+  }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px !important; }
+  .chip, .period-tab-btn { min-height: 36px !important; padding-left: 12px; padding-right: 12px; }
+  .icon-btn { width: 40px !important; height: 40px !important; }
+  .btn-link { min-height: 40px !important; }
+  .back-pill { min-height: 40px; display: inline-flex; align-items: center; }
+  .switch-toggle { position: relative; }
+  .switch-toggle::before { content: ''; position: absolute; inset: -8px -2px; }
+}
+
+/* Top bar: a long business name stays on one line. */
+.brand-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.brand-sep, .brand-badge { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .brand-sep, .brand-badge { display: none; } /* the bottom tab bar already shows the page */
+}
+
+/* Phones: KPI labels and hints wrap instead of being cut off. */
+@media (max-width: 640px) {
+  .kpi-label, .kpi-delta-badge, .kpi-delta-caption {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    max-width: 100%;
+  }
+  .kpi-delta-badge { height: auto !important; line-height: 1.3; padding-top: 2px; padding-bottom: 2px; }
+}
+
+/* Phones: nothing below 11px. */
+@media (max-width: 640px) {
+  .kpi-label, .kpi-delta-badge, .kpi-delta-caption, .compact-stat-label,
+  .analytics-table th, .badge, .table-plan-pill, .gym-opened-badge {
+    font-size: 11px !important;
+  }
+}
+
+/* Phones: the members table becomes one card per member, balance and action in view. */
+@media (max-width: 640px) {
+  .members-table thead { display: none; }
+  .members-table, .members-table tbody { display: block; width: 100%; }
+  .members-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'member balance' 'plan status' 'renew renew' 'action action';
+    gap: 8px 12px;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .members-table td { display: block; padding: 0 !important; border: 0 !important; white-space: normal; min-width: 0; }
+  .members-table td:nth-child(1) { grid-area: member; }
+  .members-table td:nth-child(2) { grid-area: plan; }
+  .members-table td:nth-child(3) { display: none; }
+  .members-table td:nth-child(4) { grid-area: renew; font-size: 12px; color: var(--text-3); }
+  .members-table td:nth-child(4)::before { content: 'Renews '; }
+  .members-table td:nth-child(5) { grid-area: balance; }
+  .members-table td:nth-child(6) { grid-area: status; }
+  .members-table td:nth-child(7) { grid-area: action; }
+  .members-table td:nth-child(7) .row { justify-content: stretch !important; }
+  .members-table td:nth-child(7) .row > * { flex: 1 1 0; }
+  .members-table .table-plan-pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+
+  /* filters: search on its own line, selects in a tidy two-column grid */
+  .members-search { width: 100% !important; min-width: 0 !important; }
+  .filters-left-group { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .filters-left-group > .members-search { grid-column: 1 / -1; }
+  .filter-select-item { width: 100%; min-width: 0; }
+  .filter-select-input { width: 100%; min-width: 0; text-overflow: ellipsis; }
+}
+@media (pointer: coarse) {
+  .filter-select-item { height: auto; min-height: 40px; }
+  .filter-select-input { font-size: 16px !important; min-height: 38px !important; }
+}
+
+/* Timeline entries use the full row width instead of shrinking to their text. */
+.timeline-item > .card { flex: 1 1 auto; min-width: 0; gap: 10px; }
+.timeline-item .grow { min-width: 0; }
+
+/* Wide matrices: the member column stays put while months scroll. */
+.sticky-first-col th:first-child, .sticky-first-col td:first-child {
+  position: sticky; left: 0; z-index: 1; background: var(--card-bg);
+  box-shadow: 1px 0 0 var(--border);
+}
+@media (max-width: 640px) {
+  .timeline-dot { display: none; }
+}
+
+/* Cards laid out as a row keep space between icon, text and badge. */
+.card.row { gap: 12px; }
+
+/* Hostel room beds */
+.bed-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.bed-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; padding: 3px 8px; border-radius: var(--radius-btn);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.bed-chip.occupied { background: var(--bg-subtle); color: var(--text-3); }
+.bed-chip.available { background: var(--green-soft); color: var(--green); border-color: transparent; }
+
+/* Phones: an input and its button stack instead of squeezing the input. */
+@media (max-width: 480px) {
+  .form-input-action-row { flex-direction: column; align-items: stretch; }
+  .form-input-action-row > * { width: 100%; justify-content: center; }
+}
+
+/* Dialogs never grow taller than the screen; their content scrolls instead. */
+.modal-content { max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; }

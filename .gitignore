@@ -3,3 +3,7 @@ node_modules/
 dist/
 build/
 *.log
+
+# raw review dumps for research: kept local, not published
+replica/reviews.csv
+replica/feedback.md

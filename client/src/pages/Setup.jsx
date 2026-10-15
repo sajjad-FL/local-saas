@@ -9,6 +9,9 @@ import {
   SparklesIcon, TagIcon,
 } from '../ui.jsx';
 
+// what one group is called for each business type
+const GROUP_NOUN = { mess: 'Group', tuition: 'Batch', gym: 'Batch', hostel: 'Building' };
+
 const GROUP_LABEL = {
   mess: 'Meal Shifts & Mess Groups',
   tuition: 'Batches & Class Slots',
@@ -71,7 +74,7 @@ export default function Setup() {
         icon={BuildingIcon}
         hint={GROUP_HINT[biz.type] || 'Organize and categorize members into batches or shifts.'}
         path={`/businesses/${biz._id}/groups`}
-        addLabel="Add Batch / Slot"
+        addLabel={`Add ${GROUP_NOUN[biz.type] || 'Batch'}`}
         emptyTitle="No batches or workout slots added"
         emptyHint="Create slots like 'Morning Batch 6AM-8AM' or 'Evening Batch 6PM-8PM' to categorize members."
         renderItem={(g) => (
@@ -81,9 +84,8 @@ export default function Setup() {
             </span>
             <div className="grow">
               <b style={{ fontSize: 14.5 }}>{g.name}</b>
-              <div className="muted small">Active Slot</div>
             </div>
-            <span className="badge gray">Slot Active</span>
+            <span className="badge gray">Active</span>
           </div>
         )}
         Form={GroupForm}

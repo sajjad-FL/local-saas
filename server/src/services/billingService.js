@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Due, Payment, Room, Member } from '../models/index.js';
 
 // Pure billing logic: allocate a member's total paid across their dues, oldest first.
@@ -11,35 +12,83 @@ export function dueStatuses(dues, totalPaid) {
   });
 }
 
-// Pure helper: add plan cycle duration using calendar months when cycle is monthly-based
-export function addPlanCycle(date, cycleDays) {
+// Pure billing logic: what is still owed on each due after allocating totalPaid oldest first.
+export function dueRemaining(dues, totalPaid) {
+  let left = totalPaid;
+  return dues.map((d) => {
+    const covered = Math.min(left, d.amount);
+    left -= covered;
+    return d.amount - covered;
+  });
+}
+
+// Pure helper: months in a plan cycle, or 0 when the cycle is a plain day count
+export function cycleMonths(cycleDays) {
+  if (cycleDays === 30 || cycleDays === 31) return 1;
+  if (cycleDays === 90 || cycleDays === 91) return 3;
+  if (cycleDays === 180 || cycleDays === 182) return 6;
+  if (cycleDays === 360 || cycleDays === 365) return 12;
+  if (cycleDays % 30 === 0) return cycleDays / 30;
+  return 0;
+}
+
+// Pure helper: add one plan cycle. Monthly cycles land on anchorDay (the day the
+// member started), clamped to the month's last day — so Jan 31 → Feb 28 → Mar 31,
+// never Jan 31 → Mar 3. UTC throughout so results don't depend on server timezone.
+export function addPlanCycle(date, cycleDays, anchorDay = new Date(date).getUTCDate()) {
   const d = new Date(date);
-  if (cycleDays === 30 || cycleDays === 31) {
-    d.setMonth(d.getMonth() + 1);
-  } else if (cycleDays === 90 || cycleDays === 91) {
-    d.setMonth(d.getMonth() + 3);
-  } else if (cycleDays === 180 || cycleDays === 182) {
-    d.setMonth(d.getMonth() + 6);
-  } else if (cycleDays === 365 || cycleDays === 360) {
-    d.setFullYear(d.getFullYear() + 1);
-  } else if (cycleDays % 30 === 0) {
-    d.setMonth(d.getMonth() + Math.round(cycleDays / 30));
-  } else {
-    d.setDate(d.getDate() + cycleDays);
+  const months = cycleMonths(cycleDays);
+  if (!months) {
+    d.setUTCDate(d.getUTCDate() + cycleDays);
+    return d;
   }
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  d.setUTCFullYear(y, m, Math.min(anchorDay, lastDay));
   return d;
 }
 
 // Pure billing logic: calculate billing periods to append so a subscription's periodEnd lands in the future.
-export function rollForward(periodEnd, cycleDays, now) {
+export function rollForward(periodEnd, cycleDays, now, anchorDay) {
   const periods = [];
   let end = new Date(periodEnd);
   while (end <= now) {
     const periodStart = new Date(end);
-    end = addPlanCycle(end, cycleDays);
+    end = addPlanCycle(end, cycleDays, anchorDay);
     periods.push({ periodStart, periodEnd: end });
   }
   return periods;
+}
+
+// Create the dues for these periods; upsert so an existing cycle is left alone, never billed twice.
+export async function createDues(sub, member, amount, periods) {
+  await Promise.all(periods.map((p) => Due.updateOne(
+    { subscriptionId: sub._id, periodStart: p.periodStart },
+    { $setOnInsert: { memberId: member._id, businessId: member.businessId, amount, periodEnd: p.periodEnd, dueDate: p.periodStart } },
+    { upsert: true },
+  )));
+}
+
+// Pure: dues and payments merged oldest-first with the balance after each entry.
+// On the same day a due is listed before the payment that clears it.
+export function ledger(dues, payments) {
+  const rows = [
+    ...dues.map((d) => ({ kind: 'due', id: String(d._id), date: d.dueDate, amount: d.amount, periodEnd: d.periodEnd })),
+    ...payments.map((p) => ({ kind: 'payment', id: String(p._id), date: p.date, amount: p.amount, mode: p.mode })),
+  ].sort((a, b) => new Date(a.date) - new Date(b.date) || (a.kind === 'due' ? -1 : 1));
+  let balance = 0;
+  for (const r of rows) r.balance = balance += r.kind === 'due' ? r.amount : -r.amount;
+  return rows;
+}
+
+// The member's statement token, created on first use
+export async function ensureShareToken(member) {
+  if (!member.shareToken) {
+    member.shareToken = crypto.randomBytes(18).toString('base64url');
+    await Member.updateOne({ _id: member._id }, { shareToken: member.shareToken });
+  }
+  return member.shareToken;
 }
 
 // Re-derive every due status for a member from scratch. Idempotent, predictable, correct.
