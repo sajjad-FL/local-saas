@@ -415,7 +415,7 @@ export default function MemberDetail() {
 
                   <div className="grow">
                     <b style={{ fontSize: 13.5 }}>
-                      {item.kind === 'payment' ? 'Payment Received' : `Fee Due — ${item.reason || 'Membership Cycle'}`}
+                      {item.kind === 'payment' ? 'Payment Received' : 'Fee Due'}
                     </b>
                     <div className="muted small">
                       {new Date(item.when).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}

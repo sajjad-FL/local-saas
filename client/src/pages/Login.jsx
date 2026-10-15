@@ -145,7 +145,7 @@ export default function Login({ onLogin }) {
         </form>
 
         <div className="auth-footer-note">
-          <span>🔒 End-to-end encrypted · Multi-device access</span>
+          <span>Works on any phone or computer · Data exportable anytime</span>
         </div>
       </motion.div>
     </div>

@@ -52,7 +52,7 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className="profile-meta-grid" style={{ gridTemplateColumns: '1fr 1fr', margin: 0 }}>
+            <div className="profile-meta-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', margin: 0 }}>
               <div className="meta-item">
                 <div className="meta-label">Business Name</div>
                 <div className="meta-value">{biz.name}</div>
@@ -118,7 +118,7 @@ export default function Settings() {
                 className="btn-secondary"
                 style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
                 onClick={() => download(`/businesses/${biz._id}/export/backup.json`, `${biz.name}-full-backup.json`)}>
-                <DownloadIcon size={14} /> Full Backup (JSON): every member, due and payment
+                <DownloadIcon size={14} /> Full Backup (JSON)
               </button>
             )}
           </div>
@@ -202,7 +202,7 @@ function UpiGatewaySettings() {
                 href={testUpiUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-secondary"
+                className="btn btn-secondary"
                 style={{ minHeight: 26, padding: '2px 8px', fontSize: 11 }}>
                 Send ₹1 test
               </a>

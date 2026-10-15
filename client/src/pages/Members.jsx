@@ -261,7 +261,7 @@ export default function Members() {
                 <span className="compact-stat-val">
                   <CountUp value={filterCounts.all} duration={0.8} />
                 </span>
-                <span className="compact-stat-badge">registered in gym</span>
+                <span className="compact-stat-badge">registered</span>
               </div>
             </div>
           </motion.div>
@@ -363,7 +363,7 @@ export default function Members() {
         <div className="members-toolbar-card">
           <div className="filters-left-group">
             {/* Search Input on the Left */}
-            <div className="search-input-wrap" style={{ width: 250, minWidth: 180 }}>
+            <div className="search-input-wrap members-search" style={{ width: 250, minWidth: 180 }}>
               <SearchIcon size={14} className="search-icon" />
               <input
                 type="search"
@@ -499,7 +499,7 @@ export default function Members() {
               : filter === 'clear'
               ? 'No members currently have a zero balance.'
               : filter === 'left'
-              ? 'No members have left the gym.'
+              ? 'No members have left yet.'
               : 'No members found in this filter category.'
           }
           action={
@@ -519,7 +519,7 @@ export default function Members() {
       {filtered.length > 0 && (
         <div className="analytics-card" style={{ padding: '0 16px 10px', marginBottom: 16 }}>
           <div className="analytics-table-wrap">
-            <table className="analytics-table">
+            <table className="analytics-table members-table">
               <thead>
                 <tr>
                   <th>MEMBER</th>
@@ -1463,7 +1463,7 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
     phone: '',
     planId: plans[0]?._id || '',
     groupId: groups[0]?._id || '',
-    roomId: rooms[0]?._id || '',
+    roomId: rooms.find((r) => r.occupied < r.capacity)?._id || '', // first room with a free bed
     startDate: new Date().toISOString().slice(0, 10),
   });
   const [errors, setErrors] = useState({});
@@ -1572,7 +1572,9 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
               <select value={form.roomId} onChange={(e) => setForm({ ...form, roomId: e.target.value })}>
                 <option value="">No room allocated</option>
                 {rooms.map((r) => (
-                  <option key={r._id} value={r._id}>Room {r.roomNo} ({r.type})</option>
+                  <option key={r._id} value={r._id} disabled={r.occupied >= r.capacity}>
+                    Room {r.roomNo} · {r.occupied}/{r.capacity} beds{r.occupied >= r.capacity ? ' (full)' : ''}
+                  </option>
                 ))}
               </select>
             </Field>

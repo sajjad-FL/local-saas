@@ -163,7 +163,7 @@ export default function Dashboard() {
             <div key={i} className="card skeleton" style={{ minHeight: 114 }} />
           ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: 16, marginTop: 16 }}>
+        <div className="bottom-row-grid" style={{ marginTop: 16 }}>
           <div className="card skeleton" style={{ minHeight: 280 }} />
           <div className="card skeleton" style={{ minHeight: 280 }} />
         </div>
@@ -689,7 +689,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <h3 className="analytics-card-title">Monthly Earnings</h3>
                 <span className="gym-opened-badge">
-                  <span style={{ color: '#10b981' }}>●</span> Gym opened {openedMonthName} {openedYear}
+                  <span style={{ color: '#10b981' }}>●</span> Since {openedMonthName} {openedYear}
                 </span>
               </div>
               <span className="analytics-card-subtitle">
@@ -759,8 +759,8 @@ export default function Dashboard() {
               <span className="analytics-card-subtitle">Overview of plans, renewals, and collections</span>
             </div>
 
-            <div className="row" style={{ gap: 8 }}>
-              <div className="search-input-wrap" style={{ width: 160 }}>
+            <div className="row" style={{ gap: 8, flex: '1 1 260px', justifyContent: 'flex-end', minWidth: 0 }}>
+              <div className="search-input-wrap" style={{ flex: '1 1 140px', maxWidth: 200, minWidth: 0 }}>
                 <input
                   type="search"
                   placeholder="Search name/phone…"
@@ -921,6 +921,7 @@ export default function Dashboard() {
             <motion.div
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
+              className="quick-action-item"
               onClick={() => setReminderModal({ member: nearestMember || membersTable[0] })}>
               <span className="quick-action-icon-box amber">
                 <SendIcon size={17} />

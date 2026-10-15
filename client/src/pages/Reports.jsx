@@ -33,7 +33,7 @@ export default function Reports() {
   if (!data) {
     return (
       <div aria-hidden="true">
-        <div className="stats-kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 16 }}>
+        <div className="stats-kpi-grid kpi-3" style={{ marginBottom: 16 }}>
           {[0, 1, 2].map((i) => (
             <div key={i} className="card skeleton" style={{ minHeight: 114 }} />
           ))}
@@ -107,7 +107,7 @@ export default function Reports() {
       </div>
 
       {/* Top 3 KPI Cards */}
-      <div className="stats-kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 16 }}>
+      <div className="stats-kpi-grid kpi-3" style={{ marginBottom: 16 }}>
         {/* KPI 1: TOTAL COLLECTED · ALL TIME */}
         <Rise i={0}>
           <div className="kpi-card">
@@ -191,7 +191,7 @@ export default function Reports() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <h3 className="analytics-card-title">Monthly Audit Statement</h3>
               <span className="gym-opened-badge">
-                <span style={{ color: "#10b981" }}>●</span> Gym opened {openedMonthName} {openedYear}
+                <span style={{ color: "#10b981" }}>●</span> Since {openedMonthName} {openedYear}
               </span>
             </div>
             <span className="analytics-card-subtitle">
@@ -283,7 +283,7 @@ export default function Reports() {
           <div>
             <h3 className="analytics-card-title">Member Payment Breakdown</h3>
             <span className="analytics-card-subtitle">
-              Who paid and who didn't, month-by-month since gym opening ({openedMonthName} {openedYear})
+              Who paid and who didn't, month-by-month since {openedMonthName} {openedYear}
             </span>
           </div>
 
@@ -299,7 +299,7 @@ export default function Reports() {
         </div>
 
         <div className="analytics-table-wrap">
-          <table className="analytics-table">
+          <table className="analytics-table sticky-first-col">
             <thead>
               <tr>
                 <th>MEMBER</th>
