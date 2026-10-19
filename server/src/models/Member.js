@@ -20,7 +20,11 @@ const memberSchema = new Schema({
     refundedOn: Date,
   },
   noticeGivenOn: Date,
+  // the member's user/enrolment number on the business's fingerprint or face machine
+  biometricId: { type: String, trim: true },
 });
+
+memberSchema.index({ businessId: 1, biometricId: 1 });
 
 export const Member = model('Member', memberSchema);
 export default Member;

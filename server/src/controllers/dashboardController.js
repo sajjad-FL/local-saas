@@ -1,5 +1,5 @@
 import { Payment, Member, Due, Subscription, Plan } from '../models/index.js';
-import { memberBalances } from '../services/billingService.js';
+import { memberBalances, remainingByDue as remainingByDueMap } from '../services/billingService.js';
 
 export async function getDashboardData(req, res, next) {
   try {
@@ -36,7 +36,7 @@ export async function getDashboardData(req, res, next) {
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       memberBalances(businessId),
-      Member.find({ businessId }).sort('-joinDate'),
+      Member.find({ businessId }).populate('roomId', 'roomNo groupId floorId').sort('-joinDate'),
       Plan.find({ businessId }),
       Due.find({ businessId, status: { $ne: 'paid' } }).sort('dueDate'),
       Payment.find({ businessId }),
@@ -44,6 +44,11 @@ export async function getDashboardData(req, res, next) {
     ]);
 
     const memberIds = members.map((m) => m._id);
+
+    // What is still owed on each due (payments cover the oldest dues first), so a
+    // partly paid due counts only its unpaid part in the reports, matching balances
+    const remainingByDue = remainingByDueMap(allDues, allPayments);
+    const remaining = (due) => remainingByDue.get(String(due._id)) || 0;
     const activeMembersList = members.filter((m) => m.status === 'active');
     const activeMemberIdSet = new Set(activeMembersList.map((m) => String(m._id)));
     const activeMembersCount = activeMembersList.length;
@@ -106,6 +111,7 @@ export async function getDashboardData(req, res, next) {
         phone: m.phone,
         balance: bal.get(String(m._id)),
         dueSince: oldestDue.get(String(m._id)),
+        roomId: m.roomId, // hostels: where to find them
       }))
       .sort((a, b) => new Date(a.dueSince || 0) - new Date(b.dueSince || 0));
 
@@ -120,7 +126,7 @@ export async function getDashboardData(req, res, next) {
     for (const s of subscriptions) {
       if (activeMemberIdSet.has(String(s.memberId)) && s.status === 'active' && s.planId) {
         const pName = s.planId.name || 'Standard Plan';
-        const pAmt = s.planId.amount || 0;
+        const pAmt = s.amount ?? s.planId.amount ?? 0;
         const days = s.planId.cycleDays || 30;
         const monthlyEq = Math.round((pAmt / days) * 30);
         totalMonthlyFees += monthlyEq;
@@ -246,8 +252,8 @@ export async function getDashboardData(req, res, next) {
         .reduce((sum, p) => sum + p.amount, 0);
 
       const mDues = allDues
-        .filter((due) => due.dueDate >= mStart && due.dueDate <= mEnd && due.status !== 'paid')
-        .reduce((sum, due) => sum + due.amount, 0);
+        .filter((due) => due.dueDate >= mStart && due.dueDate <= mEnd)
+        .reduce((sum, due) => sum + remaining(due), 0);
 
       const hasActivity = mPayments > 0 || mDues > 0;
       const isCurrentMonth = i === 0;
@@ -304,11 +310,13 @@ export async function getDashboardData(req, res, next) {
     // RULE 4: Member Payment Breakdown Table Data
     const memberPaymentBreakdown = members.map((m) => {
       const sub = subByMember.get(String(m._id));
-      const mJoinDate = new Date(m.joinDate);
-      const mJoinMonthIdx = mJoinDate.getFullYear() * 12 + mJoinDate.getMonth();
       const mPaid = memberPaidTotal.get(String(m._id)) || 0;
       const mPaymentsList = allPayments.filter((p) => String(p.memberId) === String(m._id));
       const mDuesList = allDues.filter((d) => String(d.memberId) === String(m._id));
+      // a backdated subscription bills months before the member was added to the app:
+      // the member counts from whichever is earlier, so those months aren't hidden as "not joined"
+      const mJoinDate = new Date(Math.min(new Date(m.joinDate), ...mDuesList.map((d) => new Date(d.dueDate))));
+      const mJoinMonthIdx = mJoinDate.getFullYear() * 12 + mJoinDate.getMonth();
 
       let totalBilled = 0;
       const monthStatuses = activeMonthsList.map((mon) => {
@@ -332,9 +340,7 @@ export async function getDashboardData(req, res, next) {
         // Dues in this month
         const duesInMonth = mDuesList
           .filter((d) => d.dueDate >= mon.startDate && d.dueDate <= mon.endDate);
-        const unpaidInMonth = duesInMonth
-          .filter((d) => d.status !== 'paid')
-          .reduce((sum, d) => sum + d.amount, 0);
+        const unpaidInMonth = duesInMonth.reduce((sum, d) => sum + remaining(d), 0);
 
         totalBilled += (paidInMonth + unpaidInMonth);
 
@@ -348,7 +354,7 @@ export async function getDashboardData(req, res, next) {
             amount: paidInMonth,
           };
         } else if (unpaidInMonth > 0) {
-          const isPastDue = duesInMonth.some((d) => d.dueDate < now && d.status !== 'paid');
+          const isPastDue = duesInMonth.some((d) => d.dueDate < now && remaining(d) > 0);
           return {
             key: mon.key,
             month: mon.month,
@@ -385,7 +391,7 @@ export async function getDashboardData(req, res, next) {
         name: m.name,
         phone: m.phone,
         planName: sub?.planId?.name || (m.roomId ? `Room ${m.roomId.roomNo}` : 'Standard Plan'),
-        planAmount: sub?.planId?.amount || 0,
+        planAmount: sub?.amount ?? sub?.planId?.amount ?? 0,
         totalPaid: mPaid,
         totalBilled,
         efficiency,
@@ -418,7 +424,7 @@ export async function getDashboardData(req, res, next) {
         phone: m.phone,
         joinDate: m.joinDate,
         planName: sub?.planId?.name || 'No Plan',
-        planAmount: sub?.planId?.amount || 0,
+        planAmount: sub?.amount ?? sub?.planId?.amount ?? 0,
         nextRenewal: sub?.periodEnd || null,
         status: m.status,
         statusBadge,
@@ -426,37 +432,6 @@ export async function getDashboardData(req, res, next) {
         amountPaid: mPaid,
       };
     });
-
-    // Attendance Heatmap Data (12 weeks × 7 days)
-    const heatmap = [];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - (12 * 7 - 1)); // 12 weeks back
-
-    for (let w = 0; w < 12; w++) {
-      const weekDays = [];
-      for (let d = 0; d < 7; d++) {
-        const cellDate = new Date(startDate);
-        cellDate.setDate(startDate.getDate() + (w * 7 + d));
-        const dayOfWeek = cellDate.getDay();
-        
-        const isSunday = dayOfWeek === 0;
-        let count = 0;
-        if (activeMembersCount > 0 && cellDate <= today) {
-          const seed = (cellDate.getDate() * 13 + cellDate.getMonth() * 7 + d * 5) % 10;
-          const baseAttendance = isSunday ? 0.2 : 0.65;
-          count = Math.max(0, Math.round(activeMembersCount * (baseAttendance + (seed / 40))));
-        }
-
-        weekDays.push({
-          date: cellDate.toISOString().slice(0, 10),
-          day: days[d === 0 ? 6 : d - 1],
-          count,
-        });
-      }
-      heatmap.push(weekDays);
-    }
 
     res.json({
       metrics: {
@@ -507,7 +482,6 @@ export async function getDashboardData(req, res, next) {
       activeMonthsList,
       memberPaymentBreakdown,
       planDistribution,
-      attendanceHeatmap: heatmap,
       membersTable,
       collectedThisMonth: curRev,
       pendingTotal,

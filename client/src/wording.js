@@ -1,0 +1,42 @@
+// The words each kind of business uses: a hostel has rent plans, buildings and tenants who move in;
+// a gym has membership plans and batches. Screens read from here instead of hard-coding gym words.
+const WORDS = {
+  gym: {
+    plan: 'Membership plan', plans: 'Membership plans',
+    plansHint: 'Monthly, quarterly or yearly memberships and what they cost.',
+    planExample: 'Monthly ₹1,500 or Quarterly ₹4,000', planPlaceholder: 'e.g. Monthly',
+    group: 'Batch', groups: 'Batches & time slots',
+    groupsHint: 'Morning, evening or ladies-only batches.', groupPlaceholder: 'e.g. Morning 6–8 AM',
+    member: 'member', start: 'Start date', fee: 'Membership fee',
+    setupHint: 'Your membership plans and batches.',
+  },
+  hostel: {
+    plan: 'Rent plan', plans: 'Rent plans',
+    plansHint: 'What a bed costs: sharing type, AC, food included.',
+    planExample: 'Double sharing ₹6,500 a month or Single room ₹9,000 a month', planPlaceholder: 'e.g. Double sharing with food',
+    group: 'Building', groups: 'Buildings',
+    groupsHint: 'Your buildings or blocks. Rooms belong to a building.', groupPlaceholder: 'e.g. Main building or Block B',
+    member: 'tenant', start: 'Move-in date', fee: 'Rent',
+    setupHint: 'First your buildings, their floors and rooms, then what each bed costs.',
+  },
+  mess: {
+    plan: 'Meal plan', plans: 'Meal plans',
+    plansHint: 'Lunch, dinner or full-day tiffin plans.',
+    planExample: 'Lunch + dinner ₹3,000 a month', planPlaceholder: 'e.g. Lunch + dinner',
+    group: 'Group', groups: 'Meal groups',
+    groupsHint: 'For example lunch only, dinner only, or office delivery.', groupPlaceholder: 'e.g. Lunch only',
+    member: 'member', start: 'Start date', fee: 'Meal plan fee',
+    setupHint: 'Your meal plans and meal groups.',
+  },
+  tuition: {
+    plan: 'Fee plan', plans: 'Fee plans',
+    plansHint: 'Monthly or term fees for each class or subject.',
+    planExample: 'Class 10 Maths ₹1,200 a month', planPlaceholder: 'e.g. Class 10 Maths',
+    group: 'Batch', groups: 'Batches',
+    groupsHint: 'Classes or timings, for example Class 10 evening.', groupPlaceholder: 'e.g. Class 10, 5 PM',
+    member: 'student', start: 'Start date', fee: 'Fee',
+    setupHint: 'Your fee plans and batches.',
+  },
+};
+
+export const words = (type) => WORDS[type] || WORDS.gym;

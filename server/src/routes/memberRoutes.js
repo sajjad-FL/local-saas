@@ -11,6 +11,7 @@ import {
   shareStatement,
   deleteMember,
 } from '../controllers/memberController.js';
+import { getMemberAttendance } from '../controllers/attendanceController.js';
 
 export const memberRoutes = Router();
 
@@ -25,6 +26,7 @@ memberRoutes.post('/:memberId/resume', resumeMember);
 memberRoutes.post('/:memberId/payments', recordPayment);
 memberRoutes.delete('/:memberId/payments/:paymentId', deletePayment);
 memberRoutes.post('/:memberId/share', shareStatement);
+memberRoutes.get('/:memberId/attendance', getMemberAttendance);
 
 export default memberRoutes;
 

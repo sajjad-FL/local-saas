@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, rupees, waLink, remindMsg } from '../api.js';
 import { useBiz } from '../App.jsx';
+import { words } from '../wording.js';
+import { AddExpense } from './MoneyReport.jsx';
+import BulkRemind, { owingMessage, renewalMessage } from '../BulkRemind.jsx';
 import {
   formatINR,
   formatRupees,
@@ -15,7 +18,7 @@ import {
 import {
   Avatar, Empty, Field, Rise, CountUp, PlusIcon, SearchIcon, XIcon,
   ChevronIcon, UsersIcon, UserIcon, PhoneIcon, CreditCardIcon, RupeeIcon,
-  CalendarIcon, BedIcon, TagIcon, WhatsAppIcon, CheckIcon, AlertIcon,
+  CalendarIcon, BedIcon, BuildingIcon, LayersIcon, TagIcon, WhatsAppIcon, CheckIcon, AlertIcon,
   AlertCircleIcon, CheckCircleIcon, SendIcon, EditIcon, TrashIcon,
   CopyIcon, ClockIcon, CalendarClockIcon, SlidersHorizontalIcon, FilterIcon,
 } from '../ui.jsx';
@@ -23,19 +26,25 @@ import {
 export default function Members() {
   const biz = useBiz();
   const qc = useQueryClient();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [adding, setAdding] = useState(false);
+  const [addToRoom, setAddToRoom] = useState(null); // ?room=<id> (a free bed on the Rooms board)
+  const [addingExpense, setAddingExpense] = useState(false);
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState(() => searchParams.get('filter') || 'all'); // 'all' | 'owing' | 'soon' | 'clear' | 'left'
+  const [showFilters, setShowFilters] = useState(false); // phones: plan/renewal/sort/group behind a toggle
+  const [filter, setFilter] = useState(() => searchParams.get('filter') || 'all'); // 'all' | 'owing' | 'soon' | 'clear' | 'renewing' | 'left'
   const [planFilter, setPlanFilter] = useState('all');
   const [renewalFilter, setRenewalFilter] = useState(() => searchParams.get('renewal') || searchParams.get('renewalFilter') || 'all'); // 'all' | '7d' | '15d' | '30d' | 'overdue'
   const [groupFilter, setGroupFilter] = useState('all');
+  const [floorFilter, setFloorFilter] = useState('all'); // hostels: a floor of the chosen building
+  const [roomFilter, setRoomFilter] = useState('all');
   const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || searchParams.get('sort') || 'renewal_asc'); // 'renewal_asc' | 'joined_desc' | 'name_asc' | 'balance_desc'
 
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [collectModal, setCollectModal] = useState(null);
   const [reminderModal, setReminderModal] = useState(null);
+  const [bulk, setBulk] = useState(null); // "Remind all": { title, people }
 
   useEffect(() => {
     const f = searchParams.get('filter');
@@ -44,6 +53,12 @@ export default function Members() {
     if (s) setSortBy(s);
     const r = searchParams.get('renewal') || searchParams.get('renewalFilter');
     if (r) setRenewalFilter(r);
+    // ?add=1 (from the home screen's Add Member) opens the add form once
+    if (searchParams.get('add')) {
+      setAdding(true);
+      setAddToRoom(searchParams.get('room'));
+      setSearchParams((p) => { p.delete('add'); p.delete('room'); return p; }, { replace: true });
+    }
   }, [searchParams]);
 
   const { data: members } = useQuery({
@@ -67,22 +82,6 @@ export default function Members() {
     enabled: biz.type === 'hostel',
   });
 
-  const add = useMutation({
-    mutationFn: async (form) => {
-      const member = await api(`/businesses/${biz._id}/members`, { method: 'POST', body: form });
-      if (form.planId) {
-        await api(`/members/${member._id}/subscribe`, {
-          method: 'POST',
-          body: { planId: form.planId, startDate: form.startDate },
-        });
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries();
-      setAdding(false);
-    },
-  });
-
   const now = new Date();
   const filterCounts = {
     all: (members || []).length,
@@ -102,8 +101,12 @@ export default function Members() {
     planFilter !== 'all' ||
     renewalFilter !== 'all' ||
     groupFilter !== 'all' ||
+    floorFilter !== 'all' ||
+    roomFilter !== 'all' ||
     sortBy !== 'renewal_asc'
   );
+
+  const advancedFilterCount = [planFilter !== 'all', renewalFilter !== 'all', groupFilter !== 'all', floorFilter !== 'all', roomFilter !== 'all', sortBy !== 'renewal_asc'].filter(Boolean).length;
 
   const resetAllFilters = () => {
     setQ('');
@@ -111,8 +114,23 @@ export default function Members() {
     setPlanFilter('all');
     setRenewalFilter('all');
     setGroupFilter('all');
+    setFloorFilter('all');
+    setRoomFilter('all');
     setSortBy('renewal_asc');
   };
+
+  // hostels: building → floor → room, each list narrowed by the one before it
+  const roomById = useMemo(() => new Map((rooms || []).map((r) => [r._id, r])), [rooms]);
+  const filterBuilding = (groups || []).find((g) => g._id === groupFilter);
+  const filterFloors = filterBuilding?.floors || [];
+  const filterRooms = sortRooms(
+    (rooms || []).filter((r) =>
+      (groupFilter === 'all' || String(r.groupId?._id || r.groupId) === groupFilter) &&
+      (floorFilter === 'all' || r.floorId === floorFilter)),
+    groups || []
+  );
+  const chooseBuilding = (id) => { setGroupFilter(id); setFloorFilter('all'); setRoomFilter('all'); };
+  const chooseFloor = (id) => { setFloorFilter(id); setRoomFilter('all'); };
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -120,12 +138,13 @@ export default function Members() {
 
     return (members || [])
       .filter((m) => {
-        // Search by name, phone, or plan
+        // Search by name, phone, plan or room number
         if (query) {
           const matchName = (m.name || '').toLowerCase().includes(query);
           const matchPhone = (m.phone || '').includes(query);
           const matchPlan = (m.planName || m.planId?.name || '').toLowerCase().includes(query);
-          if (!matchName && !matchPhone && !matchPlan) return false;
+          const matchRoom = String(m.roomId?.roomNo || '').toLowerCase() === query.replace(/^room\s*/, '');
+          if (!matchName && !matchPhone && !matchPlan && !matchRoom) return false;
         }
 
         // Primary status tab filter
@@ -137,6 +156,11 @@ export default function Members() {
           if (diff < 0 || diff > 7) return false;
         } else if (filter === 'clear') {
           if (m.status !== 'active' || m.balance > 0) return false;
+        } else if (filter === 'renewing') {
+          // the same people as the Upcoming Renewals list: renewing within 30 days
+          if (m.status !== 'active' || !m.nextRenewal) return false;
+          const diff = Math.ceil((new Date(m.nextRenewal) - currTime) / (1000 * 60 * 60 * 24));
+          if (diff < 0 || diff > 30) return false;
         } else if (filter === 'left') {
           if (m.status !== 'left') return false;
         }
@@ -147,11 +171,14 @@ export default function Members() {
           if (!pName.includes(planFilter.toLowerCase())) return false;
         }
 
-        // Group / Batch filter
+        // Group / Batch filter; a hostel tenant's building is their room's building
+        const room = roomById.get(m.roomId?._id || m.roomId);
         if (groupFilter !== 'all') {
-          const gId = m.groupId?._id || m.groupId;
+          const gId = room ? String(room.groupId?._id || room.groupId) : m.groupId?._id || m.groupId;
           if (gId !== groupFilter) return false;
         }
+        if (floorFilter !== 'all' && room?.floorId !== floorFilter) return false;
+        if (roomFilter !== 'all' && room?._id !== roomFilter) return false;
 
         // Renewal timeframe filter
         if (renewalFilter !== 'all') {
@@ -182,13 +209,14 @@ export default function Members() {
         }
         return 0;
       });
-  }, [members, q, filter, planFilter, renewalFilter, groupFilter, sortBy]);
+  }, [members, q, filter, planFilter, renewalFilter, groupFilter, floorFilter, roomFilter, roomById, sortBy]);
 
   const totalOwingAmount = (members || [])
     .filter((m) => m.status === 'active' && m.balance > 0)
     .reduce((sum, m) => sum + m.balance, 0);
 
   // FIX 3: Calculate members renewing in next 30 days
+  const showingRenewals = filter === 'renewing'; // the Renewing tab: just the renewal cards, no table
   const upcomingRenewals = (members || [])
     .filter((m) => {
       if (m.status !== 'active' || !m.nextRenewal) return false;
@@ -223,29 +251,46 @@ export default function Members() {
   return (
     <>
       {/* Page Header */}
-      <div className="page-header">
+      <div className="page-header members-page-header">
         <div className="page-title-wrap">
           <h1 className="page-title">
-            Members Directory
+            Members<span className="hide-sm"> Directory</span>
           </h1>
           {/* FIX 4: Updated subtitle without room allocations */}
           <p className="page-subtitle">
             Manage your active members, subscriptions, renewal dates, and balance dues.
           </p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions members-actions">
+          <button type="button" className="btn-secondary" onClick={() => setAddingExpense(true)}>
+            <RupeeIcon size={15} /> <span className="hide-sm">Add </span>Expense
+          </button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setAdding(true)}
             className="btn">
-            <PlusIcon size={15} /> Add New Member
+            <PlusIcon size={15} /> Add<span className="hide-sm"> {words(biz.type).member}</span>
           </motion.button>
         </div>
       </div>
 
-      {/* 3-Column Compact KPI Stats Grid */}
-      <div className="compact-stat-grid">
+      <AnimatePresence>
+        {addingExpense && (
+          <AddExpense
+            biz={biz}
+            onClose={() => setAddingExpense(false)}
+            onSaved={() => {
+              setAddingExpense(false);
+              qc.invalidateQueries({ queryKey: ['report', biz._id] });
+              qc.invalidateQueries({ queryKey: ['expenses', biz._id] });
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 3-Column Compact KPI Stats Grid (phones: a row of filter tabs) */}
+      <div className="compact-stat-grid members-tabs" role="tablist" aria-label="Show members">
         {/* Tile 1 — Total Members */}
         <Rise i={0}>
           <motion.div
@@ -256,7 +301,7 @@ export default function Members() {
             onClick={() => setFilter('all')}>
             <span className="compact-stat-icon blue"><UsersIcon size={16} /></span>
             <div className="compact-stat-content">
-              <span className="compact-stat-label">TOTAL MEMBERS</span>
+              <span className="compact-stat-label"><span className="hide-sm">TOTAL MEMBERS</span><span className="show-sm">All</span></span>
               <div className="compact-stat-val-row">
                 <span className="compact-stat-val">
                   <CountUp value={filterCounts.all} duration={0.8} />
@@ -279,7 +324,7 @@ export default function Members() {
               {totalOwingAmount > 0 ? <AlertIcon size={16} /> : <CheckCircleIcon size={16} />}
             </span>
             <div className="compact-stat-content">
-              <span className="compact-stat-label">UNPAID DUES</span>
+              <span className="compact-stat-label"><span className="hide-sm">UNPAID DUES</span><span className="show-sm">Owing</span></span>
               <div className="compact-stat-val-row">
                 <span className="compact-stat-val" style={{ color: totalOwingAmount > 0 ? 'var(--red)' : undefined }}>
                   <CountUp value={totalOwingAmount} duration={0.8} prefix="₹" />
@@ -302,7 +347,7 @@ export default function Members() {
             onClick={() => setFilter('clear')}>
             <span className="compact-stat-icon green"><CheckIcon size={16} /></span>
             <div className="compact-stat-content">
-              <span className="compact-stat-label">PAID UP</span>
+              <span className="compact-stat-label"><span className="hide-sm">PAID UP</span><span className="show-sm">Paid</span></span>
               <div className="compact-stat-val-row">
                 <span className="compact-stat-val" style={{ color: 'var(--green)' }}>
                   <CountUp value={filterCounts.clear} duration={0.8} />
@@ -312,63 +357,50 @@ export default function Members() {
             </div>
           </motion.div>
         </Rise>
+
+        {/* Tile 4 — Upcoming renewals (next 30 days) */}
+        <Rise i={3}>
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            className={`compact-stat-card ${filter === 'renewing' ? 'active' : ''}`}
+            title="Click to view members renewing in the next 30 days"
+            onClick={() => setFilter('renewing')}>
+            <span className="compact-stat-icon amber"><CalendarClockIcon size={16} /></span>
+            <div className="compact-stat-content">
+              <span className="compact-stat-label"><span className="hide-sm">UPCOMING RENEWALS</span><span className="show-sm">Renewing</span></span>
+              <div className="compact-stat-val-row">
+                <span className="compact-stat-val" style={{ color: upcomingRenewals.length ? 'var(--amber)' : undefined }}>
+                  <CountUp value={upcomingRenewals.length} duration={0.8} />
+                </span>
+                <span className="compact-stat-badge">
+                  {upcomingRenewals.length ? `${rupees(upcomingRenewals.reduce((s, m) => s + (m.planAmount || 0), 0))} in 30 days` : 'none in 30 days'}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        </Rise>
       </div>
 
       {/* Add Member Modal Dialog */}
       <AnimatePresence>
         {adding && (
-          <div className="modal-overlay" onClick={() => setAdding(false)}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 14 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 14 }}
-              transition={{ duration: 0.2 }}
-              className="modal-content"
-              style={{ maxWidth: 560 }}
-              onClick={(e) => e.stopPropagation()}>
-              <div className="form-header" style={{ marginBottom: 16 }}>
-                <div className="form-title">
-                  <UserIcon size={18} style={{ color: 'var(--primary)' }} />
-                  <span>Register New Member</span>
-                </div>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  onClick={() => setAdding(false)}>
-                  <XIcon size={14} />
-                </button>
-              </div>
-
-              {add.error && (
-                <div className="card" style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
-                  {add.error.message}
-                </div>
-              )}
-
-              <AddMemberForm
-                plans={plans || []}
-                groups={groups || []}
-                rooms={rooms || []}
-                onClose={() => setAdding(false)}
-                onSubmit={(f) => add.mutate(f)}
-                busy={add.isPending}
-              />
-            </motion.div>
-          </div>
+          <AddMemberModal biz={biz} plans={plans || []} groups={groups || []} rooms={rooms || []} roomId={addToRoom}
+            onClose={() => { setAdding(false); setAddToRoom(null); }} />
         )}
       </AnimatePresence>
 
-      {/* Filter & Search Toolbar */}
-      {members.length > 0 && (
+      {/* Filter & Search Toolbar (the Renewing tab shows only the renewals below) */}
+      {members.length > 0 && !showingRenewals && (
         <div className="members-toolbar-card">
-          <div className="filters-left-group">
+          <div className={`filters-left-group ${showFilters ? 'filters-open' : ''}`}>
             {/* Search Input on the Left */}
             <div className="search-input-wrap members-search" style={{ width: 250, minWidth: 180 }}>
               <SearchIcon size={14} className="search-icon" />
               <input
                 type="search"
-                placeholder="Search name, phone, plan…"
-                aria-label="Search members"
+                placeholder="Search members"
+                aria-label="Search members by name, phone or plan"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 style={{ height: 32, fontSize: 12 }}
@@ -384,8 +416,16 @@ export default function Members() {
               )}
             </div>
 
+            <button
+              type="button"
+              className="btn-secondary filters-toggle show-sm"
+              aria-expanded={showFilters}
+              onClick={() => setShowFilters(!showFilters)}>
+              <SlidersHorizontalIcon size={15} /> Filters{advancedFilterCount > 0 && ` (${advancedFilterCount})`}
+            </button>
+
             {/* Plan Filter Dropdown */}
-            <div className="filter-select-item" title="Filter by membership plan">
+            <div className="filter-select-item" title="Filter by plan">
               <CreditCardIcon size={13} className="filter-select-icon" />
               <select
                 className="filter-select-input"
@@ -431,16 +471,53 @@ export default function Members() {
 
             {/* Group / Batch Filter (if business has groups) */}
             {(groups || []).length > 0 && (
-              <div className="filter-select-item" title="Filter by group/batch">
-                <TagIcon size={13} className="filter-select-icon" />
+              <div className="filter-select-item" title={`Filter by ${words(biz.type).group.toLowerCase()}`}>
+                {hasRooms ? <BuildingIcon size={13} className="filter-select-icon" /> : <TagIcon size={13} className="filter-select-icon" />}
                 <select
                   className="filter-select-input"
+                  aria-label={`Filter by ${words(biz.type).group.toLowerCase()}`}
                   value={groupFilter}
-                  onChange={(e) => setGroupFilter(e.target.value)}>
-                  <option value="all">All Groups</option>
+                  onChange={(e) => chooseBuilding(e.target.value)}>
+                  <option value="all">All {words(biz.type).groups}</option>
                   {groups.map((g) => (
                     <option key={g._id} value={g._id}>
                       {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Floor: once a building with floors is chosen */}
+            {filterFloors.length > 0 && (
+              <div className="filter-select-item" title="Filter by floor">
+                <LayersIcon size={13} className="filter-select-icon" />
+                <select
+                  className="filter-select-input"
+                  aria-label="Filter by floor"
+                  value={floorFilter}
+                  onChange={(e) => chooseFloor(e.target.value)}>
+                  <option value="all">All floors</option>
+                  {filterFloors.map((f) => (
+                    <option key={f._id} value={f._id}>{f.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Room: hostels only */}
+            {hasRooms && filterRooms.length > 0 && (
+              <div className="filter-select-item" title="Filter by room">
+                <BedIcon size={13} className="filter-select-icon" />
+                <select
+                  className="filter-select-input"
+                  aria-label="Filter by room"
+                  value={roomFilter}
+                  onChange={(e) => setRoomFilter(e.target.value)}>
+                  <option value="all">All rooms</option>
+                  {filterRooms.map((r) => (
+                    <option key={r._id} value={r._id}>
+                      {groupFilter === 'all' ? roomLabel(r, groups || []) : floorFilter === 'all' && r.floorId ? roomLabel(r, groups || []).split(' · ').slice(1).join(' · ') : `Room ${r.roomNo}`} ({r.occupied}/{r.capacity})
                     </option>
                   ))}
                 </select>
@@ -460,8 +537,18 @@ export default function Members() {
           </div>
 
           {/* Results count text on the Right */}
-          <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            Showing <b style={{ color: 'var(--text)' }}>{filtered.length}</b> of <b style={{ color: 'var(--text)' }}>{members.length}</b> members
+          <div className="members-results">
+            <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+              Showing <b style={{ color: 'var(--text)' }}>{filtered.length}</b> of <b style={{ color: 'var(--text)' }}>{members.length}</b> members
+            </div>
+            {filterCounts.owing > 0 && (
+              <button type="button" className="remind-all-btn" onClick={() => {
+                const owing = (members || []).filter((m) => m.status === 'active' && m.balance > 0).sort((a, b) => b.balance - a.balance);
+                setBulk({ id: Date.now(), title: 'who owe', people: owing.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `${rupees(m.balance)} due`, message: owingMessage(biz, m) })) });
+              }}>
+                <SendIcon size={12} /> Remind all who owe ({filterCounts.owing})
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -469,17 +556,17 @@ export default function Members() {
       {!members.length && !adding && (
         <Empty
           icon={UsersIcon}
-          title="No members registered yet"
-          hint="Add your first member to start managing memberships and tracking payments."
+          title={`No ${words(biz.type).member}s yet`}
+          hint={`Add your first ${words(biz.type).member} to start tracking fees and payments.`}
           action={
             <button className="btn" onClick={() => setAdding(true)}>
-              <PlusIcon size={15} /> Add First Member
+              <PlusIcon size={15} /> Add first {words(biz.type).member}
             </button>
           }
         />
       )}
 
-      {members.length > 0 && !filtered.length && (
+      {members.length > 0 && !filtered.length && !showingRenewals && (
         <Empty
           icon={filter === 'owing' ? CheckCircleIcon : filter === 'clear' ? CheckIcon : SearchIcon}
           title={
@@ -487,6 +574,8 @@ export default function Members() {
               ? 'No Unpaid Dues'
               : filter === 'clear'
               ? 'No Paid Up Members'
+              : filter === 'renewing'
+              ? 'No renewals in the next 30 days'
               : filter === 'left'
               ? 'No Inactive Members'
               : 'No matching members'
@@ -495,9 +584,11 @@ export default function Members() {
             q
               ? `Nobody matches search query “${q}”.`
               : filter === 'owing'
-              ? 'All active members have cleared their membership fees. No pending balances.'
+              ? 'Everyone has paid. No pending fees.'
               : filter === 'clear'
               ? 'No members currently have a zero balance.'
+              : filter === 'renewing'
+              ? 'Nobody’s plan renews in the next 30 days.'
               : filter === 'left'
               ? 'No members have left yet.'
               : 'No members found in this filter category.'
@@ -516,7 +607,7 @@ export default function Members() {
       )}
 
       {/* Modern Data Table for Members */}
-      {filtered.length > 0 && (
+      {filtered.length > 0 && !showingRenewals && (
         <div className="analytics-card" style={{ padding: '0 16px 10px', marginBottom: 16 }}>
           <div className="analytics-table-wrap">
             <table className="analytics-table members-table">
@@ -533,7 +624,7 @@ export default function Members() {
               </thead>
               <tbody>
                 {filtered.map((m, idx) => {
-                  const planName = m.planName || m.planId?.name || (m.roomId ? `Room ${m.roomId.roomNo}` : 'Standard Plan');
+                  const planName = m.planName || m.planId?.name || (m.roomId ? null : 'Standard Plan'); // the room line below says where they stay
                   const pEnd = m.nextRenewal ? new Date(m.nextRenewal) : null;
                   const diffDays = pEnd ? Math.ceil((pEnd - new Date()) / (1000 * 60 * 60 * 24)) : null;
                   const isOverdue = m.balance > 0 || (diffDays !== null && diffDays < 0);
@@ -542,6 +633,8 @@ export default function Members() {
                   return (
                     <motion.tr
                       key={m._id}
+                      className="member-row"
+                      onClick={() => setSelectedMemberId(m._id)}
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.2, delay: idx * 0.03 }}>
@@ -560,9 +653,16 @@ export default function Members() {
                       </td>
 
                       <td>
-                        <span className={`table-plan-pill ${getPlanPillClass(planName)}`}>
-                          {planName}
-                        </span>
+                        {planName && (
+                          <span className={`table-plan-pill ${getPlanPillClass(planName)}`}>
+                            {planName}
+                          </span>
+                        )}
+                        {m.roomId && (
+                          <div className="table-room">
+                            <BedIcon size={12} /> {roomLabel((rooms || []).find((r) => r._id === (m.roomId._id || m.roomId)) || m.roomId, groups || [])}
+                          </div>
+                        )}
                       </td>
 
                       <td className="small muted">
@@ -588,7 +688,7 @@ export default function Members() {
                         {m.balance > 0 ? (
                           <span style={{ color: 'var(--red)' }}>₹{m.balance.toLocaleString('en-IN')} Due</span>
                         ) : (
-                          <span style={{ color: 'var(--green)' }}>₹0 Due</span>
+                          <span className="zero-due" style={{ color: 'var(--green)' }}>₹0 Due</span>
                         )}
                       </td>
 
@@ -606,8 +706,11 @@ export default function Members() {
                         )}
                       </td>
 
-                      {/* FIX 2: Action column changes by status */}
-                      <td style={{ textAlign: 'right' }}>
+                      {/* FIX 2: Action column changes by status. Clicks here don't open the sheet. */}
+                      <td
+                        style={{ textAlign: 'right' }}
+                        className={isOverdue || isSoon ? '' : 'no-primary-action'}
+                        onClick={(e) => e.stopPropagation()}>
                         <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
                           {isOverdue && (
                             <button
@@ -647,10 +750,10 @@ export default function Members() {
                             </button>
                           )}
 
-                          {/* FIX 1: View → opens Sheet */}
+                          {/* FIX 1: View → opens Sheet (phones: the whole card does) */}
                           <button
                             type="button"
-                            className="btn-secondary"
+                            className="btn-secondary view-btn"
                             onClick={() => setSelectedMemberId(m._id)}
                             style={{ minHeight: 26, padding: '3px 8px', fontSize: 11 }}>
                             View →
@@ -666,8 +769,8 @@ export default function Members() {
         </div>
       )}
 
-      {/* FIX 3 — SECTION: Upcoming Renewals (Next 30 Days) */}
-      <div className="analytics-card" style={{ marginBottom: 16 }}>
+      {/* FIX 3 — SECTION: Upcoming Renewals (Next 30 Days); phones skip it when empty */}
+      <div className={`analytics-card${upcomingRenewals.length || showingRenewals ? '' : ' hide-sm'}${showingRenewals ? ' renewals-focus' : ''}`} style={{ marginBottom: 16 }}>
         <div className="card-header-row" style={{ marginBottom: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -678,6 +781,15 @@ export default function Members() {
               Members due for subscription renewal in the coming month
             </span>
           </div>
+          {upcomingRenewals.length > 1 && (
+            <button type="button" className="remind-all-btn" onClick={() => setBulk({
+              id: Date.now(),
+              title: 'renewing soon',
+              people: upcomingRenewals.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `renews ${new Date(m.nextRenewal).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`, message: m.balance > 0 ? owingMessage(biz, m) : renewalMessage(biz, m) })),
+            })}>
+              <SendIcon size={12} /> Remind all ({upcomingRenewals.length})
+            </button>
+          )}
         </div>
 
         {upcomingRenewals.length > 0 ? (
@@ -763,9 +875,15 @@ export default function Members() {
             biz={biz}
             memberId={selectedMemberId}
             plans={plans || []}
+            rooms={rooms || []}
+            groups={groups || []}
             onClose={() => setSelectedMemberId(null)}
           />
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {bulk && <BulkRemind key={bulk.id} title={bulk.title} people={bulk.people} onClose={() => setBulk(null)} />}
       </AnimatePresence>
 
       {/* Collect Payment Modal */}
@@ -801,7 +919,7 @@ export default function Members() {
 }
 
 // PROFILE SLIDE-OVER SHEET COMPONENT
-export function MemberProfileSheet({ biz, memberId, plans, onClose, highlightReminder = false }) {
+export function MemberProfileSheet({ biz, memberId, plans, rooms = [], groups = [], onClose, highlightReminder = false }) {
   const qc = useQueryClient();
   const [activeModal, setActiveModal] = useState(null); // 'collect' | 'reminder' | 'edit' | 'delete'
   const [isDeleting, setIsDeleting] = useState(false);
@@ -986,6 +1104,11 @@ export function MemberProfileSheet({ biz, memberId, plans, onClose, highlightRem
             <span className="badge blue" style={{ fontSize: 11 }}>
               {plan?.name || 'Standard Plan'}
             </span>
+            {member.roomId && rooms.some((r) => r._id === member.roomId) && (
+              <span className="badge gray" style={{ fontSize: 11 }}>
+                <BedIcon size={11} /> {roomLabel(rooms.find((r) => r._id === member.roomId), groups)}
+              </span>
+            )}
             {balance > 0 ? (
               <span className="badge red" style={{ fontSize: 11 }}>
                 <span className="badge-dot" /> Overdue ₹{balance.toLocaleString('en-IN')}
@@ -1074,7 +1197,7 @@ export function MemberProfileSheet({ biz, memberId, plans, onClose, highlightRem
 
           {/* SECTION 4 — Contact & Membership Details */}
           <div>
-            <div className="sheet-section-title">Contact & Membership Details</div>
+            <div className="sheet-section-title">Contact & plan details</div>
             <div className="sheet-contact-card">
               <div className="sheet-contact-item">
                 <span className="sheet-contact-label">
@@ -1107,7 +1230,7 @@ export function MemberProfileSheet({ biz, memberId, plans, onClose, highlightRem
                   <CreditCardIcon size={14} /> Current Plan
                 </span>
                 <span className="sheet-contact-val">
-                  {plan ? `${plan.name} (${rupees(plan.amount)} / ${plan.cycleDays}d)` : 'Standard'}
+                  {plan ? `${plan.name} (${rupees(subscription?.amount ?? plan.amount)} / ${plan.cycleDays}d${subscription?.amount ? ', custom' : ''})` : 'Standard'}
                 </span>
               </div>
             </div>
@@ -1154,6 +1277,7 @@ export function MemberProfileSheet({ biz, memberId, plans, onClose, highlightRem
             member={member}
             balance={balance}
             plan={plan}
+            fee={subscription?.amount ?? plan?.amount}
             onClose={() => setActiveModal(null)}
             onSuccess={() => {
               qc.invalidateQueries();
@@ -1166,7 +1290,7 @@ export function MemberProfileSheet({ biz, memberId, plans, onClose, highlightRem
       {/* Send Reminder Modal */}
       <AnimatePresence>
         {activeModal === 'reminder' && (
-          <SendReminderModal
+          <ReminderModal
             biz={biz}
             member={member}
             nextRenewalDate={nextRenewalDate}
@@ -1208,8 +1332,8 @@ export function MemberProfileSheet({ biz, memberId, plans, onClose, highlightRem
 }
 
 // COLLECT PAYMENT MODAL
-export function CollectPaymentModal({ member, balance, plan, onClose, onSuccess }) {
-  const [amount, setAmount] = useState(balance > 0 ? balance : plan?.amount || 1500);
+export function CollectPaymentModal({ member, balance, plan, fee, onClose, onSuccess }) {
+  const [amount, setAmount] = useState(balance > 0 ? balance : fee || plan?.amount || 1500);
   const [mode, setMode] = useState('cash');
   const [notes, setNotes] = useState('');
 
@@ -1217,7 +1341,7 @@ export function CollectPaymentModal({ member, balance, plan, onClose, onSuccess 
     mutationFn: () =>
       api(`/members/${member._id}/payments`, {
         method: 'POST',
-        body: { amount: Number(amount), mode, date: new Date().toISOString(), notes },
+        body: { amount: Number(amount), mode, date: new Date().toISOString(), note: notes },
       }),
     onSuccess,
   });
@@ -1244,51 +1368,55 @@ export function CollectPaymentModal({ member, balance, plan, onClose, onSuccess 
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); pay.mutate(); }}>
-          <Field label="Amount to Collect (₹) *" icon={RupeeIcon}>
-            <input
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-              style={{ fontSize: 16, fontWeight: 600 }}
-              autoFocus
-            />
-          </Field>
+          <div className="expense-form">
+            <div>
+              <Field label="Amount to Collect (₹) *" icon={RupeeIcon}>
+                <input
+                  type="number"
+                  min="1"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                  style={{ fontSize: 16, fontWeight: 600 }}
+                  autoFocus
+                />
+              </Field>
+    
+              {/* Quick preset chips, right under the amount they fill in */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {chips.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    className={`filter-pill ${Number(amount) === chip ? 'active' : ''}`}
+                    style={{ fontSize: 11, padding: '3px 8px' }}
+                    onClick={() => setAmount(chip)}>
+                    ₹{chip.toLocaleString('en-IN')}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          {/* Quick preset chips */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 12px' }}>
-            {chips.map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                className={`filter-pill ${Number(amount) === chip ? 'active' : ''}`}
-                style={{ fontSize: 11, padding: '3px 8px' }}
-                onClick={() => setAmount(chip)}>
-                ₹{chip.toLocaleString('en-IN')}
-              </button>
-            ))}
+            <Field label="Payment Method" icon={CreditCardIcon}>
+              <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                <option value="cash">Cash</option>
+                <option value="upi">UPI / GPay / PhonePe</option>
+                <option value="card">Debit / Credit Card</option>
+                <option value="bank_transfer">Bank Transfer / IMPS</option>
+              </select>
+            </Field>
+
+            <Field label="Notes (Optional)" icon={TagIcon}>
+              <input
+                type="text"
+                placeholder="e.g. Received in morning session"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </Field>
           </div>
 
-          <Field label="Payment Method" icon={CreditCardIcon}>
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="cash">Cash</option>
-              <option value="upi">UPI / GPay / PhonePe</option>
-              <option value="card">Debit / Credit Card</option>
-              <option value="bank_transfer">Bank Transfer / IMPS</option>
-            </select>
-          </Field>
-
-          <Field label="Notes (Optional)" icon={TagIcon}>
-            <input
-              type="text"
-              placeholder="e.g. Received in morning session"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Field>
-
-          <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+          <div className="expense-form-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
@@ -1307,8 +1435,8 @@ export function ReminderModal({ biz, member, balance, nextRenewalDate, onClose }
   const [copied, setCopied] = useState(false);
   const expStr = nextRenewalDate ? nextRenewalDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : 'soon';
   const defaultMsg = balance > 0
-    ? `Hi ${member.name}, you have an outstanding dues of ₹${balance.toLocaleString('en-IN')} at ${biz.name}. Kindly clear the balance to keep your membership active. Thank you!`
-    : `Hi ${member.name}, your membership at ${biz.name} renews on ${expStr}. Renew now to keep your streak going! Reply to confirm.`;
+    ? `Hi ${member.name}, ₹${balance.toLocaleString('en-IN')} is pending at ${biz.name}. Please pay at the earliest. Thank you!`
+    : `Hi ${member.name}, your ${words(biz.type).plan.toLowerCase()} at ${biz.name} renews on ${expStr}. Please pay by then. Thank you!`;
 
   const [message, setMessage] = useState(defaultMsg);
 
@@ -1430,7 +1558,7 @@ function EditMemberModal({ member, plans, currentPlanId, onClose, onSuccess }) {
           </div>
 
           <div style={{ marginTop: 12 }}>
-            <Field label="Membership Status *" icon={TagIcon}>
+            <Field label="Status *" icon={TagIcon}>
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}>
@@ -1457,18 +1585,103 @@ function EditMemberModal({ member, plans, currentPlanId, onClose, onSuccess }) {
 }
 
 // Add Member Form
-function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
+// "Main building · 1st floor · Room 101" (whatever parts the room has)
+export const roomLabel = (r, groups = []) => {
+  const g = groups.find((x) => x._id === (r.groupId?._id || r.groupId));
+  const f = g?.floors?.find((x) => x._id === r.floorId);
+  return [g?.name, f?.name, `Room ${r.roomNo}`].filter(Boolean).join(' · ');
+};
+
+// building A–Z, then floors in the building's order (Ground, 1st, 2nd…), then room 2 before room 10
+const sortRooms = (rooms, groups = []) => {
+  const natural = (x, y) => String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' });
+  const key = (r) => {
+    const g = groups.find((x) => x._id === (r.groupId?._id || r.groupId));
+    const floor = g?.floors?.findIndex((f) => f._id === r.floorId) ?? -1;
+    return { building: g?.name ?? null, floor: floor < 0 ? 1e6 : floor, room: r.roomNo };
+  };
+  return [...rooms].sort((a, b) => {
+    const x = key(a), y = key(b);
+    const noBuilding = (x.building === null) - (y.building === null); // rooms outside a building go last
+    return noBuilding || natural(x.building ?? '', y.building ?? '') || x.floor - y.floor || natural(x.room, y.room);
+  });
+};
+
+// The "Add member / tenant" popup, shared by the Members page and the Rooms board
+export function AddMemberModal({ biz, plans, groups, rooms, roomId, onClose, onAdded }) {
+  const qc = useQueryClient();
+  const add = useMutation({
+    mutationFn: async (form) => {
+      const member = await api(`/businesses/${biz._id}/members`, { method: 'POST', body: form });
+      if (form.planId) {
+        await api(`/members/${member._id}/subscribe`, {
+          method: 'POST',
+          body: { planId: form.planId, startDate: form.startDate, amount: form.amount },
+        });
+      }
+      return member;
+    },
+    onSuccess: (member) => {
+      qc.invalidateQueries();
+      onAdded?.(member);
+      onClose();
+    },
+  });
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 14 }}
+        transition={{ duration: 0.2 }}
+        className="modal-content"
+        style={{ maxWidth: 560 }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="form-header" style={{ marginBottom: 16 }}>
+          <div className="form-title">
+            <UserIcon size={18} style={{ color: 'var(--primary)' }} />
+            <span>Add new {words(biz.type).member}</span>
+          </div>
+          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+            <XIcon size={14} />
+          </button>
+        </div>
+
+        {add.error && (
+          <div className="card" style={{ background: 'var(--red-soft)', border: '1px solid var(--red-border)', color: 'var(--red)', padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
+            {add.error.message}
+          </div>
+        )}
+
+        <AddMemberForm plans={plans} groups={groups} rooms={rooms} roomId={roomId}
+          onClose={onClose} onSubmit={(f) => add.mutate(f)} busy={add.isPending} />
+      </motion.div>
+    </div>
+  );
+}
+
+function AddMemberForm({ plans, groups, rooms, roomId, busy, onClose, onSubmit }) {
+  const w = words(useBiz().type);
+  const chosenRoom = roomId && rooms.find((r) => r._id === roomId);
   const [form, setForm] = useState({
     name: '',
     phone: '',
     planId: plans[0]?._id || '',
-    groupId: groups[0]?._id || '',
-    roomId: rooms.find((r) => r.occupied < r.capacity)?._id || '', // first room with a free bed
+    groupId: (chosenRoom && String(chosenRoom.groupId?._id || chosenRoom.groupId || '')) || groups[0]?._id || '',
+    roomId: roomId || rooms.find((r) => r.occupied < r.capacity)?._id || '', // the bed they tapped, else the first room with space
     startDate: new Date().toISOString().slice(0, 10),
   });
+  const [rent, setRent] = useState(null); // null = follow the room's or plan's price; a string once typed
   const [errors, setErrors] = useState({});
 
   const selectedPlan = plans.find((p) => p._id === form.planId) || plans[0];
+  // what this person pays per cycle: what was typed, else the room's rent per bed, else the plan's price
+  const room = rooms.find((r) => r._id === form.roomId);
+  const suggested = room?.bedRent ?? selectedPlan?.amount;
+  const suggestedFrom = room?.bedRent != null ? `Room ${room.roomNo}'s rent per bed` : 'the plan price';
+  const rentValue = rent ?? (suggested != null ? String(suggested) : '');
+  const rentNumber = Number(rentValue);
+  const isCustom = selectedPlan && rentValue !== '' && rentNumber !== selectedPlan.amount;
 
   const handlePhoneChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -1484,8 +1697,9 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
     } else if (form.phone.length !== 10) {
       errs.phone = 'Phone must be exactly 10 digits';
     }
-    if (plans.length > 0 && !form.planId) errs.planId = 'Please select a membership plan';
+    if (plans.length > 0 && !form.planId) errs.planId = 'Please pick a plan';
     if (!form.startDate) errs.startDate = 'Start date is required';
+    if (selectedPlan && (!Number.isInteger(rentNumber) || rentNumber < 1)) errs.rent = 'Enter the amount in whole rupees';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -1493,7 +1707,7 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validate()) {
-      onSubmit(form);
+      onSubmit({ ...form, amount: isCustom ? rentNumber : null });
     }
   };
 
@@ -1529,7 +1743,7 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
 
         {plans.length > 0 && (
           <div>
-            <Field label="Membership Plan *" icon={CreditCardIcon}>
+            <Field label={`${w.plan} *`} icon={CreditCardIcon}>
               <select value={form.planId} onChange={(e) => setForm({ ...form, planId: e.target.value })}>
                 {plans.map((p) => (
                   <option key={p._id} value={p._id}>
@@ -1543,7 +1757,7 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
         )}
 
         <div>
-          <Field label="Membership Start Date *" icon={CalendarIcon}>
+          <Field label={`${w.start} *`} icon={CalendarIcon}>
             <input
               type="date"
               value={form.startDate}
@@ -1555,9 +1769,9 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
 
         {groups.length > 0 && (
           <div>
-            <Field label="Group / Batch" icon={TagIcon}>
+            <Field label={w.group} icon={TagIcon}>
               <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })}>
-                <option value="">No group</option>
+                <option value="">None</option>
                 {groups.map((g) => (
                   <option key={g._id} value={g._id}>{g.name}</option>
                 ))}
@@ -1571,9 +1785,9 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
             <Field label="Room Allocation" icon={BedIcon}>
               <select value={form.roomId} onChange={(e) => setForm({ ...form, roomId: e.target.value })}>
                 <option value="">No room allocated</option>
-                {rooms.map((r) => (
+                {sortRooms(rooms, groups).map((r) => (
                   <option key={r._id} value={r._id} disabled={r.occupied >= r.capacity}>
-                    Room {r.roomNo} · {r.occupied}/{r.capacity} beds{r.occupied >= r.capacity ? ' (full)' : ''}
+                    {roomLabel(r, groups)} · {r.occupied}/{r.capacity} beds{r.occupied >= r.capacity ? ' (full)' : ''}
                   </option>
                 ))}
               </select>
@@ -1583,11 +1797,25 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
       </div>
 
       {selectedPlan && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-btn)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span className="small muted">Membership Fee</span>
-          <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: 13.5 }}>
-            {rupees(selectedPlan.amount)} <span className="small muted">/ {selectedPlan.cycleDays} days</span>
-          </span>
+        <div className="fee-box">
+          <label className="fee-box-main">
+            <span className="fee-box-label">{w.fee} for this {w.member}</span>
+            <span className="fee-box-input">
+              <span aria-hidden="true">₹</span>
+              <input type="number" min="1" step="1" inputMode="numeric" aria-label={`${w.fee} amount`}
+                value={rentValue} onChange={(e) => { setRent(e.target.value); if (errors.rent) setErrors({ ...errors, rent: '' }); }} />
+              <span className="muted small">/ {selectedPlan.cycleDays} days</span>
+            </span>
+          </label>
+          <p className="fee-box-note small">
+            {rent === null && room?.bedRent != null
+              ? <>From {suggestedFrom}{isCustom ? ` (the plan is ${rupees(selectedPlan.amount)})` : ''}. Change it for a discount. Every bill for this {w.member} uses it.</>
+              : isCustom
+              ? <>Custom amount. {selectedPlan.name} is {rupees(selectedPlan.amount)}.{' '}
+                  <button type="button" className="fee-box-reset" onClick={() => setRent(String(selectedPlan.amount))}>Use {rupees(selectedPlan.amount)}</button></>
+              : <>From {suggestedFrom}. Change it for a discount or a different bed. Every bill for this {w.member} uses it.</>}
+          </p>
+          {errors.rent && <span className="small red-text">{errors.rent}</span>}
         </div>
       )}
 
@@ -1597,7 +1825,7 @@ function AddMemberForm({ plans, groups, rooms, busy, onClose, onSubmit }) {
         </button>
         <button disabled={busy} className="btn">
           <CheckIcon size={15} />
-          {busy ? 'Registering…' : 'Register Member'}
+          {busy ? 'Adding…' : `Add ${w.member}`}
         </button>
       </div>
     </form>

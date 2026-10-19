@@ -10,7 +10,7 @@ export async function rollCycles(now = new Date()) {
   for (const sub of subs) {
     if (!sub.memberId || sub.memberId.status !== 'active' || !sub.planId) continue;
     const periods = rollForward(sub.periodEnd, sub.planId.cycleDays, now, sub.anchorDay);
-    await createDues(sub, sub.memberId, sub.planId.amount, periods);
+    await createDues(sub, sub.memberId, sub.amount ?? sub.planId.amount, periods); // custom rent wins
     Object.assign(sub, periods.at(-1));
     await sub.save();
     await recomputeDues(sub.memberId._id); // advance payments cover new dues
@@ -39,7 +39,7 @@ async function sendWhatsApp(phone, text) {
 // Every member owing money gets one reminder, at most once per the business's spacing (3/5/7 days).
 export async function sendReminders(now = new Date()) {
   // owner can switch automated member reminders off in Settings
-  for (const biz of await Business.find({ 'notifications.renewalReminders': { $ne: false } })) {
+  for (const biz of await Business.find({ 'notifications.renewalReminders': { $ne: false }, status: { $ne: 'suspended' } })) {
     const [bal, members, recent] = await Promise.all([
       memberBalances(biz._id),
       Member.find({ businessId: biz._id, status: 'active', phone: { $nin: [null, ''] } }),

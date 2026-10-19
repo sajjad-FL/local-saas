@@ -31,14 +31,20 @@ export const userId = () => {
   try { return JSON.parse(atob(localStorage.getItem('token').split('.')[1])).userId; } catch { return null; }
 };
 
-export async function download(path, filename) {
+// Every download asks first: DownloadConfirm (mounted in App.jsx) says what the file holds,
+// then calls downloadNow.
+export function download(path, filename) {
+  window.dispatchEvent(new CustomEvent('download-request', { detail: { path, filename } }));
+}
+
+export async function downloadNow(path, filename) {
   const res = await fetch(`${API_BASE}/api${path}`, {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
   });
   // never save an error page as the downloaded file
   if (!res.ok) {
     const { error } = await res.json().catch(() => ({}));
-    return alert(`Download failed: ${error || `${res.status} ${res.statusText}`}`);
+    throw new Error(error || `${res.status} ${res.statusText}`);
   }
   const url = URL.createObjectURL(await res.blob());
   Object.assign(document.createElement('a'), { href: url, download: filename }).click();

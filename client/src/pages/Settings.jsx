@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, userId, download } from '../api.js';
 import { useBiz } from '../App.jsx';
@@ -8,11 +9,12 @@ import {
   PlusIcon, DownloadIcon, CheckCircleIcon, SettingsIcon,
   CheckIcon, BuildingIcon, FileSpreadsheetIcon, SparklesIcon,
   ConfirmDialog, BIZ_TYPES, BellIcon, AlertCircleIcon, CopyIcon,
-  XIcon, TrashIcon,
+  XIcon, TrashIcon, LogOutIcon, SlidersHorizontalIcon, ChevronIcon, CalendarCheckIcon,
 } from '../ui.jsx';
 
 export default function Settings() {
   const biz = useBiz();
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api('/me'), staleTime: 5 * 60000 });
   const isOwner = biz.ownerId === userId();
   const typeConfig = BIZ_TYPES[biz.type] || BIZ_TYPES.gym;
 
@@ -21,13 +23,33 @@ export default function Settings() {
       <div className="page-header" style={{ marginBottom: 18 }}>
         <div className="page-title-wrap">
           <h1 className="page-title">
-            Business Settings
+            <span className="hide-sm">Business </span>Settings
           </h1>
           <p className="page-subtitle">
             Configure UPI payment collection gateway, staff permissions, notification preferences, and workspace management.
           </p>
         </div>
       </div>
+
+      {me?.role === 'admin' && (
+        <Link to="/admin" className="analytics-card settings-setup-link admin-link">
+          <ShieldIcon size={18} style={{ color: 'var(--primary)' }} />
+          <div className="grow">
+            <b>Platform admin</b>
+            <span className="muted small">All businesses and owners: pause, resume, reset passwords</span>
+          </div>
+          <ChevronIcon size={16} />
+        </Link>
+      )}
+
+      <Link to="/setup" className="analytics-card settings-setup-link mobile-only">
+        <SlidersHorizontalIcon size={18} style={{ color: 'var(--primary)' }} />
+        <div className="grow">
+          <b>Plans, batches & rooms</b>
+          <span className="muted small">Fees, cycle lengths, groups and room capacity</span>
+        </div>
+        <ChevronIcon size={16} />
+      </Link>
 
       <div className="settings-grid">
         {/* Left Column */}
@@ -38,8 +60,10 @@ export default function Settings() {
           {/* Notification Preferences Card */}
           <NotificationPreferencesSettings />
 
-          {/* Business Workspace Profile Summary */}
-          <div className="analytics-card">
+          <AttendanceSettings />
+
+          {/* Business Workspace Profile Summary (desktop only) */}
+          <div className="analytics-card hide-sm">
             <div className="card-header-row" style={{ marginBottom: 12 }}>
               <div>
                 <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -127,6 +151,15 @@ export default function Settings() {
 
       {/* Danger Zone Section (Owner Only) */}
       {isOwner && <DangerZoneSettings />}
+
+      {/* On phones the top bar has no sign-out button, so it lives here */}
+      <button
+        type="button"
+        className="btn btn-secondary mobile-only"
+        style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}
+        onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('bizId'); location.href = '/'; }}>
+        <LogOutIcon size={15} /> Sign out
+      </button>
     </>
   );
 }
@@ -177,10 +210,10 @@ function UpiGatewaySettings() {
         <div>
           <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <ShieldIcon size={17} style={{ color: 'var(--primary)' }} />
-            UPI Payment Gateway Link
+            Your UPI ID for Payments
           </h3>
           <span className="analytics-card-subtitle">
-            WhatsApp reminder messages will carry a 1-tap UPI payment link pointing to this VPA address.
+            Reminders and statements include a 1-tap pay link to this UPI ID. Money goes straight to you.
           </span>
         </div>
       </div>
@@ -371,6 +404,64 @@ function StaffAccountsSettings() {
         danger
         busy={remove.isPending}
       />
+    </div>
+  );
+}
+
+// Attendance on/off. Off hides it everywhere and stops the gym's QR check-in; records are kept.
+function AttendanceSettings() {
+  const biz = useBiz();
+  const qc = useQueryClient();
+  const isOwner = biz.ownerId === userId();
+  const [enabled, setEnabled] = useState(biz.attendanceEnabled !== false);
+  const save = useMutation({
+    mutationFn: (on) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { attendanceEnabled: on } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
+    onError: (_e, on) => setEnabled(!on),
+  });
+  const toggle = () => {
+    setEnabled(!enabled);
+    save.mutate(!enabled);
+  };
+  const isGym = biz.type === 'gym';
+
+  return (
+    <div className="analytics-card">
+      <div className="card-header-row" style={{ marginBottom: 12 }}>
+        <div>
+          <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <CalendarCheckIcon size={17} style={{ color: 'var(--primary)' }} />
+            Attendance
+          </h3>
+          <span className="analytics-card-subtitle">
+            {isGym ? 'Members check in by scanning a QR code at the entrance.' : 'Staff mark who came each day.'} It never changes fees.
+          </span>
+        </div>
+      </div>
+      <div className="switch-wrap">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Use attendance</div>
+          <div className="small muted" style={{ marginTop: 1 }}>
+            {enabled
+              ? 'On: shows the Attendance tab, today\'s count on the home screen and each member\'s history.'
+              : biz.type === 'hostel'
+                ? 'Off by default for hostels. Turn it on if you take a daily or night roll-call.'
+                : `Off: hidden everywhere${isGym ? ' and the QR poster stops working' : ''}. Past records are kept.`}
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          className={`switch-toggle ${enabled ? 'active' : ''}`}
+          aria-checked={enabled}
+          aria-label="Use attendance"
+          disabled={!isOwner || save.isPending}
+          onClick={toggle}>
+          <span className="switch-thumb" />
+        </button>
+      </div>
+      {!isOwner && <p className="small muted" style={{ margin: '8px 0 0' }}>Only the owner can change this.</p>}
+      {save.error && <p className="error" role="alert">{save.error.message}</p>}
     </div>
   );
 }
