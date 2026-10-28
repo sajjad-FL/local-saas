@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import mongoose from 'mongoose';
 import { connectDB } from './config/db.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { apiRoutes } from './routes/index.js';
@@ -30,6 +31,17 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' })); // biometric attendance imports can be ~1 MB a month
 
 // Routes
+// Is the server up and talking to the database? No login, no data; safe for uptime checks.
+app.get('/api/test', (req, res) => {
+  const db = ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown';
+  res.status(db === 'connected' ? 200 : 503).json({
+    ok: db === 'connected',
+    message: 'API is running',
+    database: db,
+    uptimeSeconds: Math.round(process.uptime()),
+    time: new Date().toISOString(),
+  });
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes); // member statement links, no login
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes); // platform admin
