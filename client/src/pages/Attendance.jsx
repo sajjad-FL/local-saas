@@ -33,7 +33,7 @@ export default function Attendance() {
         <p className="muted" style={{ margin: '0 0 16px' }}>
           {biz.ownerId === userId() ? 'Turn it on in Settings to start marking attendance.' : 'Ask the owner to turn it on in Settings.'}
         </p>
-        <Link to="/settings" className="btn">Open Settings</Link>
+        <Link to="/settings?tab=business" className="btn">Open Settings</Link>
       </div>
     );
   }

@@ -4,6 +4,7 @@ import {
   getMemberById,
   updateMember,
   subscribeMember,
+  moveMember,
   pauseMember,
   resumeMember,
   recordPayment,
@@ -21,6 +22,7 @@ memberRoutes.get('/:memberId', getMemberById);
 memberRoutes.patch('/:memberId', updateMember);
 memberRoutes.delete('/:memberId', deleteMember);
 memberRoutes.post('/:memberId/subscribe', subscribeMember);
+memberRoutes.post('/:memberId/move', moveMember);
 memberRoutes.post('/:memberId/pause', pauseMember);
 memberRoutes.post('/:memberId/resume', resumeMember);
 memberRoutes.post('/:memberId/payments', recordPayment);

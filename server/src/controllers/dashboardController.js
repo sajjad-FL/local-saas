@@ -487,6 +487,14 @@ export async function getDashboardData(req, res, next) {
       pendingTotal,
       activeMembers: activeMembersCount,
       pending,
+      // the latest payments, newest first, for the home screen
+      recentPayments: [...allPayments]
+        .sort((x, y) => new Date(y.date) - new Date(x.date))
+        .slice(0, 6)
+        .map((p) => {
+          const m = members.find((mm) => String(mm._id) === String(p.memberId));
+          return { _id: p._id, memberId: p.memberId, name: m?.name || 'Former member', amount: p.amount, mode: p.mode, date: p.date };
+        }),
     });
   } catch (err) {
     next(err);

@@ -87,44 +87,40 @@ export default function DashboardHome({ biz, data, onAddMember }) {
     .filter((r) => r.occupied < r.capacity)
     .sort((a, b) => (b.capacity - b.occupied) - (a.capacity - a.occupied) || natural(a.roomNo, b.roomNo));
 
+  const recent = data.recentPayments || [];
+  const MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', bank_transfer: 'Bank transfer', bank: 'Bank transfer' };
+
   return (
-    <div className="today today-grid">
+    <div className="today">
+      {/* the month in four numbers; each opens the page with the detail */}
+      <div className="dash-kpis">
+        <Link to="/members?filter=owing" className={`dash-kpi ${pendingTotal > 0 ? 'red' : 'green'}`}>
+          <span className="dash-kpi-label">To collect</span>
+          <b>{rupees(pendingTotal)}</b>
+          <span className="dash-kpi-sub">{pendingTotal > 0 ? `${plural(pending.length, w.member)} owe` : 'Everyone has paid'}</span>
+        </Link>
+        <Link to="/reports" className="dash-kpi blue">
+          <span className="dash-kpi-label">Collected · {monthName}</span>
+          <b>{rupees(received)}</b>
+          <span className="dash-kpi-bar" aria-label={`${collectedPct}% collected`}><i style={{ width: `${collectedPct}%` }} /></span>
+          <span className="dash-kpi-sub">{collectedPct}% of this month's fees</span>
+        </Link>
+        <Link to="/reports?view=expenses" className="dash-kpi amber">
+          <span className="dash-kpi-label">Spent · {monthName}</span>
+          <b>{rupees(spent)}</b>
+          <span className="dash-kpi-sub">{spent ? 'rent, salaries, bills' : 'no expenses yet'}</span>
+        </Link>
+        <Link to="/reports" className={`dash-kpi ${profit < 0 ? 'red' : 'violet'}`}>
+          <span className="dash-kpi-label">{profit < 0 ? 'Loss' : 'Profit'} · {monthName}</span>
+          <b>{profit < 0 ? '−' : ''}{rupees(Math.abs(profit))}</b>
+          <span className="dash-kpi-sub">received minus spent</span>
+        </Link>
+      </div>
+
+      <div className="today-grid">
       <div className="today-main">
-        {/* 1. What's owed, and how this month is going, in one card */}
-        <section className={`today-hero dash-hero ${pendingTotal > 0 ? 'owe' : 'clear'}`}>
-          <div className="dash-hero-main">
-            {pendingTotal > 0 ? (
-              <>
-                <div className="today-hero-label">To collect</div>
-                <div className="today-hero-amount">{rupees(pendingTotal)}</div>
-                <div className="today-hero-text">from {plural(pending.length, w.member)}</div>
-              </>
-            ) : (
-              <>
-                <CheckCircleIcon size={22} />
-                <div className="today-hero-amount small">Everyone has paid</div>
-                <div className="today-hero-text">No pending fees right now.</div>
-              </>
-            )}
-            <div className="dash-progress" aria-label={`${collectedPct}% collected`}>
-              <div className="dash-progress-bar"><i style={{ width: `${collectedPct}%` }} /></div>
-              <span>{collectedPct}% collected in {monthName}</span>
-            </div>
-          </div>
-
-          <Link to="/reports" className="dash-hero-month" aria-label={`${monthName} report`}>
-            <span className="dash-month-name">{monthName}</span>
-            <div><span>Received</span><b className={received ? 'green-text' : ''}>{rupees(received)}</b></div>
-            <div><span>Spent</span><b className={spent ? 'red-text' : ''}>{rupees(spent)}</b></div>
-            <div>
-              <span>{profit < 0 ? 'Loss' : 'Profit'}</span>
-              <b className={profit < 0 ? 'red-text' : profit > 0 ? 'green-text' : ''}>{profit < 0 ? '−' : ''}{rupees(Math.abs(profit))}</b>
-            </div>
-          </Link>
-        </section>
-
-        {/* 2. Who owes: collect or remind in one tap */}
-        {owing.length > 0 && (
+        {/* Who owes: collect or remind in one tap */}
+        {owing.length > 0 ? (
           <section className="today-section">
             <div className="today-section-head">
               <h2>Needs payment <span className="dash-count">{pending.length}</span></h2>
@@ -173,7 +169,32 @@ export default function DashboardHome({ biz, data, onAddMember }) {
               );
             })}
           </section>
+        ) : (
+          <div className="dash-clear" role="status">
+            <CheckCircleIcon size={18} />
+            <span><b>All fees are paid.</b> Nobody owes anything right now.</span>
+          </div>
         )}
+
+        {/* The latest money in */}
+        <section className="today-section">
+          <div className="today-section-head">
+            <h2>Recent payments</h2>
+            <Link to="/reports">Reports</Link>
+          </div>
+          {recent.length ? recent.map((p) => (
+            <Link key={p._id} to={`/members/${p.memberId}`} className="today-row dash-row dash-pay">
+              <Avatar name={p.name} />
+              <div className="today-person-text">
+                <b>{p.name}</b>
+                <span className="muted">{shortDate(p.date)} · {MODE[p.mode] || 'Cash'}</span>
+              </div>
+              <b className="dash-pay-amount">+{rupees(p.amount)}</b>
+            </Link>
+          )) : (
+            <p className="today-empty">No payments yet. They'll show up here as you collect them.</p>
+          )}
+        </section>
       </div>
 
       <div className="today-side">
@@ -259,11 +280,7 @@ export default function DashboardHome({ biz, data, onAddMember }) {
           </Link>
         )}
 
-        {/* 6. Everything else is one tap away */}
-        <nav className="today-section dash-links" aria-label="More">
-          <Link to="/members">All {w.member}s <ChevronIcon size={14} /></Link>
-          <Link to="/reports">Reports & expenses <ChevronIcon size={14} /></Link>
-        </nav>
+      </div>
       </div>
 
       <AnimatePresence>

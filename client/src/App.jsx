@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext, lazy, Suspense } from 'react';
-import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, NavLink, Link, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api, userId } from './api.js';
@@ -231,15 +231,15 @@ function Shell({ onLogout }) {
 
           {/* Bottom Footer: Account / Theme / Logout */}
           <div className="sidebar-footer">
-            <div className="user-badge">
+            <Link to="/settings?tab=profile" className="user-badge" title="Your profile">
               <div className="user-avatar">
                 <UserIcon size={17} />
               </div>
               <div className="user-meta" style={{ minWidth: 0 }}>
-                <div className="user-name">Account</div>
-                <div className="user-sub">Active Session</div>
+                <div className="user-name">{me?.name || 'Your profile'}</div>
+                <div className="user-sub">{me?.phone ? `+91 ${me.phone}` : 'Account'}</div>
               </div>
-            </div>
+            </Link>
             <div className="row" style={{ gap: 6 }}>
               <button
                 type="button"

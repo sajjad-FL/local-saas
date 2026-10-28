@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api, download } from "../api.js";
 import { useBiz } from "../App.jsx";
@@ -7,7 +8,7 @@ import {
   Rise, CountUp, Avatar, DownloadIcon, RupeeIcon, UsersIcon,
   TrendingUpIcon, CheckCircleIcon, AlertIcon, FileSpreadsheetIcon,
   PieChartIcon, BarChartIcon, CheckIcon, SearchIcon, XIcon, SendIcon,
-  ArrowRightIcon, ChevronDownIcon,
+  ArrowRightIcon, ChevronDownIcon, PlusIcon,
 } from "../ui.jsx";
 import { formatINR, formatRupees, getMonthlyDelta, getPlanPillClass } from "../data/gymData.js";
 import { MemberProfileSheet, CollectPaymentModal, ReminderModal } from "./Members.jsx";
@@ -15,12 +16,16 @@ import MoneyReport from "./MoneyReport.jsx";
 
 export default function Reports() {
   const biz = useBiz();
+  const [addingExpense, setAddingExpense] = useState(false);
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [collectModal, setCollectModal] = useState(null);
   const [reminderModal, setReminderModal] = useState(null);
-  const [showGrid, setShowGrid] = useState(false); // the month-by-member grid is big: opened on demand
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = ['breakdown', 'expenses', 'members'].includes(searchParams.get('view')) ? searchParams.get('view') : 'breakdown';
+  const setTab = (v) => setSearchParams((p) => { p.set('view', v); return p; }, { replace: true });
+  const showGrid = tab === 'members'; // the month-by-member grid shows on its own tab
 
   const { data } = useQuery({
     queryKey: ["dashboard", biz._id],
@@ -74,24 +79,27 @@ export default function Reports() {
           <h1 className="page-title">Reports</h1>
           <p className="page-subtitle">Money in, money out, and who still owes, for any period.</p>
         </div>
-        <DownloadMenu biz={biz} />
+        <div className="reports-actions">
+          <button type="button" className="btn" onClick={() => setAddingExpense(true)}>
+            <PlusIcon size={15} /> Add expense
+          </button>
+          <DownloadMenu biz={biz} />
+        </div>
       </div>
 
       {/* Profit & loss for any period, with expenses */}
-      <MoneyReport biz={biz} />
+      <MoneyReport biz={biz} adding={addingExpense} setAdding={setAddingExpense} tab={tab} setTab={setTab} />
 
       {/* Section 2: Member Payment Breakdown */}
+      {showGrid && (
       <div className="analytics-card" id="member-breakdown">
-        <div className="card-header-row" style={showGrid ? undefined : { marginBottom: 0 }}>
+        <div className="card-header-row">
           <div>
             <h3 className="analytics-card-title">Who paid each month</h3>
             <span className="analytics-card-subtitle">
               Every member, month by month since {openedMonthName} {openedYear}
             </span>
           </div>
-          <button type="button" className="btn-secondary" aria-expanded={showGrid} onClick={() => setShowGrid(!showGrid)}>
-            {showGrid ? 'Hide' : 'Show'} <ChevronDownIcon size={14} style={{ transform: showGrid ? 'rotate(180deg)' : 'none' }} />
-          </button>
         </div>
 
         {showGrid && (
@@ -274,6 +282,7 @@ export default function Reports() {
         </>
         )}
       </div>
+      )}
 
       {/* Slide-over Profile Sheet */}
       <AnimatePresence>

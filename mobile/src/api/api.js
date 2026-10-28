@@ -4,7 +4,12 @@ import { Platform } from 'react-native';
 const DEFAULT_PORT = '4000';
 // Android emulator uses 10.0.2.2 to access host machine; iOS simulator / web uses localhost
 const DEFAULT_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-export const DEFAULT_API_BASE = `http://${DEFAULT_HOST}:${DEFAULT_PORT}/api`;
+export const DEFAULT_API_BASE =
+  process.env.EXPO_PUBLIC_API_URL || `http://${DEFAULT_HOST}:${DEFAULT_PORT}/api`;
+
+// Where the web app lives, for links people open in a browser (statements, gym check-in).
+// Falls back to the API's own address, which is right when both are served from the same place.
+export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || DEFAULT_API_BASE.replace(/\/api\/?$/, '')).replace(/\/$/, '');
 
 const STORAGE_KEYS = {
   TOKEN: '@local_saas_token',
@@ -121,14 +126,16 @@ export function waLink(phone, text) {
 // Generate UPI deep link
 export function upiLink(biz, balance) {
   if (!biz?.upiId || !(balance > 0)) return null;
-  return `upi://pay?pa=${encodeURIComponent(biz.upiId)}&pn=${encodeURIComponent(biz.name)}&am=${balance}&cu=INR`;
+  return `upi://pay?pa=${encodeURIComponent(biz.upiId)}&pn=${encodeURIComponent(biz?.name || '')}&am=${balance}&cu=INR`;
 }
 
 // WhatsApp reminder message template
 export function remindMsg(biz, member, balance, statementUrl) {
   const upi = upiLink(biz, balance);
+  const bizName = biz?.name || 'our business';
+  const memberName = member?.name || 'Member';
   return (
-    `Hi ${member.name}, your payment of ${rupees(balance)} for ${biz.name} is pending. Please pay at the earliest. Thank you!` +
+    `Hi ${memberName}, your payment of ${rupees(balance)} for ${bizName} is pending. Please pay at the earliest. Thank you!` +
     (upi ? `\n\nPay via UPI: ${upi}` : '') +
     (statementUrl ? `\n\nView your verified statement: ${statementUrl}` : '')
   );
@@ -136,9 +143,11 @@ export function remindMsg(biz, member, balance, statementUrl) {
 
 // WhatsApp payment received receipt message template
 export function receiptMsg(biz, member, payment, balance, statementUrl) {
-  const mode = (payment.mode || 'cash').toUpperCase();
+  const mode = (payment?.mode || 'cash').toUpperCase();
+  const bizName = biz?.name || 'our business';
+  const memberName = member?.name || 'Member';
   return (
-    `Payment Received! Hi ${member.name}, we received ${rupees(payment.amount)} (${mode}) for ${biz.name}. ` +
+    `Payment Received! Hi ${memberName}, we received ${rupees(payment?.amount || 0)} (${mode}) for ${bizName}. ` +
     (balance > 0 ? `Remaining balance: ${rupees(balance)}.` : 'Your balance is fully cleared!') +
     (statementUrl ? `\n\nView updated statement: ${statementUrl}` : '')
   );

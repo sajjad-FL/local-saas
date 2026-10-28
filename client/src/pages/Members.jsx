@@ -7,6 +7,7 @@ import { useBiz } from '../App.jsx';
 import { words } from '../wording.js';
 import { AddExpense } from './MoneyReport.jsx';
 import BulkRemind, { owingMessage, renewalMessage } from '../BulkRemind.jsx';
+import MoveRoom, { RoomHistory } from '../MoveRoom.jsx';
 import {
   formatINR,
   formatRupees,
@@ -18,7 +19,7 @@ import {
 import {
   Avatar, Empty, Field, Rise, CountUp, PlusIcon, SearchIcon, XIcon,
   ChevronIcon, UsersIcon, UserIcon, PhoneIcon, CreditCardIcon, RupeeIcon,
-  CalendarIcon, BedIcon, BuildingIcon, LayersIcon, TagIcon, WhatsAppIcon, CheckIcon, AlertIcon,
+  CalendarIcon, BedIcon, BuildingIcon, LayersIcon, TagIcon, DoorIcon, WhatsAppIcon, CheckIcon, AlertIcon,
   AlertCircleIcon, CheckCircleIcon, SendIcon, EditIcon, TrashIcon,
   CopyIcon, ClockIcon, CalendarClockIcon, SlidersHorizontalIcon, FilterIcon,
 } from '../ui.jsx';
@@ -216,7 +217,11 @@ export default function Members() {
     .reduce((sum, m) => sum + m.balance, 0);
 
   // FIX 3: Calculate members renewing in next 30 days
-  const showingRenewals = filter === 'renewing'; // the Renewing tab: just the renewal cards, no table
+  const showingRenewals = filter === 'renewing'; // the Renewing tab: the renewal cards instead of the table
+  // on the Renewing tab the cards follow the search and filters (filtered already keeps 30 days)
+  const renewalList = filtered;
+  const extraFilters = Boolean(q || planFilter !== 'all' || renewalFilter !== 'all' || groupFilter !== 'all' || floorFilter !== 'all' || roomFilter !== 'all' || sortBy !== 'renewal_asc');
+  const resetToRenewals = () => { resetAllFilters(); setFilter('renewing'); };
   const upcomingRenewals = (members || [])
     .filter((m) => {
       if (m.status !== 'active' || !m.nextRenewal) return false;
@@ -391,7 +396,7 @@ export default function Members() {
       </AnimatePresence>
 
       {/* Filter & Search Toolbar (the Renewing tab shows only the renewals below) */}
-      {members.length > 0 && !showingRenewals && (
+      {members.length > 0 && (
         <div className="members-toolbar-card">
           <div className={`filters-left-group ${showFilters ? 'filters-open' : ''}`}>
             {/* Search Input on the Left */}
@@ -425,7 +430,7 @@ export default function Members() {
             </button>
 
             {/* Plan Filter Dropdown */}
-            <div className="filter-select-item" title="Filter by plan">
+            <div className="filter-select-item" title="Filter by plan" data-label="Plan">
               <CreditCardIcon size={13} className="filter-select-icon" />
               <select
                 className="filter-select-input"
@@ -441,7 +446,7 @@ export default function Members() {
             </div>
 
             {/* Renewal Window Filter Dropdown */}
-            <div className="filter-select-item" title="Filter by renewal timeframe">
+            <div className="filter-select-item" title="Filter by renewal timeframe" data-label="Renews">
               <CalendarClockIcon size={13} className="filter-select-icon" />
               <select
                 className="filter-select-input"
@@ -456,7 +461,7 @@ export default function Members() {
             </div>
 
             {/* Sort By Dropdown */}
-            <div className="filter-select-item" title="Sort members table">
+            <div className="filter-select-item wide" title="Sort members table" data-label="Sort by">
               <SlidersHorizontalIcon size={13} className="filter-select-icon" />
               <select
                 className="filter-select-input"
@@ -471,7 +476,7 @@ export default function Members() {
 
             {/* Group / Batch Filter (if business has groups) */}
             {(groups || []).length > 0 && (
-              <div className="filter-select-item" title={`Filter by ${words(biz.type).group.toLowerCase()}`}>
+              <div className="filter-select-item" title={`Filter by ${words(biz.type).group.toLowerCase()}`} data-label={words(biz.type).group}>
                 {hasRooms ? <BuildingIcon size={13} className="filter-select-icon" /> : <TagIcon size={13} className="filter-select-icon" />}
                 <select
                   className="filter-select-input"
@@ -490,7 +495,7 @@ export default function Members() {
 
             {/* Floor: once a building with floors is chosen */}
             {filterFloors.length > 0 && (
-              <div className="filter-select-item" title="Filter by floor">
+              <div className="filter-select-item" title="Filter by floor" data-label="Floor">
                 <LayersIcon size={13} className="filter-select-icon" />
                 <select
                   className="filter-select-input"
@@ -507,7 +512,7 @@ export default function Members() {
 
             {/* Room: hostels only */}
             {hasRooms && filterRooms.length > 0 && (
-              <div className="filter-select-item" title="Filter by room">
+              <div className="filter-select-item wide" title="Filter by room" data-label="Room">
                 <BedIcon size={13} className="filter-select-icon" />
                 <select
                   className="filter-select-input"
@@ -524,14 +529,19 @@ export default function Members() {
               </div>
             )}
 
-            {/* Reset All Filters Button */}
-            {isFilterActive && (
+            {/* Reset All Filters Button (on the Renewing tab it keeps you there) */}
+            {(showingRenewals ? extraFilters : isFilterActive) && (
               <button
                 type="button"
                 className="filter-reset-btn"
-                onClick={resetAllFilters}
+                onClick={showingRenewals ? resetToRenewals : resetAllFilters}
                 title="Clear all active filters and search">
                 <XIcon size={12} /> Reset filters
+              </button>
+            )}
+            {showFilters && (
+              <button type="button" className="filters-done show-sm" onClick={() => setShowFilters(false)}>
+                <CheckIcon size={14} /> Done
               </button>
             )}
           </div>
@@ -539,9 +549,9 @@ export default function Members() {
           {/* Results count text on the Right */}
           <div className="members-results">
             <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-              Showing <b style={{ color: 'var(--text)' }}>{filtered.length}</b> of <b style={{ color: 'var(--text)' }}>{members.length}</b> members
+              Showing <b style={{ color: 'var(--text)' }}>{filtered.length}</b> of <b style={{ color: 'var(--text)' }}>{showingRenewals ? upcomingRenewals.length : members.length}</b> {showingRenewals ? 'renewals' : 'members'}
             </div>
-            {filterCounts.owing > 0 && (
+            {filterCounts.owing > 0 && !showingRenewals && (
               <button type="button" className="remind-all-btn" onClick={() => {
                 const owing = (members || []).filter((m) => m.status === 'active' && m.balance > 0).sort((a, b) => b.balance - a.balance);
                 setBulk({ id: Date.now(), title: 'who owe', people: owing.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `${rupees(m.balance)} due`, message: owingMessage(biz, m) })) });
@@ -769,104 +779,108 @@ export default function Members() {
         </div>
       )}
 
-      {/* FIX 3 — SECTION: Upcoming Renewals (Next 30 Days); phones skip it when empty */}
-      <div className={`analytics-card${upcomingRenewals.length || showingRenewals ? '' : ' hide-sm'}${showingRenewals ? ' renewals-focus' : ''}`} style={{ marginBottom: 16 }}>
-        <div className="card-header-row" style={{ marginBottom: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3 className="analytics-card-title">Upcoming Renewals</h3>
-              <span className="badge blue" style={{ fontSize: 11 }}>Next 30 Days</span>
+      {/* Upcoming Renewals: only on the Renewing tab */}
+      {showingRenewals && (
+        <div className="analytics-card renewals-focus" style={{ marginBottom: 16 }}>
+          <div className="card-header-row" style={{ marginBottom: 12 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 className="analytics-card-title">Upcoming Renewals</h3>
+                <span className="badge blue" style={{ fontSize: 11 }}>Next 30 Days</span>
+              </div>
+              <span className="analytics-card-subtitle">
+                Members due for subscription renewal in the coming month
+              </span>
             </div>
-            <span className="analytics-card-subtitle">
-              Members due for subscription renewal in the coming month
-            </span>
+            {renewalList.length > 1 && (
+              <button type="button" className="remind-all-btn" onClick={() => setBulk({
+                id: Date.now(),
+                title: 'renewing soon',
+                people: renewalList.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `renews ${new Date(m.nextRenewal).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`, message: m.balance > 0 ? owingMessage(biz, m) : renewalMessage(biz, m) })),
+              })}>
+                <SendIcon size={12} /> Remind all ({renewalList.length})
+              </button>
+            )}
           </div>
-          {upcomingRenewals.length > 1 && (
-            <button type="button" className="remind-all-btn" onClick={() => setBulk({
-              id: Date.now(),
-              title: 'renewing soon',
-              people: upcomingRenewals.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `renews ${new Date(m.nextRenewal).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`, message: m.balance > 0 ? owingMessage(biz, m) : renewalMessage(biz, m) })),
-            })}>
-              <SendIcon size={12} /> Remind all ({upcomingRenewals.length})
-            </button>
-          )}
-        </div>
-
-        {upcomingRenewals.length > 0 ? (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 12,
-            }}>
-            {upcomingRenewals.map((m) => {
-              const pEnd = new Date(m.nextRenewal);
-              const diffDays = Math.ceil((pEnd - new Date()) / (1000 * 60 * 60 * 24));
-              const daysLabel = diffDays <= 0 ? 'Today' : diffDays === 1 ? 'Tomorrow' : `in ${diffDays} days`;
-              const badgeClass = diffDays <= 1 ? 'red' : diffDays <= 7 ? 'amber' : 'green';
-
-              return (
-                <div
-                  key={m._id}
-                  className="renewal-card">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                      onClick={() => setSelectedMemberId(m._id)}>
-                      <Avatar name={m.name} size={32} />
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{m.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{m.phone || 'No phone'}</div>
+  
+          {renewalList.length > 0 ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: 12,
+              }}>
+              {renewalList.map((m) => {
+                const pEnd = new Date(m.nextRenewal);
+                const diffDays = Math.ceil((pEnd - new Date()) / (1000 * 60 * 60 * 24));
+                const daysLabel = diffDays <= 0 ? 'Today' : diffDays === 1 ? 'Tomorrow' : `in ${diffDays} days`;
+                const badgeClass = diffDays <= 1 ? 'red' : diffDays <= 7 ? 'amber' : 'green';
+  
+                return (
+                  <div
+                    key={m._id}
+                    className="renewal-card">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                        onClick={() => setSelectedMemberId(m._id)}>
+                        <Avatar name={m.name} size={32} />
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{m.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{m.phone || 'No phone'}</div>
+                        </div>
                       </div>
-                    </div>
-                    <span className={`badge ${badgeClass}`} style={{ fontSize: 10.5, padding: '2px 8px' }}>
-                      {daysLabel}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-2)' }}>
-                      <span>{pEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span>
-                      <span className="muted" style={{ margin: '0 4px' }}>·</span>
-                      <span className={`table-plan-pill ${getPlanPillClass(m.planName)}`} style={{ fontSize: 10.5, padding: '1px 6px' }}>
-                        {m.planName}
+                      <span className={`badge ${badgeClass}`} style={{ fontSize: 10.5, padding: '2px 8px' }}>
+                        {daysLabel}
                       </span>
                     </div>
-
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{
-                        fontSize: 11,
-                        padding: '3px 8px',
-                        minHeight: 26,
-                        borderColor: 'var(--amber-border)',
-                        color: 'var(--amber)',
-                      }}
-                      onClick={() =>
-                        setReminderModal({
-                          member: m,
-                          balance: m.balance,
-                          nextRenewalDate: pEnd,
-                        })
-                      }>
-                      <SendIcon size={11} /> Send reminder
-                    </button>
+  
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
+                      <div style={{ fontSize: 11.5, color: 'var(--text-2)' }}>
+                        <span>{pEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span>
+                        <span className="muted" style={{ margin: '0 4px' }}>·</span>
+                        <span className={`table-plan-pill ${getPlanPillClass(m.planName)}`} style={{ fontSize: 10.5, padding: '1px 6px' }}>
+                          {m.planName}
+                        </span>
+                      </div>
+  
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 8px',
+                          minHeight: 26,
+                          borderColor: 'var(--amber-border)',
+                          color: 'var(--amber)',
+                        }}
+                        onClick={() =>
+                          setReminderModal({
+                            member: m,
+                            balance: m.balance,
+                            nextRenewalDate: pEnd,
+                          })
+                        }>
+                        <SendIcon size={11} /> Send reminder
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '28px 16px', background: 'var(--bg-subtle)', borderRadius: 8 }}>
-            <div style={{ fontSize: 18, marginBottom: 4 }}>🎉</div>
-            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>No renewals in next 30 days 🎉</div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-              All active member subscriptions are paid and up-to-date.
+                );
+              })}
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '28px 16px', background: 'var(--bg-subtle)', borderRadius: 8 }}>
+              <div style={{ fontSize: 18, marginBottom: 4 }}>🎉</div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{upcomingRenewals.length ? 'No renewals match these filters' : 'No renewals in next 30 days 🎉'}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                {upcomingRenewals.length
+                  ? <button type="button" className="link-btn" style={{ background: 'none', border: 0, padding: 0, minHeight: 0, color: 'var(--primary)', fontWeight: 600, fontSize: 12 }} onClick={resetToRenewals}>Clear filters</button>
+                  : 'All active member subscriptions are paid and up-to-date.'}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* FIX 1: PROFILE SLIDE-OVER SHEET (420px wide) */}
       <AnimatePresence>
@@ -1233,7 +1247,24 @@ export function MemberProfileSheet({ biz, memberId, plans, rooms = [], groups = 
                   {plan ? `${plan.name} (${rupees(subscription?.amount ?? plan.amount)} / ${plan.cycleDays}d${subscription?.amount ? ', custom' : ''})` : 'Standard'}
                 </span>
               </div>
+
+              {rooms.length > 0 && (
+                <div className="sheet-contact-item">
+                  <span className="sheet-contact-label">
+                    <BedIcon size={14} /> Room
+                  </span>
+                  <span className="sheet-contact-val">
+                    {rooms.some((r) => r._id === String(member.roomId || '')) ? roomLabel(rooms.find((r) => r._id === String(member.roomId)), groups) : 'No room'}
+                  </span>
+                </div>
+              )}
             </div>
+            {member.roomMoves?.length > 0 && (
+              <>
+                <div className="sheet-section-title" style={{ marginTop: 14 }}>Room history</div>
+                <RoomHistory moves={member.roomMoves} />
+              </>
+            )}
           </div>
 
           {/* SECTION 5 — Action Buttons (Full Width, Stacked) */}
@@ -1266,6 +1297,16 @@ export function MemberProfileSheet({ biz, memberId, plans, rooms = [], groups = 
               onClick={() => setActiveModal('edit')}>
               <EditIcon size={14} /> Edit Member
             </button>
+
+            {rooms.length > 0 && member.status === 'active' && (
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ width: '100%', minHeight: 36, fontSize: 13 }}
+                onClick={() => setActiveModal('move')}>
+                <DoorIcon size={14} /> {member.roomId ? 'Move to another room' : 'Give a room'}
+              </button>
+            )}
           </div>
         </div>
       </motion.div>
@@ -1297,6 +1338,14 @@ export function MemberProfileSheet({ biz, memberId, plans, rooms = [], groups = 
             balance={balance}
             onClose={() => setActiveModal(null)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activeModal === 'move' && (
+          <MoveRoom member={member} rooms={rooms} groups={groups} currentRent={subscription?.amount ?? plan?.amount ?? null}
+            onClose={() => setActiveModal(null)}
+            onMoved={() => { qc.invalidateQueries(); setActiveModal(null); }} />
         )}
       </AnimatePresence>
 

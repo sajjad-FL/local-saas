@@ -5,12 +5,17 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBiz } from '../context/BizContext';
 
 // Navigators & Screens
 import BottomTabs from './BottomTabs';
 import LoginScreen from '../screens/auth/LoginScreen';
 import MemberDetailScreen from '../screens/members/MemberDetailScreen';
 import StatementScreen from '../screens/statement/StatementScreen';
+import AttendanceScreen from '../screens/attendance/AttendanceScreen';
+import RoomsScreen from '../screens/rooms/RoomsScreen';
+import SetupScreen from '../screens/setup/SetupScreen';
+import { NoBusinessScreen, PausedBusinessScreen } from '../screens/onboarding/NoBusinessScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,17 +31,25 @@ const linking = {
           Dashboard: '',
           Members: 'members',
           Reports: 'reports',
-          Setup: 'setup',
+          RoomsTab: 'rooms-tab',
+          AttendanceTab: 'attendance-tab',
+          SetupTab: 'setup-tab',
           Settings: 'settings',
         },
       },
       MemberDetail: 'members/:id',
+      Attendance: 'attendance',
+      Rooms: 'rooms',
+      Setup: 'setup',
     },
   },
 };
 
 export default function AppNavigator() {
   const { token, isLoading } = useAuth();
+  const { biz, businesses, loaded } = useBiz();
+  const noBusiness = loaded && businesses.length === 0;
+  const paused = biz?.status === 'suspended';
   const { theme } = useTheme();
 
   if (isLoading) {
@@ -57,10 +70,17 @@ export default function AppNavigator() {
         }}>
         {!token ? (
           <Stack.Screen name="Login" component={LoginScreen} />
+        ) : noBusiness ? (
+          <Stack.Screen name="NoBusiness" component={NoBusinessScreen} />
+        ) : paused ? (
+          <Stack.Screen name="Paused" component={PausedBusinessScreen} />
         ) : (
           <>
             <Stack.Screen name="Main" component={BottomTabs} />
             <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
+            <Stack.Screen name="Attendance" component={AttendanceScreen} />
+            <Stack.Screen name="Rooms" component={RoomsScreen} />
+            <Stack.Screen name="Setup" component={SetupScreen} />
           </>
         )}
         {/* Public statement screen can be viewed anytime via deep link or token */}
@@ -77,4 +97,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

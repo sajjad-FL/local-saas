@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api, rupees, userId } from '../api.js';
-import { ChevronIcon, PlusIcon, TrashIcon, RupeeIcon, CalendarIcon, XIcon, TagIcon, EditIcon, Field, ConfirmDialog } from '../ui.jsx';
+import { ChevronIcon, PlusIcon, TrashIcon, RupeeIcon, CalendarIcon, XIcon, TagIcon, EditIcon, Field, ConfirmDialog, BarChartIcon, UsersIcon } from '../ui.jsx';
 
 export const EXPENSE_CATEGORIES = {
   rent: 'Rent',
@@ -76,7 +76,9 @@ function Bars({ rows, labels, tone }) {
 }
 
 // Profit & loss for a chosen period, plus the expenses that go into it.
-export default function MoneyReport({ biz }) {
+// adding / setAdding: the Reports header owns the "Add expense" button
+// tab / setTab: which detail shows under the cards ('breakdown' | 'expenses' | 'members', the last drawn by Reports)
+export default function MoneyReport({ biz, adding: addingProp, setAdding: setAddingProp, tab = 'breakdown', setTab }) {
   const qc = useQueryClient();
   const isOwner = biz.ownerId === userId();
   const [kind, setKind] = useState('month'); // 'month' | 'quarter' | 'year' | 'custom'
@@ -85,7 +87,9 @@ export default function MoneyReport({ biz }) {
     const now = new Date();
     return { from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDay(now) };
   });
-  const [adding, setAdding] = useState(false);
+  const [addingLocal, setAddingLocal] = useState(false);
+  const adding = addingProp ?? addingLocal;
+  const setAdding = setAddingProp ?? setAddingLocal;
   const [deleting, setDeleting] = useState(null);
 
   const range = kind === 'custom'
@@ -197,8 +201,27 @@ export default function MoneyReport({ biz }) {
           </div>
           {isFuture && <p className="muted small">This period hasn't started yet.</p>}
 
+          {/* the details, one tab at a time */}
+          {setTab && (
+            <div className="settings-tabs report-tabs" role="tablist" aria-label="Report details">
+              {[
+                ['breakdown', 'Breakdown', BarChartIcon],
+                ['expenses', `Expenses${expenses.length ? ` (${expenses.length})` : ''}`, RupeeIcon],
+                ['members', 'Who paid', UsersIcon],
+              ].map(([key, label, Icon]) => (
+                <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
+                  <Icon size={15} /> {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {tab === 'breakdown' && !(pastMonths.length > 1) && !(r.received > 0 || r.expenses > 0) && (
+            <p className="settings-note">Nothing received or spent in this period yet.</p>
+          )}
+
           {/* Month by month (longer periods) */}
-          {pastMonths.length > 1 && (
+          {tab === 'breakdown' && pastMonths.length > 1 && (
             <div className="analytics-card">
               <h3 className="analytics-card-title">Month by month</h3>
               <div className="money-months">
@@ -220,7 +243,7 @@ export default function MoneyReport({ biz }) {
           )}
 
           {/* Where money came from and went, side by side in one card */}
-          {(r.received > 0 || r.expenses > 0) && (
+          {tab === 'breakdown' && (r.received > 0 || r.expenses > 0) && (
             <div className="analytics-card money-splits">
               <div>
                 <h3 className="analytics-card-title">How members paid</h3>
@@ -234,15 +257,13 @@ export default function MoneyReport({ biz }) {
           )}
 
           {/* Expenses */}
+          {tab === 'expenses' && (
           <div className="analytics-card">
             <div className="card-header-row" style={{ marginBottom: 6 }}>
               <div>
                 <h3 className="analytics-card-title">Expenses</h3>
                 <span className="analytics-card-subtitle">Rent, salaries, bills: what you paid in this period</span>
               </div>
-              <button type="button" className="btn" onClick={() => setAdding(true)}>
-                <PlusIcon size={14} /> Add expense
-              </button>
             </div>
             {expenses.length ? (
               <div className="money-expenses">
@@ -263,9 +284,10 @@ export default function MoneyReport({ biz }) {
                 ))}
               </div>
             ) : (
-              <p className="muted small" style={{ margin: '8px 0 4px' }}>No expenses recorded in this period.</p>
+              <p className="muted small" style={{ margin: '8px 0 4px' }}>No expenses recorded in this period. Use “Add expense” at the top.</p>
             )}
           </div>
+          )}
         </>
       )}
 

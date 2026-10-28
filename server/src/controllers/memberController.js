@@ -1,4 +1,4 @@
-import { Member, Plan, Subscription, Due, Payment, Reminder, Group, Attendance } from '../models/index.js';
+import { Member, Plan, Subscription, Due, Payment, Reminder, Group, Attendance, Room } from '../models/index.js';
 import { memberBalances, recomputeDues, rollForward, roomFullError, addPlanCycle, createDues, ensureShareToken } from '../services/billingService.js';
 
 export async function getMembers(req, res, next) {
@@ -107,6 +107,66 @@ export async function updateMember(req, res, next) {
       await Subscription.updateMany({ memberId: req.member._id, status: 'active' }, { status: 'stopped' });
     }
     res.json(req.member);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// "MF Manjil · First floor · Room 01"
+async function roomLabel(room) {
+  if (!room) return null;
+  const group = room.groupId ? await Group.findById(room.groupId) : null;
+  const floor = group?.floors.id(room.floorId);
+  return [group?.name, floor?.name, `Room ${room.roomNo}`].filter(Boolean).join(' · ');
+}
+
+// Move a tenant to another room: the new room needs a free bed, the move is written to the
+// tenant's room history, and a new rent (optional) applies to bills from now on only.
+export async function moveMember(req, res, next) {
+  try {
+    const member = req.member;
+    if (member.status !== 'active') return res.status(400).json({ error: 'only a current tenant can move rooms' });
+    const { roomId } = req.body ?? {};
+    if (!roomId) return res.status(400).json({ error: 'pick the room to move to' });
+    if (String(member.roomId || '') === String(roomId)) return res.status(400).json({ error: 'they already stay in that room' });
+    const full = await roomFullError(roomId, member.businessId, member._id);
+    if (full) return res.status(400).json({ error: full });
+
+    const on = req.body.on ? new Date(req.body.on) : new Date();
+    if (Number.isNaN(on.getTime())) return res.status(400).json({ error: 'that move date is not valid' });
+
+    const rawRent = req.body.rent;
+    const rent = rawRent === undefined || rawRent === null || rawRent === '' ? null : Number(rawRent);
+    if (rent !== null && (!Number.isInteger(rent) || rent < 1 || rent > 1e7)) {
+      return res.status(400).json({ error: 'rent must be a whole number of rupees' });
+    }
+
+    const [fromRoom, toRoom, sub] = await Promise.all([
+      member.roomId ? Room.findById(member.roomId) : null,
+      Room.findById(roomId),
+      Subscription.findOne({ memberId: member._id, status: { $in: ['active', 'paused'] } }).populate('planId'),
+    ]);
+    const rentBefore = sub ? sub.amount ?? sub.planId?.amount : undefined;
+
+    // a new rent changes the fee for every bill from here on; bills already raised stay as they are
+    if (rent !== null && sub && rent !== rentBefore) {
+      sub.amount = rent === sub.planId?.amount ? undefined : rent;
+      await sub.save();
+    }
+
+    member.roomMoves.push({
+      from: fromRoom?._id,
+      to: toRoom._id,
+      fromLabel: await roomLabel(fromRoom),
+      toLabel: await roomLabel(toRoom),
+      on,
+      rentBefore,
+      rentAfter: rent !== null && sub ? rent : rentBefore,
+    });
+    member.roomId = toRoom._id;
+    if (toRoom.groupId) member.groupId = toRoom.groupId; // a hostel's "group" is the building
+    await member.save();
+    res.json(member);
   } catch (err) {
     next(err);
   }

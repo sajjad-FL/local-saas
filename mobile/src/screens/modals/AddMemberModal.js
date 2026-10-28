@@ -12,13 +12,14 @@ export default function AddMemberModal({
   biz,
   onClose,
   onMemberAdded,
+  initialRoomId,
 }) {
   const { theme } = useTheme();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [planId, setPlanId] = useState('');
   const [groupId, setGroupId] = useState('');
-  const [roomId, setRoomId] = useState('');
+  const [roomId, setRoomId] = useState(initialRoomId || '');
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
 
   const [plans, setPlans] = useState([]);
@@ -34,7 +35,7 @@ export default function AddMemberModal({
       setPhone('');
       setPlanId('');
       setGroupId('');
-      setRoomId('');
+      setRoomId(initialRoomId || '');
       setStartDate(new Date().toISOString().slice(0, 10));
       setError('');
 
@@ -49,7 +50,7 @@ export default function AddMemberModal({
           setGroups(Array.isArray(g) ? g : []);
           if (p?.length > 0) setPlanId(p[0]._id);
 
-          if (biz.type === 'hostel') {
+          if (biz?.type === 'hostel') {
             const r = await api(`/businesses/${biz._id}/rooms`);
             setRooms(Array.isArray(r) ? r : []);
           }
@@ -61,6 +62,10 @@ export default function AddMemberModal({
   }, [visible, biz]);
 
   const handleSubmit = async () => {
+    if (!biz?._id) {
+      setError('Workspace is not loaded');
+      return;
+    }
     if (!name.trim()) {
       setError('Member name is required');
       return;
@@ -105,6 +110,8 @@ export default function AddMemberModal({
       setLoading(false);
     }
   };
+
+  if (!visible) return null;
 
   return (
     <Modal
@@ -182,7 +189,7 @@ export default function AddMemberModal({
         {groups.length > 0 && (
           <View style={styles.sectionWrap}>
             <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>
-              {biz.type === 'gym' ? 'Workout Batch / Slot' : biz.type === 'tuition' ? 'Class Batch' : 'Batch / Shift'}
+              {biz?.type === 'gym' ? 'Workout Batch / Slot' : biz?.type === 'tuition' ? 'Class Batch' : 'Batch / Shift'}
             </Text>
             <View style={styles.chipRow}>
               {groups.map((g) => {
@@ -214,7 +221,7 @@ export default function AddMemberModal({
         )}
 
         {/* Room Selection (Hostel only) */}
-        {biz.type === 'hostel' && rooms.length > 0 && (
+        {biz?.type === 'hostel' && rooms.length > 0 && (
           <View style={styles.sectionWrap}>
             <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>Hostel Room</Text>
             <View style={styles.chipRow}>

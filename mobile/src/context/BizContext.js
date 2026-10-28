@@ -11,11 +11,13 @@ export function BizProvider({ children }) {
   const [currentBiz, setCurrentBiz] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [loaded, setLoaded] = useState(false); // the list has come back at least once
 
   const fetchBusinesses = useCallback(async () => {
     if (!token) {
       setBusinesses([]);
       setCurrentBiz(null);
+      setLoaded(false);
       return;
     }
     setLoading(true);
@@ -31,6 +33,7 @@ export function BizProvider({ children }) {
       if (found?._id) {
         await AsyncStorage.setItem(STORAGE_KEYS.BIZ_ID, found._id);
       }
+      setLoaded(true);
     } catch (err) {
       setError(err.message || 'Failed to load workspaces');
       console.warn('Error fetching businesses:', err);
@@ -84,6 +87,7 @@ export function BizProvider({ children }) {
         biz: currentBiz,
         currentBizId: currentBiz?._id,
         loading,
+        loaded,
         error,
         isOwner,
         refetch: fetchBusinesses,

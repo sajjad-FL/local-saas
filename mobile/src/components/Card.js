@@ -10,7 +10,7 @@ export default function Card({ children, style, onPress, activeOpacity = 0.75, b
     {
       backgroundColor: theme.colors.card,
       borderColor: bordered ? theme.colors.border : 'transparent',
-      borderRadius: theme.radius.lg,
+      borderRadius: theme.radius.card,
     },
     style,
   ];
@@ -33,4 +33,3 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
-

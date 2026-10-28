@@ -250,7 +250,12 @@ export default function Rooms() {
               <div className="rooms-building-head">
                 <BuildingIcon size={16} />
                 <h2>{name}</h2>
-                <span>{plural(floors.reduce((n, s) => n + s.total.length, 0), 'room')} · <b className="green-text">{bFree} free</b>{bDue > 0 && <> · <b className="red-text">{bDue} overdue</b></>}</span>
+                <span className="prop-stats rooms-head-stats">
+                  <span className="prop-chip">{plural(floors.reduce((n, s) => n + s.total.length, 0), 'room')}</span>
+                  <span className="prop-chip">{plural(bBeds.length, 'bed')}</span>
+                  <span className={`prop-chip ${bFree ? 'free' : 'full'}`}>{bFree ? `${bFree} free` : 'Full'}</span>
+                  {bDue > 0 && <span className="prop-chip due">{bDue} overdue</span>}
+                </span>
               </div>
             )}
             {floors.map((s) => {
@@ -268,13 +273,15 @@ export default function Rooms() {
                       <h3>{s.title}</h3>
                       {s.total.length > 0 ? (
                         <>
-                          <span className="rooms-section-meta">
-                            {plural(s.total.length, 'room')} · <b className="green-text">{sFree} free</b>
-                            {sDue > 0 && <> · <b className="red-text">{sDue} overdue</b></>}
+                          <span className="prop-stats">
+                            <span className="prop-chip">{plural(s.total.length, 'room')}</span>
+                            <span className="prop-chip">{plural(sBeds.length, 'bed')}</span>
+                            <span className={`prop-chip ${sFree ? 'free' : 'full'}`}>{sFree ? `${sFree} free` : 'Full'}</span>
+                            {sDue > 0 && <span className="prop-chip due">{sDue} overdue</span>}
                           </span>
                           <span className="rooms-section-bar" title={`${fill}% full`}><i style={{ width: `${fill}%` }} /></span>
                         </>
-                      ) : <span className="rooms-section-meta">no rooms yet</span>}
+                      ) : <span className="prop-chip">no rooms yet</span>}
                     </button>
                     {canAdd && (
                       <button type="button" className="rooms-floor-add" onClick={() => setAdding({ group: s.group, floor: s.floor })}
@@ -364,7 +371,13 @@ function RoomMini({ room, onEdit, onOpen }) {
           </button>
         ))}
       </div>
-      <span className="room-mini-note">{free ? `${free} free` : 'Full'}{room.bedRent != null && free ? ` · ${rupees(room.bedRent)}` : ''}</span>
+      <span className="room-mini-foot">
+        <span className={free ? 'green-text' : 'room-mini-full'}>{free ? `${free} free` : 'Full'}</span>
+        {room.bedRent != null && <b>{rupees(room.bedRent)}</b>}
+      </span>
+      <span className="room-mini-bar" aria-hidden="true">
+        <i style={{ width: `${Math.round(((room.beds.length - free) / Math.max(room.beds.length, 1)) * 100)}%` }} />
+      </span>
     </article>
   );
 }

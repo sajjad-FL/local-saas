@@ -1,156 +1,156 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, userId, download } from '../api.js';
 import { useBiz } from '../App.jsx';
 import {
-  Avatar, Field, ShieldIcon, UserIcon, PhoneIcon,
+  Avatar, Field, ShieldIcon, UserIcon, UsersIcon, PhoneIcon,
   PlusIcon, DownloadIcon, CheckCircleIcon, SettingsIcon,
   CheckIcon, BuildingIcon, FileSpreadsheetIcon, SparklesIcon,
   ConfirmDialog, BIZ_TYPES, BellIcon, AlertCircleIcon, CopyIcon,
-  XIcon, TrashIcon, LogOutIcon, SlidersHorizontalIcon, ChevronIcon, CalendarCheckIcon,
+  XIcon, TrashIcon, LogOutIcon, SlidersHorizontalIcon, ChevronIcon, CalendarCheckIcon, EditIcon,
 } from '../ui.jsx';
+
+// Settings in four tabs, one topic each, in a single readable column
+const TABS = [
+  { key: 'profile', label: 'Profile', icon: UserIcon, intro: 'Your name, phone number and password.' },
+  { key: 'payments', label: 'Payments', icon: ShieldIcon, intro: 'How members pay you, and how they are reminded.' },
+  { key: 'team', label: 'Team', icon: UsersIcon, intro: 'People who can help you run the business.', ownerOnly: true },
+  { key: 'business', label: 'Business', icon: BuildingIcon, intro: 'Your business details and the features you use.' },
+  { key: 'data', label: 'Backup', icon: DownloadIcon, intro: 'Download your data for accounting or safekeeping.' },
+];
 
 export default function Settings() {
   const biz = useBiz();
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api('/me'), staleTime: 5 * 60000 });
   const isOwner = biz.ownerId === userId();
   const typeConfig = BIZ_TYPES[biz.type] || BIZ_TYPES.gym;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabs = TABS.filter((t) => !t.ownerOnly || isOwner);
+  const tab = tabs.find((t) => t.key === searchParams.get('tab')) || tabs[0];
+  const openTab = (key) => setSearchParams((p) => { p.set('tab', key); return p; }, { replace: true });
 
   return (
     <>
-      <div className="page-header" style={{ marginBottom: 18 }}>
+      <div className="page-header" style={{ marginBottom: 14 }}>
         <div className="page-title-wrap">
-          <h1 className="page-title">
-            <span className="hide-sm">Business </span>Settings
-          </h1>
-          <p className="page-subtitle">
-            Configure UPI payment collection gateway, staff permissions, notification preferences, and workspace management.
-          </p>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-subtitle">{tab.intro}</p>
         </div>
       </div>
 
-      {me?.role === 'admin' && (
-        <Link to="/admin" className="analytics-card settings-setup-link admin-link">
-          <ShieldIcon size={18} style={{ color: 'var(--primary)' }} />
-          <div className="grow">
-            <b>Platform admin</b>
-            <span className="muted small">All businesses and owners: pause, resume, reset passwords</span>
-          </div>
-          <ChevronIcon size={16} />
+      {/* shortcuts */}
+      <div className="settings-shortcuts">
+        <Link to="/setup" className="settings-shortcut">
+          <SlidersHorizontalIcon size={16} />
+          <span><b>Plans, batches & rooms</b><small>Fees, cycles, groups, rooms</small></span>
+          <ChevronIcon size={14} />
         </Link>
-      )}
+        {me?.role === 'admin' && (
+          <Link to="/admin" className="settings-shortcut admin">
+            <ShieldIcon size={16} />
+            <span><b>Platform admin</b><small>All businesses and owners</small></span>
+            <ChevronIcon size={14} />
+          </Link>
+        )}
+      </div>
 
-      <Link to="/setup" className="analytics-card settings-setup-link mobile-only">
-        <SlidersHorizontalIcon size={18} style={{ color: 'var(--primary)' }} />
-        <div className="grow">
-          <b>Plans, batches & rooms</b>
-          <span className="muted small">Fees, cycle lengths, groups and room capacity</span>
-        </div>
-        <ChevronIcon size={16} />
-      </Link>
+      <div className="settings-tabs" role="tablist" aria-label="Settings">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button key={t.key} type="button" role="tab" aria-selected={tab.key === t.key}
+              className={tab.key === t.key ? 'active' : ''} onClick={() => openTab(t.key)}>
+              <Icon size={15} /> {t.label}
+            </button>
+          );
+        })}
+      </div>
 
-      <div className="settings-grid">
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* UPI Gateway Card */}
-          {isOwner && <UpiGatewaySettings />}
+      <div className="settings-body">
+        {tab.key === 'profile' && <ProfileSettings me={me} />}
 
-          {/* Notification Preferences Card */}
-          <NotificationPreferencesSettings />
+        {tab.key === 'payments' && (
+          <>
+            {isOwner ? <UpiGatewaySettings /> : (
+              <p className="settings-note">Only the owner can change the UPI ID.</p>
+            )}
+            <NotificationPreferencesSettings />
+          </>
+        )}
 
-          <AttendanceSettings />
+        {tab.key === 'team' && isOwner && <StaffAccountsSettings />}
 
-          {/* Business Workspace Profile Summary (desktop only) */}
-          <div className="analytics-card hide-sm">
-            <div className="card-header-row" style={{ marginBottom: 12 }}>
-              <div>
-                <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <BuildingIcon size={17} style={{ color: 'var(--primary)' }} />
-                  Workspace Profile
-                </h3>
-                <span className="analytics-card-subtitle">
-                  Active business account and configuration details
-                </span>
-              </div>
-            </div>
-
-            <div className="profile-meta-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', margin: 0 }}>
-              <div className="meta-item">
-                <div className="meta-label">Business Name</div>
-                <div className="meta-value">{biz.name}</div>
-              </div>
-              <div className="meta-item">
-                <div className="meta-label">Business Type</div>
-                <div className="meta-value">{typeConfig.label}</div>
-              </div>
-              <div className="meta-item">
-                <div className="meta-label">Workspace ID</div>
-                <div className="meta-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>
-                  {biz._id}
+        {tab.key === 'business' && (
+          <>
+            <div className="analytics-card">
+              <div className="card-header-row" style={{ marginBottom: 12 }}>
+                <div>
+                  <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <BuildingIcon size={17} style={{ color: 'var(--primary)' }} />
+                    Business profile
+                  </h3>
+                  <span className="analytics-card-subtitle">The business this account manages</span>
                 </div>
               </div>
-              <div className="meta-item">
-                <div className="meta-label">Account Role</div>
-                <div className="meta-value">
-                  <span className="badge primary">{isOwner ? 'Owner' : 'Staff Member'}</span>
+              <div className="profile-meta-grid settings-profile">
+                <div className="meta-item">
+                  <div className="meta-label">Name</div>
+                  <div className="meta-value">{isOwner ? <BusinessName biz={biz} /> : biz.name}</div>
+                </div>
+                <div className="meta-item">
+                  <div className="meta-label">Type</div>
+                  <div className="meta-value">{typeConfig.label}</div>
+                </div>
+                <div className="meta-item">
+                  <div className="meta-label">Your role</div>
+                  <div className="meta-value"><span className="badge primary">{isOwner ? 'Owner' : 'Staff member'}</span></div>
+                </div>
+                <div className="meta-item">
+                  <div className="meta-label">Workspace ID</div>
+                  <div className="meta-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{biz._id}</div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+            <AttendanceSettings />
+            {isOwner && <DangerZoneSettings />}
+          </>
+        )}
 
-        {/* Right Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Staff Accounts Card */}
-          {isOwner && <StaffAccountsSettings />}
-
-          {/* Data Backup & Export Card */}
+        {tab.key === 'data' && (
           <div className="analytics-card">
             <div className="card-header-row" style={{ marginBottom: 12 }}>
               <div>
                 <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <DownloadIcon size={17} style={{ color: 'var(--primary)' }} />
-                  Data Backup & Export
+                  Data backup & export
                 </h3>
-                <span className="analytics-card-subtitle">
-                  Download spreadsheets for offline backup or accounting
-                </span>
+                <span className="analytics-card-subtitle">Spreadsheets open in Excel or Google Sheets</span>
               </div>
             </div>
-
-            <div className="row" style={{ gap: 8, marginTop: 8 }}>
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ flex: 1, minWidth: 140, justifyContent: 'center' }}
+            <div className="settings-downloads">
+              <button type="button" className="btn-secondary"
                 onClick={() => download(`/businesses/${biz._id}/export/payments.csv`, `${biz.name}-payments-backup.csv`)}>
-                <DownloadIcon size={14} /> Payments CSV
+                <DownloadIcon size={15} />
+                <span><b>Payments</b><small>Every payment received (CSV)</small></span>
               </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ flex: 1, minWidth: 140, justifyContent: 'center' }}
+              <button type="button" className="btn-secondary"
                 onClick={() => download(`/businesses/${biz._id}/export/balances.csv`, `${biz.name}-balances-backup.csv`)}>
-                <FileSpreadsheetIcon size={14} /> Balances CSV
+                <FileSpreadsheetIcon size={15} />
+                <span><b>Balances</b><small>What each member owes now (CSV)</small></span>
               </button>
+              {isOwner && (
+                <button type="button" className="btn-secondary"
+                  onClick={() => download(`/businesses/${biz._id}/export/backup.json`, `${biz.name}-full-backup.json`)}>
+                  <DownloadIcon size={15} />
+                  <span><b>Full backup</b><small>Everything, to restore later (JSON)</small></span>
+                </button>
+              )}
             </div>
-            {isOwner && (
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
-                onClick={() => download(`/businesses/${biz._id}/export/backup.json`, `${biz.name}-full-backup.json`)}>
-                <DownloadIcon size={14} /> Full Backup (JSON)
-              </button>
-            )}
           </div>
-        </div>
+        )}
       </div>
-
-      {/* Danger Zone Section (Owner Only) */}
-      {isOwner && <DangerZoneSettings />}
 
       {/* On phones the top bar has no sign-out button, so it lives here */}
       <button
@@ -161,6 +161,168 @@ export default function Settings() {
         <LogOutIcon size={15} /> Sign out
       </button>
     </>
+  );
+}
+
+const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '?';
+
+// Profile: the signed-in person's own name, phone (how they sign in) and password
+function ProfileSettings({ me }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState(null); // null until "me" arrives
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [saved, setSaved] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const values = form ?? { name: me?.name || '', phone: me?.phone || '' };
+  const phoneChanged = me && values.phone !== me.phone;
+  const changed = me && (values.name.trim() !== (me.name || '') || phoneChanged);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError(''); setSaved('');
+    try {
+      const body = { name: values.name };
+      if (phoneChanged) Object.assign(body, { phone: values.phone, currentPassword });
+      const updated = await api('/me', { method: 'PATCH', body });
+      qc.setQueryData(['me'], (old) => ({ ...old, ...updated }));
+      setForm(null); setCurrentPassword('');
+      setSaved(phoneChanged ? 'Saved. Sign in with your new number from now on.' : 'Saved.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="analytics-card">
+        <div className="profile-hero">
+          <span className="profile-hero-avatar" aria-hidden="true">{initials(values.name)}</span>
+          <div>
+            <b>{me?.name || 'Your profile'}</b>
+            <span className="muted small">+91 {me?.phone}{me?.role === 'admin' ? ' · platform admin' : ''}</span>
+          </div>
+        </div>
+        <form className="expense-form" onSubmit={save}>
+          <div className="profile-fields">
+            <Field label="Your name" icon={UserIcon}>
+              <input value={values.name} maxLength={60} required autoComplete="name"
+                onChange={(e) => { setForm({ ...values, name: e.target.value }); setSaved(''); }} />
+            </Field>
+            <Field label="Mobile number (you sign in with this)" icon={PhoneIcon}>
+              <input type="tel" inputMode="numeric" value={values.phone} autoComplete="tel"
+                onChange={(e) => { setForm({ ...values, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }); setSaved(''); }} />
+            </Field>
+          </div>
+          {phoneChanged && (
+            <Field label="Current password (needed to change your number)" icon={ShieldIcon}>
+              <input type="password" value={currentPassword} autoComplete="current-password" required
+                onChange={(e) => setCurrentPassword(e.target.value)} />
+            </Field>
+          )}
+          {error && <p className="error" role="alert" style={{ margin: 0 }}>{error}</p>}
+          {saved && <p className="green-text small" role="status" style={{ margin: 0 }}><CheckIcon size={13} /> {saved}</p>}
+          <div className="profile-actions">
+            {changed && <button type="button" className="btn-secondary" onClick={() => { setForm(null); setCurrentPassword(''); setError(''); }}>Cancel</button>}
+            <button type="submit" disabled={!changed || busy || !values.name.trim() || values.phone.length !== 10 || (phoneChanged && !currentPassword)}>
+              <CheckIcon size={14} /> {busy ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+      <PasswordSettings />
+    </>
+  );
+}
+
+function PasswordSettings() {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const mismatch = again && next !== again;
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError(''); setDone(false);
+    try {
+      await api('/me/password', { method: 'POST', body: { currentPassword: current, newPassword: next } });
+      setCurrent(''); setNext(''); setAgain(''); setDone(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="analytics-card">
+      <div className="card-header-row" style={{ marginBottom: 12 }}>
+        <div>
+          <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <ShieldIcon size={17} style={{ color: 'var(--primary)' }} />
+            Change password
+          </h3>
+          <span className="analytics-card-subtitle">At least 6 characters. You stay signed in on this device.</span>
+        </div>
+      </div>
+      <form className="expense-form" onSubmit={submit}>
+        <Field label="Current password">
+          <input type="password" value={current} autoComplete="current-password" required onChange={(e) => setCurrent(e.target.value)} />
+        </Field>
+        <div className="profile-fields">
+          <Field label="New password">
+            <input type="password" value={next} autoComplete="new-password" minLength={6} required onChange={(e) => { setNext(e.target.value); setDone(false); }} />
+          </Field>
+          <Field label="New password again">
+            <input type="password" value={again} autoComplete="new-password" required onChange={(e) => setAgain(e.target.value)} />
+          </Field>
+        </div>
+        {mismatch && <p className="error small" style={{ margin: 0 }}>The two new passwords don't match.</p>}
+        {error && <p className="error" role="alert" style={{ margin: 0 }}>{error}</p>}
+        {done && <p className="green-text small" role="status" style={{ margin: 0 }}><CheckIcon size={13} /> Password changed.</p>}
+        <div className="profile-actions">
+          <button type="submit" disabled={busy || !current || next.length < 6 || next !== again}>
+            <CheckIcon size={14} /> {busy ? 'Saving…' : 'Change password'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// the business's name, editable in place by the owner
+function BusinessName({ biz }) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState(null);
+  const [error, setError] = useState('');
+  if (draft === null) {
+    return (
+      <span className="inline-edit">
+        {biz.name}
+        <button type="button" className="prop-edit" aria-label="Rename business" title="Rename" onClick={() => setDraft(biz.name)}><EditIcon size={13} /></button>
+      </span>
+    );
+  }
+  const save = async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/businesses/${biz._id}`, { method: 'PATCH', body: { name: draft.trim() } });
+      await qc.invalidateQueries({ queryKey: ['businesses'] });
+      setDraft(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  return (
+    <form className="prop-rename" onSubmit={save}>
+      <input autoFocus value={draft} maxLength={60} onChange={(e) => setDraft(e.target.value)} aria-label="Business name" />
+      <button type="submit" disabled={!draft.trim()} aria-label="Save name"><CheckIcon size={14} /></button>
+      <button type="button" className="btn-secondary" aria-label="Cancel" onClick={() => setDraft(null)}><XIcon size={13} /></button>
+      {error && <span className="error small">{error}</span>}
+    </form>
   );
 }
 
