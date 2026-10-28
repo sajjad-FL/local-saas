@@ -17,13 +17,14 @@ export function getPlanColor(name = '', idx = 0) {
   return palette[idx % palette.length];
 }
 
+// Same rule as the web's plan pills: monthly blue, quarterly green, half-yearly amber, the rest purple
 export function getPlanPillClass(name = '') {
   const n = (name || '').toLowerCase();
-  if (n.includes('month') || n.includes('1m')) return { bg: '#DBEAFE', text: '#1E40AF', border: '#BFDBFE' };
-  if (n.includes('quarter') || n.includes('3m')) return { bg: '#EDE9FE', text: '#6D28D9', border: '#DDD6FE' };
-  if (n.includes('half') || n.includes('6m')) return { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' };
-  if (n.includes('year') || n.includes('12m')) return { bg: '#D1FAE5', text: '#065F46', border: '#A7F3D0' };
-  return { bg: '#F1F5F9', text: '#475569', border: '#E2E8F0' };
+  const pill = (color, bg) => ({ bg, text: color, border: bg, color });
+  if (n.includes('month') && !n.includes('3') && !n.includes('6') && !n.includes('12')) return pill('#3B82F6', '#EFF6FF');
+  if (n.includes('3 month') || n.includes('quarter')) return pill('#10B981', '#ECFDF5');
+  if (n.includes('6 month') || n.includes('half')) return pill('#F59E0B', '#FFFBEB');
+  return pill('#8B5CF6', '#F5F3FF');
 }
 
 export function getRenewalThreshold(daysLeft) {

@@ -16,7 +16,7 @@ export default function Button({
   const { theme } = useTheme();
 
   const getBackgroundColor = () => {
-    if (disabled) return theme.colors.cardSubtle;
+    // disabled keeps its colour and fades (like the web's .btn:disabled)
     switch (variant) {
       case 'primary':
         return theme.colors.primary;
@@ -27,7 +27,7 @@ export default function Button({
       case 'danger':
         return theme.colors.danger;
       case 'whatsapp':
-        return theme.colors.whatsapp;
+        return theme.colors.primary; // matching web's .btn.wa (#10B981)
       case 'ghost':
         return 'transparent';
       default:
@@ -39,11 +39,13 @@ export default function Button({
     if (variant === 'outline') {
       return disabled ? theme.colors.borderSubtle : theme.colors.border;
     }
+    if (variant === 'secondary') {
+      return theme.colors.border;
+    }
     return 'transparent';
   };
 
   const getTextColor = () => {
-    if (disabled) return theme.colors.textMuted;
     switch (variant) {
       case 'primary':
         return '#FFFFFF';
@@ -67,20 +69,20 @@ export default function Button({
       case 'sm':
         return 34;
       case 'lg':
-        return 50;
+        return 48;
       default:
-        return 44;
+        return 40;
     }
   };
 
   const getFontSize = () => {
     switch (size) {
       case 'sm':
-        return 13;
+        return 12.5;
       case 'lg':
-        return 16;
+        return 15;
       default:
-        return 14.5;
+        return 13.5;
     }
   };
 
@@ -94,10 +96,11 @@ export default function Button({
         {
           backgroundColor: getBackgroundColor(),
           borderColor: getBorderColor(),
-          borderWidth: variant === 'outline' ? 1 : 0,
+          borderWidth: variant === 'outline' || variant === 'secondary' ? 1 : 0,
           height: getHeight(),
-          borderRadius: size === 'sm' ? theme.radius.sm : theme.radius.md,
+          borderRadius: theme.radius.btn,
           paddingHorizontal: size === 'sm' ? 12 : 16,
+          opacity: disabled ? 0.5 : 1,
         },
         style,
       ]}>
@@ -113,7 +116,7 @@ export default function Button({
                 {
                   color: getTextColor(),
                   fontSize: getFontSize(),
-                  fontWeight: '600',
+                  fontWeight: '500',
                 },
                 textStyle,
               ]}>
@@ -138,10 +141,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconWrap: {
-    marginRight: 8,
+    marginRight: 6,
   },
   text: {
     textAlign: 'center',
   },
 });
-

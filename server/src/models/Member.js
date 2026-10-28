@@ -20,7 +20,23 @@ const memberSchema = new Schema({
     refundedOn: Date,
   },
   noticeGivenOn: Date,
+  // hostel: every room change, newest last. Labels are kept so the history reads right even
+  // after a room is renamed or deleted.
+  roomMoves: [{
+    _id: false,
+    from: { type: Schema.Types.ObjectId, ref: 'Room' },
+    to: { type: Schema.Types.ObjectId, ref: 'Room' },
+    fromLabel: String,
+    toLabel: String,
+    on: Date,
+    rentBefore: Number,
+    rentAfter: Number,
+  }],
+  // the member's user/enrolment number on the business's fingerprint or face machine
+  biometricId: { type: String, trim: true },
 });
+
+memberSchema.index({ businessId: 1, biometricId: 1 });
 
 export const Member = model('Member', memberSchema);
 export default Member;

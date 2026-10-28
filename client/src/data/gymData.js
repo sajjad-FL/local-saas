@@ -18,7 +18,7 @@ export const formatRupees = formatINR;
  * curr === prev -> "No change" (gray)
  */
 export const getMonthlyDelta = (curr, prev) => {
-  if (prev == null || prev === 0) {
+  if (prev == null) {
     return { text: "First month", type: "neutral", diff: 0 };
   }
   const diff = Number(curr || 0) - Number(prev || 0);

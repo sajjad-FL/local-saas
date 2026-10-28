@@ -1,4 +1,4 @@
-import { Payment, Member, Due, Plan, Group, Room, Subscription } from '../models/index.js';
+import { Payment, Member, Due, Plan, Group, Room, Subscription, Expense, Attendance } from '../models/index.js';
 import { memberBalances, dueRemaining, csv } from '../services/billingService.js';
 
 export async function exportPaymentsCsv(req, res, next) {
@@ -72,16 +72,31 @@ export async function exportBackupJson(req, res, next) {
     }
     const businessId = req.business._id;
     const members = await Member.find({ businessId }).select('-shareToken');
-    const [plans, groups, rooms, dues, payments, subscriptions] = await Promise.all([
+    const [plans, groups, rooms, dues, payments, subscriptions, expenses, attendance] = await Promise.all([
       Plan.find({ businessId }), Group.find({ businessId }), Room.find({ businessId }),
       Due.find({ businessId }), Payment.find({ businessId }),
       Subscription.find({ memberId: { $in: members.map((m) => m._id) } }),
+      Expense.find({ businessId }),
+      Attendance.find({ businessId }),
     ]);
     const { name, type, upiId, reminderEveryDays } = req.business;
     res.attachment('backup.json').json({
       exportedAt: new Date(), business: { name, type, upiId, reminderEveryDays },
-      plans, groups, rooms, members, subscriptions, dues, payments,
+      plans, groups, rooms, members, subscriptions, dues, payments, expenses, attendance,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportExpensesCsv(req, res, next) {
+  try {
+    const expenses = await Expense.find({ businessId: req.business._id }).sort('-date');
+    const csvContent = csv([
+      ['Date', 'Category', 'Amount', 'Note'],
+      ...expenses.map((e) => [e.date.toISOString().slice(0, 10), e.category === 'other' && e.label ? e.label : e.category, e.amount, e.note]),
+    ]);
+    res.type('text/csv').attachment('expenses.csv').send(csvContent);
   } catch (err) {
     next(err);
   }

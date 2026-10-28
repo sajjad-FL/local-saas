@@ -1,4 +1,4 @@
-import { User, Business, Member, Due, Payment, Subscription, Plan, Group, Room, Reminder } from '../models/index.js';
+import { User, Business, Member, Due, Payment, Subscription, Plan, Group, Room, Reminder, Expense, Attendance } from '../models/index.js';
 import { mine } from '../middlewares/authMiddleware.js';
 
 export async function getBusinesses(req, res, next) {
@@ -13,7 +13,8 @@ export async function getBusinesses(req, res, next) {
 export async function createBusiness(req, res, next) {
   try {
     const { name, type } = req.body;
-    const business = await Business.create({ ownerId: req.userId, name, type });
+    // hostels rarely take daily attendance: off until the owner turns it on in Settings
+    const business = await Business.create({ ownerId: req.userId, name, type, attendanceEnabled: type !== 'hostel' });
     res.json(business);
   } catch (err) {
     next(err);
@@ -26,8 +27,9 @@ export async function updateBusiness(req, res, next) {
     if (!req.business.ownerId.equals(req.userId)) {
       return res.status(403).json({ error: 'owner only' });
     }
-    const { name, upiId, notifications, reminderEveryDays } = req.body;
+    const { name, upiId, notifications, reminderEveryDays, attendanceEnabled } = req.body;
     if (name !== undefined) req.business.name = name;
+    if (typeof attendanceEnabled === 'boolean') Object.assign(req.business, { attendanceEnabled, attendanceChosen: true });
     if (upiId !== undefined) req.business.upiId = upiId;
     if (reminderEveryDays !== undefined) req.business.reminderEveryDays = reminderEveryDays;
     if (notifications !== undefined) {
@@ -53,6 +55,8 @@ export async function clearBusinessData(req, res, next) {
       Subscription.deleteMany({ memberId: { $in: memberIds } }),
       Member.deleteMany({ businessId: req.business._id }),
       Reminder.deleteMany({ businessId: req.business._id }),
+      Expense.deleteMany({ businessId: req.business._id }),
+      Attendance.deleteMany({ businessId: req.business._id }),
     ]);
     res.json({ ok: true });
   } catch (err) {
@@ -77,6 +81,8 @@ export async function deleteBusiness(req, res, next) {
       Group.deleteMany({ businessId: bizId }),
       Room.deleteMany({ businessId: bizId }),
       Reminder.deleteMany({ businessId: bizId }),
+      Expense.deleteMany({ businessId: bizId }),
+      Attendance.deleteMany({ businessId: bizId }),
       Business.deleteOne({ _id: bizId }),
     ]);
     res.json({ ok: true });

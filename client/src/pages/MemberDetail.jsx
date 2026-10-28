@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { api, waLink, rupees, remindMsg, userId } from '../api.js';
 import { useBiz } from '../App.jsx';
+import { confirmAction } from '../confirm.jsx';
 import {
   Avatar, Field, Rise, WhatsAppIcon, PauseIcon, PlayIcon,
   RupeeIcon, CalendarIcon, CheckIcon, CreditCardIcon, UsersIcon,
@@ -115,10 +116,10 @@ export default function MemberDetail() {
     <>
       <Link to="/members" className="back-pill">
         <ChevronIcon size={13} style={{ transform: 'rotate(180deg)' }} />
-        Back to Members Directory
+        <span className="hide-sm">Back to Members Directory</span><span className="show-sm">Members</span>
       </Link>
 
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header hide-sm" style={{ marginBottom: 16 }}>
         <div className="page-title-wrap">
           <h1 className="page-title">
             {member.name}
@@ -143,7 +144,7 @@ export default function MemberDetail() {
                       {member.name}
                       {member.status === 'left' && <span className="badge gray" style={{ fontSize: 11 }}>Left</span>}
                     </h2>
-                    <div className="muted small" style={{ marginTop: 2 }}>
+                    <div className="muted small hide-sm" style={{ marginTop: 2 }}>
                       Member ID: <span style={{ fontFamily: 'monospace' }}>{member._id.slice(-6).toUpperCase()}</span>
                     </div>
                   </div>
@@ -181,7 +182,7 @@ export default function MemberDetail() {
                   </div>
                   <div className="meta-value">
                     {subscription?.planId ? (
-                      <span>{subscription.planId.name} ({rupees(subscription.planId.amount)})</span>
+                      <span>{subscription.planId.name} ({rupees(subscription.amount ?? subscription.planId.amount)}{subscription.amount ? ', custom' : ''})</span>
                     ) : (
                       <span className="muted">No active plan</span>
                     )}
@@ -224,8 +225,8 @@ export default function MemberDetail() {
             </div>
 
             {/* Action Toolbar */}
-            <div className="row" style={{ paddingTop: 12, borderTop: '1px solid var(--border-subtle)', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <div className="row member-actions" style={{ paddingTop: 12, borderTop: '1px solid var(--border-subtle)', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <div className="row member-actions-main" style={{ gap: 6, flexWrap: 'wrap' }}>
                 {member.phone && balance > 0 && (
                   <motion.a
                     className="btn wa"
@@ -257,7 +258,13 @@ export default function MemberDetail() {
                     className="btn-link small muted"
                     title="Stop the current link working and issue a new one"
                     disabled={rotateShare.isPending}
-                    onClick={() => rotateShare.mutate()}>
+                    onClick={async () => {
+                      if (await confirmAction({
+                        title: 'Reset the statement link?',
+                        message: `The link already sent to ${member.name} will stop working. Send them the new one after this.`,
+                        confirmText: 'Reset link', danger: true,
+                      })) rotateShare.mutate();
+                    }}>
                     Reset link
                   </button>
                 )}
@@ -312,13 +319,13 @@ export default function MemberDetail() {
                       Record Payment Received
                     </h3>
                     <span className="analytics-card-subtitle">
-                      Record a membership payment received in cash, UPI, or card
+                      Record a payment received in cash, UPI or card
                     </span>
                   </div>
                 </div>
 
                 {/* Quick Amount Chips (Starting from 1000) */}
-                <div className="chips-row" style={{ marginBottom: 12 }}>
+                <div className="chips-row member-pay-chips" style={{ marginBottom: 12 }}>
                   <span className="small muted" style={{ alignSelf: 'center', marginRight: 2, fontWeight: 600 }}>Quick fill:</span>
                   {balance > 0 && (
                     <button
@@ -388,6 +395,8 @@ export default function MemberDetail() {
       </div>
 
       {biz.type === 'hostel' && <DepositNotice member={member} />}
+
+      {biz.attendanceEnabled !== false && <MemberAttendance memberId={member._id} isGym={biz.type === 'gym'} machineId={member.biometricId} />}
 
       {/* Transaction Ledger Timeline */}
       <Rise i={2}>
@@ -462,7 +471,7 @@ export default function MemberDetail() {
           pauseResume.mutate('pause');
         }}
         title={`Pause subscription for ${member.name}?`}
-        message="Pausing the subscription temporarily freezes membership check-ins. Paused days will automatically extend the renewal due date."
+        message="No new fees while paused. The paused days are added to the next due date when you resume."
         confirmText="Pause Subscription"
         icon={PauseIcon}
         busy={pauseResume.isPending}
@@ -476,7 +485,7 @@ export default function MemberDetail() {
           pauseResume.mutate('resume');
         }}
         title={`Resume subscription for ${member.name}?`}
-        message="Daily workout check-ins and regular membership billing will reactivate immediately."
+        message="Billing starts again from today, with the paused days added to the due date."
         confirmText="Resume Subscription"
         icon={PlayIcon}
         busy={pauseResume.isPending}
@@ -505,7 +514,7 @@ export default function MemberDetail() {
           markLeft.mutate();
         }}
         title={`Mark ${member.name} as Left?`}
-        message="This will deactivate their membership and stop upcoming subscription renewals. Their past payment ledger will remain preserved for your records."
+        message="No more fees will be added for them. Their payment history is kept."
         confirmText="Mark as Left"
         danger
         icon={AlertIcon}
@@ -555,7 +564,7 @@ function DepositNotice({ member }) {
             <span className="analytics-card-subtitle">Shown on the tenant's statement link, so both sides see the same record</span>
           </div>
         </div>
-        <div className="form-grid two-col" style={{ marginBottom: 12 }}>
+        <div className="form-grid two-col deposit-grid" style={{ marginBottom: 12 }}>
           <Field label="Security deposit held (₹)" icon={RupeeIcon}>
             <input type="number" min="0" inputMode="decimal" value={form.amount} onChange={set('amount')} />
           </Field>
@@ -575,6 +584,53 @@ function DepositNotice({ member }) {
           <button disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
         </div>
       </form>
+    </Rise>
+  );
+}
+
+// Last 30 days as a strip of dots: present, absent or not marked
+function MemberAttendance({ memberId, isGym, machineId }) {
+  const { data } = useQuery({
+    queryKey: ['member-attendance', memberId],
+    queryFn: () => api(`/members/${memberId}/attendance`),
+  });
+  if (!data) return null;
+  const byDay = new Map(data.records.map((r) => [r.day, r.status]));
+  const days = [];
+  for (let d = new Date(`${data.from}T00:00:00Z`); d.toISOString().slice(0, 10) <= data.to; d.setUTCDate(d.getUTCDate() + 1)) {
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const fmt = (day) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const label = { present: isGym ? 'Came in' : 'Present', absent: 'Absent' };
+
+  return (
+    <Rise i={2}>
+      <div className="analytics-card" style={{ marginBottom: 18 }}>
+        <div className="card-header-row" style={{ marginBottom: 10 }}>
+          <div>
+            <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <CalendarIcon size={17} style={{ color: 'var(--primary)' }} />
+              Attendance · last 30 days
+            </h3>
+            <span className="analytics-card-subtitle">
+              {isGym ? `${data.present} visit${data.present === 1 ? '' : 's'}` : `Present ${data.present} · Absent ${data.absent}`}
+              {data.lastPresent ? ` · last ${isGym ? 'visit' : 'present'} ${fmt(data.lastPresent)}` : ' · no attendance yet'}
+              {machineId && ` · machine ID ${machineId}`}
+            </span>
+          </div>
+        </div>
+        <div className="att-strip" role="img" aria-label={`${data.present} present, ${data.absent} absent in the last 30 days`}>
+          {days.map((day) => {
+            const st = byDay.get(day);
+            return <span key={day} className={`att-dot ${st || ''}`} title={`${fmt(day)}: ${st ? label[st] : 'Not marked'}`} />;
+          })}
+        </div>
+        <div className="att-strip-legend muted small">
+          <span>{fmt(data.from)}</span>
+          <span><i className="att-dot present" /> {label.present} <i className="att-dot absent" /> Absent <i className="att-dot" /> Not marked</span>
+          <span>Today</span>
+        </div>
+      </div>
     </Rise>
   );
 }

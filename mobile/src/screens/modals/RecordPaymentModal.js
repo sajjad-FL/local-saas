@@ -98,6 +98,8 @@ export default function RecordPaymentModal({
     Alert.alert('Copied', 'Receipt message copied to clipboard!');
   };
 
+  if (!visible || !member) return null;
+
   return (
     <Modal
       visible={visible}

@@ -1,4 +1,4 @@
-import { Member, Plan, Subscription, Due, Payment, Reminder, Group } from '../models/index.js';
+import { Member, Plan, Subscription, Due, Payment, Reminder, Group, Attendance, Room } from '../models/index.js';
 import { memberBalances, recomputeDues, rollForward, roomFullError, addPlanCycle, createDues, ensureShareToken } from '../services/billingService.js';
 
 export async function getMembers(req, res, next) {
@@ -34,7 +34,8 @@ export async function getMembers(req, res, next) {
           balance: bal.get(String(m._id)) || 0,
           planId: s?.planId,
           planName: s?.planId?.name,
-          planAmount: s?.planId?.amount || 0,
+          planAmount: s?.amount ?? s?.planId?.amount ?? 0, // their own rent when set
+          customAmount: s?.amount ?? null,
           cycleDays: s?.planId?.cycleDays,
           nextRenewal: s?.periodEnd || null,
           subscription: s,
@@ -87,7 +88,7 @@ export async function getMemberById(req, res, next) {
 
 export async function updateMember(req, res, next) {
   try {
-    const { name, phone, groupId, status, roomId, deposit, noticeGivenOn } = req.body;
+    const { name, phone, groupId, status, roomId, deposit, noticeGivenOn, biometricId } = req.body;
     if (groupId && !(await Group.exists({ _id: groupId, businessId: req.member.businessId }))) {
       return res.status(400).json({ error: 'group not found' });
     }
@@ -98,7 +99,7 @@ export async function updateMember(req, res, next) {
     Object.assign(
       req.member,
       Object.fromEntries(
-        Object.entries({ name, phone, groupId, status, roomId, deposit, noticeGivenOn }).filter(([, v]) => v !== undefined)
+        Object.entries({ name, phone, groupId, status, roomId, deposit, noticeGivenOn, biometricId }).filter(([, v]) => v !== undefined)
       )
     );
     await req.member.save();
@@ -111,10 +112,76 @@ export async function updateMember(req, res, next) {
   }
 }
 
+// "MF Manjil · First floor · Room 01"
+async function roomLabel(room) {
+  if (!room) return null;
+  const group = room.groupId ? await Group.findById(room.groupId) : null;
+  const floor = group?.floors.id(room.floorId);
+  return [group?.name, floor?.name, `Room ${room.roomNo}`].filter(Boolean).join(' · ');
+}
+
+// Move a tenant to another room: the new room needs a free bed, the move is written to the
+// tenant's room history, and a new rent (optional) applies to bills from now on only.
+export async function moveMember(req, res, next) {
+  try {
+    const member = req.member;
+    if (member.status !== 'active') return res.status(400).json({ error: 'only a current tenant can move rooms' });
+    const { roomId } = req.body ?? {};
+    if (!roomId) return res.status(400).json({ error: 'pick the room to move to' });
+    if (String(member.roomId || '') === String(roomId)) return res.status(400).json({ error: 'they already stay in that room' });
+    const full = await roomFullError(roomId, member.businessId, member._id);
+    if (full) return res.status(400).json({ error: full });
+
+    const on = req.body.on ? new Date(req.body.on) : new Date();
+    if (Number.isNaN(on.getTime())) return res.status(400).json({ error: 'that move date is not valid' });
+
+    const rawRent = req.body.rent;
+    const rent = rawRent === undefined || rawRent === null || rawRent === '' ? null : Number(rawRent);
+    if (rent !== null && (!Number.isInteger(rent) || rent < 1 || rent > 1e7)) {
+      return res.status(400).json({ error: 'rent must be a whole number of rupees' });
+    }
+
+    const [fromRoom, toRoom, sub] = await Promise.all([
+      member.roomId ? Room.findById(member.roomId) : null,
+      Room.findById(roomId),
+      Subscription.findOne({ memberId: member._id, status: { $in: ['active', 'paused'] } }).populate('planId'),
+    ]);
+    const rentBefore = sub ? sub.amount ?? sub.planId?.amount : undefined;
+
+    // a new rent changes the fee for every bill from here on; bills already raised stay as they are
+    if (rent !== null && sub && rent !== rentBefore) {
+      sub.amount = rent === sub.planId?.amount ? undefined : rent;
+      await sub.save();
+    }
+
+    member.roomMoves.push({
+      from: fromRoom?._id,
+      to: toRoom._id,
+      fromLabel: await roomLabel(fromRoom),
+      toLabel: await roomLabel(toRoom),
+      on,
+      rentBefore,
+      rentAfter: rent !== null && sub ? rent : rentBefore,
+    });
+    member.roomId = toRoom._id;
+    if (toRoom.groupId) member.groupId = toRoom.groupId; // a hostel's "group" is the building
+    await member.save();
+    res.json(member);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function subscribeMember(req, res, next) {
   try {
     const plan = await Plan.findOne({ _id: req.body.planId, businessId: req.member.businessId });
     if (!plan) return res.status(404).json({ error: 'plan not found' });
+    // a custom fee for this member (a discount, a different bed); blank = the plan's amount
+    const custom = req.body.amount;
+    const amount = custom === undefined || custom === null || custom === '' ? null : Number(custom);
+    if (amount !== null && (!Number.isInteger(amount) || amount < 1 || amount > 1e7)) {
+      return res.status(400).json({ error: 'amount must be a whole number of rupees' });
+    }
     await Subscription.updateMany({ memberId: req.member._id, status: 'active' }, { status: 'stopped' });
     const periodStart = req.body.startDate ? new Date(req.body.startDate) : new Date();
     const anchorDay = periodStart.getUTCDate();
@@ -124,10 +191,11 @@ export async function subscribeMember(req, res, next) {
     const sub = await Subscription.create({
       memberId: req.member._id,
       planId: plan._id,
+      amount: amount !== null && amount !== plan.amount ? amount : undefined,
       anchorDay,
       ...periods.at(-1),
     });
-    await createDues(sub, req.member, plan.amount, periods);
+    await createDues(sub, req.member, sub.amount ?? plan.amount, periods);
     await recomputeDues(req.member._id);
     res.json(sub);
   } catch (err) {
@@ -213,6 +281,7 @@ export async function deleteMember(req, res, next) {
       Due.deleteMany({ memberId }),
       Payment.deleteMany({ memberId }),
       Reminder.deleteMany({ memberId }),
+      Attendance.deleteMany({ memberId }),
       Member.findByIdAndDelete(memberId),
     ]);
     res.json({ ok: true, message: 'Member deleted successfully' });

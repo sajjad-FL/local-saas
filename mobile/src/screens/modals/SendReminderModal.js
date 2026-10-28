@@ -57,6 +57,8 @@ export default function SendReminderModal({
     Alert.alert('Copied', 'Reminder message copied to clipboard!');
   };
 
+  if (!visible || !member) return null;
+
   return (
     <Modal
       visible={visible}

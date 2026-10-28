@@ -22,6 +22,24 @@ export function dueRemaining(dues, totalPaid) {
   });
 }
 
+// What is still owed on each due (id -> amount), with every member's payments covering their
+// oldest dues first. A partly paid due owes only its unpaid part.
+export function remainingByDue(dues, payments) {
+  const paidBy = new Map();
+  for (const p of payments) paidBy.set(String(p.memberId), (paidBy.get(String(p.memberId)) || 0) + p.amount);
+  const duesBy = new Map();
+  for (const d of [...dues].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))) {
+    const id = String(d.memberId);
+    if (!duesBy.has(id)) duesBy.set(id, []);
+    duesBy.get(id).push(d);
+  }
+  const out = new Map();
+  for (const [id, list] of duesBy) {
+    dueRemaining(list, paidBy.get(id) || 0).forEach((r, i) => out.set(String(list[i]._id), r));
+  }
+  return out;
+}
+
 // Pure helper: months in a plan cycle, or 0 when the cycle is a plain day count
 export function cycleMonths(cycleDays) {
   if (cycleDays === 30 || cycleDays === 31) return 1;
@@ -82,14 +100,17 @@ export function ledger(dues, payments) {
   return rows;
 }
 
-// The member's statement token, created on first use
-export async function ensureShareToken(member) {
-  if (!member.shareToken) {
-    member.shareToken = crypto.randomBytes(18).toString('base64url');
-    await Member.updateOne({ _id: member._id }, { shareToken: member.shareToken });
+// A document's secret-link token (field), created on first use
+export async function ensureToken(doc, Model, field) {
+  if (!doc[field]) {
+    doc[field] = crypto.randomBytes(18).toString('base64url');
+    await Model.updateOne({ _id: doc._id }, { [field]: doc[field] });
   }
-  return member.shareToken;
+  return doc[field];
 }
+
+// The member's statement token, created on first use
+export const ensureShareToken = (member) => ensureToken(member, Member, 'shareToken');
 
 // Re-derive every due status for a member from scratch. Idempotent, predictable, correct.
 export async function recomputeDues(memberId) {

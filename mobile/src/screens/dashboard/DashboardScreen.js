@@ -7,211 +7,170 @@ import {
   RefreshControl,
   TouchableOpacity,
   SafeAreaView,
-  TextInput,
+  Linking,
 } from 'react-native';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
-import { api, rupees } from '../../api/api';
-import { COLORS } from '../../constants/theme';
-import { getPlanColor, getRenewalThreshold } from '../../constants/gymData';
-import StatTile from '../../components/StatTile';
-import MemberCard from '../../components/MemberCard';
-import Button from '../../components/Button';
+import { api, rupees, waLink, remindMsg, formatDate } from '../../api/api';
+import { words } from '../../constants/wording';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
+import Button from '../../components/Button';
 import Icon from '../../components/Icon';
+import TopBar from '../../components/TopBar';
+import Avatar from '../../components/Avatar';
+import { tint } from '../../constants/theme';
 
 // Modals
 import AddMemberModal from '../modals/AddMemberModal';
+import AddExpenseModal from '../modals/AddExpenseModal';
 import RecordPaymentModal from '../modals/RecordPaymentModal';
-import SendReminderModal from '../modals/SendReminderModal';
-import FeeBreakdownModal from '../modals/FeeBreakdownModal';
-import CreateBusinessModal from '../modals/CreateBusinessModal';
+import BulkRemindModal from '../modals/BulkRemindModal';
+
+const DAY = 86400000;
+const daysSince = (d) => Math.max(0, Math.floor((Date.now() - new Date(d)) / DAY));
+const daysUntil = (d) => Math.ceil((new Date(d) - Date.now()) / DAY);
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+const shortDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+const PAY_MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', bank_transfer: 'Bank transfer', bank: 'Bank transfer' };
+
+
+const roomLabel = (r, groupList = []) => {
+  const g = groupList.find((x) => x._id === (r.groupId?._id || r.groupId));
+  const f = g?.floors?.find((x) => x._id === r.floorId);
+  return [g?.name, f?.name, `Room ${r.roomNo}`].filter(Boolean).join(' · ');
+};
 
 export default function DashboardScreen({ navigation }) {
-  const { biz, businesses, switchBiz } = useBiz();
+  const { biz, currentBizId } = useBiz();
   const { theme } = useTheme();
 
-  const [data, setData] = useState(null);
-  const [plans, setPlans] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [monthReport, setMonthReport] = useState(null);
+  const [attendanceToday, setAttendanceToday] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState('6M'); // '3M' | '6M' | '1Y'
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' | 'active' | 'overdue' | 'due_soon'
 
-  // Modals state
+  // Modals
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [recordPaymentMember, setRecordPaymentMember] = useState(null);
-  const [reminderMember, setReminderMember] = useState(null);
-  const [feeBreakdownOpen, setFeeBreakdownOpen] = useState(false);
-  const [createBizOpen, setCreateBizOpen] = useState(false);
-  const [bizPickerOpen, setBizPickerOpen] = useState(false);
+  const [bulkRemindOpen, setBulkRemindOpen] = useState(false);
 
-  const fetchDashboard = useCallback(async () => {
-    if (!biz?._id) return;
+  const isHostel = biz?.type === 'hostel';
+  const w = words(biz?.type);
+
+  const fetchDashboardData = useCallback(async () => {
+    if (!currentBizId) return;
     try {
-      const [dash, p] = await Promise.all([
-        api(`/businesses/${biz._id}/dashboard`),
-        api(`/businesses/${biz._id}/plans`),
-      ]);
-      setData(dash);
-      setPlans(Array.isArray(p) ? p : []);
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+      const tz = now.getTimezoneOffset();
+
+      const promises = [
+        api(`/businesses/${currentBizId}/dashboard`),
+        api(`/businesses/${currentBizId}/report?from=${from}&to=${to}&tz=${tz}`),
+      ];
+
+      if (biz?.attendanceEnabled !== false) {
+        promises.push(api(`/businesses/${currentBizId}/attendance`));
+      } else {
+        promises.push(Promise.resolve(null));
+      }
+
+      if (biz?.type === 'hostel') {
+        promises.push(api(`/businesses/${currentBizId}/rooms`));
+        promises.push(api(`/businesses/${currentBizId}/groups`));
+      } else {
+        promises.push(Promise.resolve([]));
+        promises.push(Promise.resolve([]));
+      }
+
+      const [dash, report, att, r, g] = await Promise.all(promises);
+      setDashboardData(dash);
+      setMonthReport(report);
+      setAttendanceToday(att);
+      setRooms(Array.isArray(r) ? r : []);
+      setGroups(Array.isArray(g) ? g : []);
     } catch (err) {
-      console.warn('Dashboard fetch error', err);
+      console.warn('Dashboard fetch error:', err);
+    } finally {
+      setLoading(false);
     }
-  }, [biz?._id]);
+  }, [currentBizId, biz?.type, biz?.attendanceEnabled]);
 
   useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboard();
+    await fetchDashboardData();
     setRefreshing(false);
   };
 
   if (!biz) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.emptyContainer}>
-          <Icon name="business-outline" size={48} color={theme.colors.textMuted} />
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>No Workspace Found</Text>
-          <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
-            Create your first workspace to start managing members and tracking payments.
-          </Text>
-          <Button
-            title="Create Workspace"
-            variant="primary"
-            onPress={() => setCreateBizOpen(true)}
-            style={{ marginTop: 16 }}
-          />
-          <CreateBusinessModal
-            visible={createBizOpen}
-            onClose={() => setCreateBizOpen(false)}
-            onCreated={fetchDashboard}
-          />
+        <View style={styles.centerBox}>
+          <Text style={{ color: theme.colors.textSecondary }}>No workspace selected</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const typeConfig = COLORS.biz[biz.type] || COLORS.biz.gym;
-  const metrics = data?.metrics || {
-    activeMembers: { value: 0, newThisMonth: 0, deltaText: '0 registered' },
-    monthlyRevenue: { value: 0, deltaText: 'Collected this month', diff: 0, sparkline: [0, 0, 0] },
-    membersOwing: { value: 0, deltaText: 'All dues clear' },
-    totalOutstanding: { value: 0, deltaText: 'No pending dues' },
-    arpu: { value: 0, deltaText: 'Per member / month', diff: 0, planFeeBreakdown: [] },
-    nextRenewal: { value: 'None', deltaText: 'No upcoming renewals', daysLeft: null },
-  };
+  const pending = dashboardData?.pending || [];
+  const pendingTotal = dashboardData?.pendingTotal || 0;
+  const activeMembers = dashboardData?.activeMembers || 0;
+  const membersTable = dashboardData?.membersTable || [];
 
-  const revenueTrend = data?.revenueTrend || [];
-  const planDistribution = data?.planDistribution || [];
-  const membersTable = data?.membersTable || [];
-
-  // Filtered revenue months for chart
-  const filteredMonths = (() => {
-    const withData = revenueTrend.filter((t) => t.hasActivity || t.isCurrentMonth || t.collected > 0 || t.pending > 0);
-    const base = withData.length > 0 ? withData : revenueTrend.filter((t) => t.collected > 0 || t.isCurrentMonth);
-    if (period === '3M') return base.slice(-3);
-    if (period === '6M') return base.length <= 6 ? base : base.slice(-6);
-    if (period === '1Y') return base.slice(-12);
-    return base;
-  })();
-
-  // Filtered members directory list
-  const searchLower = search.trim().toLowerCase();
-  const filteredMembers = membersTable.filter((m) => {
-    const matchesSearch =
-      !searchLower ||
-      m.name.toLowerCase().includes(searchLower) ||
-      (m.phone || '').includes(searchLower);
-    if (!matchesSearch) return false;
-    if (filter === 'active') return m.status === 'active';
-    if (filter === 'overdue') return m.statusBadge === 'overdue';
-    if (filter === 'due_soon') return m.statusBadge === 'due_soon';
-    return true;
+  const now = new Date();
+  const monthName = now.toLocaleDateString('en-IN', { month: 'long' });
+  const todayFormatted = now.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
   });
 
-  const renewalThreshold = getRenewalThreshold(metrics.nextRenewal?.daysLeft);
-  const maxCollectedInTrend = Math.max(...filteredMonths.map((m) => Math.max(m.collected || 0, m.pending || 0)), 1);
+  const received = monthReport?.received ?? 0;
+  const spent = monthReport?.expenses ?? 0;
+  const profit = monthReport?.profit ?? 0;
+  const collectedPct =
+    received + pendingTotal > 0
+      ? Math.round((received / (received + pendingTotal)) * 100)
+      : 100;
+
+  // Hostel beds calculation matching web DashboardHome.jsx
+  const totalBeds = rooms.reduce((s, r) => s + r.capacity, 0);
+  const filledBeds = rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0);
+  const freeRooms = rooms
+    .filter((r) => (r.occupied || 0) < r.capacity)
+    .sort(
+      (a, b) =>
+        b.capacity - (b.occupied || 0) - (a.capacity - (a.occupied || 0)) ||
+        natural(a.roomNo, b.roomNo)
+    );
+
+  // Renewing soon matching web DashboardHome.jsx
+  const upcoming = membersTable
+    .filter(
+      (m) =>
+        m.status === 'active' &&
+        m.balance <= 0 &&
+        m.nextRenewal &&
+        daysUntil(m.nextRenewal) >= 0
+    )
+    .sort((a, b) => new Date(a.nextRenewal) - new Date(b.nextRenewal));
+  const renewingSoon = upcoming.filter((m) => daysUntil(m.nextRenewal) <= 14).slice(0, 6);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-      {/* Header Bar */}
-      <View style={[styles.headerBar, { borderBottomColor: theme.colors.border }]}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setBizPickerOpen(!bizPickerOpen)}
-          style={styles.bizHeaderTitleWrap}>
-          <View style={[styles.bizBadgeIcon, { backgroundColor: typeConfig.soft }]}>
-            <Icon name={typeConfig.icon} size={18} color={typeConfig.accent} />
-          </View>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={[styles.bizTitle, { color: theme.colors.text }]} numberOfLines={1}>
-                {biz.name}
-              </Text>
-              {businesses.length > 1 && (
-                <Icon name="chevron-down" size={14} color={theme.colors.textSecondary} />
-              )}
-            </View>
-            <Text style={[styles.bizSubBadge, { color: typeConfig.accent }]}>
-              {typeConfig.badge}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Quick Action Button */}
-        <Button
-          title="Add Member"
-          variant="primary"
-          size="sm"
-          icon={<Icon name="add" size={16} color="#FFFFFF" />}
-          onPress={() => setAddMemberOpen(true)}
-        />
-      </View>
-
-      {/* Switch Business Dropdown Bar (if open) */}
-      {bizPickerOpen && businesses.length > 1 && (
-        <View style={[styles.bizPickerContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <Text style={[styles.bizPickerLabel, { color: theme.colors.textSecondary }]}>
-            SWITCH WORKSPACE
-          </Text>
-          {businesses.map((b) => {
-            const isCur = b._id === biz._id;
-            const bConfig = COLORS.biz[b.type] || COLORS.biz.gym;
-            return (
-              <TouchableOpacity
-                key={b._id}
-                onPress={() => {
-                  switchBiz(b._id);
-                  setBizPickerOpen(false);
-                }}
-                style={[
-                  styles.bizPickerItem,
-                  {
-                    backgroundColor: isCur ? theme.colors.cardSubtle : 'transparent',
-                  },
-                ]}>
-                <View style={[styles.bizPickerIcon, { backgroundColor: bConfig.soft }]}>
-                  <Icon name={bConfig.icon} size={16} color={bConfig.accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.bizPickerItemName, { color: theme.colors.text }]}>
-                    {b.name}
-                  </Text>
-                  <Text style={[styles.bizPickerItemType, { color: theme.colors.textSecondary }]}>
-                    {bConfig.label}
-                  </Text>
-                </View>
-                {isCur && <Icon name="checkmark" size={18} color={theme.colors.primary} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
+      {/* TopBar with Brand + Sun/Moon theme toggle */}
+      <TopBar title="Dashboard" navigation={navigation} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -222,345 +181,434 @@ export default function DashboardScreen({ navigation }) {
             tintColor={theme.colors.primary}
           />
         }>
-        {/* SECTION 1: 6 KPI TILES (Matching Web Client) */}
-        <View style={styles.kpiGrid}>
-          {/* Tile 1: Active Members */}
-          <StatTile
-            label="ACTIVE MEMBERS"
-            value={metrics.activeMembers.value}
-            icon={<Icon name="people" size={16} color="#1E40AF" />}
-            iconBg="#DBEAFE"
-            deltaText={metrics.activeMembers.newThisMonth > 0 ? `+${metrics.activeMembers.newThisMonth} registered` : null}
-            deltaType="success"
-            onPress={() => navigation.navigate('Members')}
-          />
+        {/* TODAY HEADER & QUICK ACTIONS */}
+        <View style={styles.todayHeader}>
+          <Text style={[styles.todayTitle, { color: theme.colors.text }]}>Today</Text>
+          <Text style={[styles.todayDate, { color: theme.colors.textMuted }]}>
+            {todayFormatted}
+          </Text>
 
-          {/* Tile 2: Collected This Month */}
-          <StatTile
-            label={metrics.monthlyRevenue.label || 'COLLECTED THIS MONTH'}
-            value={metrics.monthlyRevenue.value}
-            prefix="₹"
-            icon={<Icon name="cash-outline" size={16} color="#065F46" />}
-            iconBg="#D1FAE5"
-            sparkline={metrics.monthlyRevenue.sparkline || [0, 0, 0]}
-            deltaText={metrics.monthlyRevenue.deltaText}
-            deltaType={metrics.monthlyRevenue.diff >= 0 ? 'success' : 'danger'}
-            onPress={() => navigation.navigate('Reports')}
-          />
+          <View style={styles.todayActions}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.btnActionSecondary,
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+              ]}
+              onPress={() => setAddExpenseOpen(true)}>
+              <Text style={[styles.btnActionSecondaryText, { color: theme.colors.text }]}>
+                ₹  Add expense
+              </Text>
+            </TouchableOpacity>
 
-          {/* Tile 3: Dues Pending */}
-          <StatTile
-            label="DUES PENDING"
-            value={metrics.membersOwing.value}
-            icon={<Icon name={metrics.membersOwing.value === 0 ? 'checkmark-circle' : 'alert-circle'} size={16} color={metrics.membersOwing.value === 0 ? '#065F46' : '#991B1B'} />}
-            iconBg={metrics.membersOwing.value === 0 ? '#D1FAE5' : '#FEE2E2'}
-            deltaText={metrics.membersOwing.deltaText}
-            deltaType={metrics.membersOwing.value === 0 ? 'success' : 'danger'}
-            borderColor={metrics.membersOwing.value === 0 ? '#6EE7B7' : '#FCA5A5'}
-            onPress={() => navigation.navigate('Members', { filter: 'owing' })}
-          />
-
-          {/* Tile 4: Outstanding Balance */}
-          <StatTile
-            label="OUTSTANDING"
-            value={metrics.totalOutstanding.value}
-            prefix="₹"
-            icon={<Icon name="time-outline" size={16} color="#92400E" />}
-            iconBg="#FEF3C7"
-            deltaText={metrics.totalOutstanding.deltaText}
-            deltaType={metrics.totalOutstanding.value > 0 ? 'danger' : 'neutral'}
-            onPress={() => navigation.navigate('Reports')}
-          />
-
-          {/* Tile 5: Avg Member Fee */}
-          <StatTile
-            label="AVG MEMBER FEE"
-            value={metrics.arpu.value}
-            prefix="₹"
-            suffix="/mo"
-            icon={<Icon name="trending-up" size={16} color="#6D28D9" />}
-            iconBg="#EDE9FE"
-            deltaText="Tap for plan breakdown"
-            deltaType="neutral"
-            onPress={() => setFeeBreakdownOpen(true)}
-          />
-
-          {/* Tile 6: Next Renewal */}
-          <StatTile
-            label="NEXT RENEWAL"
-            value={metrics.nextRenewal.value}
-            icon={<Icon name="calendar-outline" size={16} color={renewalThreshold.textColor} />}
-            iconBg={renewalThreshold.bgSoft}
-            deltaText={metrics.nextRenewal.deltaText}
-            deltaType={renewalThreshold.color === 'red' ? 'danger' : renewalThreshold.color === 'amber' ? 'warning' : 'success'}
-            borderColor={renewalThreshold.borderColor}
-            onPress={() => navigation.navigate('Members', { sortBy: 'renewal_asc' })}
-          />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[styles.btnActionPrimary, { backgroundColor: '#10B981' }]}
+              onPress={() => setAddMemberOpen(true)}>
+              <Text style={styles.btnActionPrimaryText}>
+                + Add {w.member ? w.member.toLowerCase() : 'member'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* SECTION 2: MONTHLY EARNINGS BREAKDOWN */}
-        <Card style={styles.chartCard}>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Monthly Earnings</Text>
-              <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                Collected vs. Pending Dues
+        {/* 1. THE MONTH IN FOUR NUMBERS (.dash-kpis); each opens the detail */}
+        <View style={styles.kpiGrid}>
+          {[
+            {
+              key: 'collect',
+              tone: pendingTotal > 0 ? '#EF4444' : '#10B981',
+              label: 'TO COLLECT',
+              value: rupees(pendingTotal),
+              valueColor: pendingTotal > 0 ? theme.colors.danger : theme.colors.text,
+              sub: pendingTotal > 0 ? `${plural(pending.length, w.member)} owe` : 'Everyone has paid',
+              go: () => navigation.navigate('Members', { filter: 'owing' }),
+            },
+            {
+              key: 'collected',
+              tone: '#3B82F6',
+              label: `COLLECTED · ${monthName.toUpperCase()}`,
+              value: rupees(received),
+              bar: collectedPct,
+              sub: `${collectedPct}% of this month's fees`,
+              go: () => navigation.navigate('Reports'),
+            },
+            {
+              key: 'spent',
+              tone: '#F59E0B',
+              label: `SPENT · ${monthName.toUpperCase()}`,
+              value: rupees(spent),
+              sub: spent ? 'rent, salaries, bills' : 'no expenses yet',
+              go: () => navigation.navigate('Reports', { view: 'expenses' }),
+            },
+            {
+              key: 'profit',
+              tone: profit < 0 ? '#EF4444' : '#8B5CF6',
+              label: `${profit < 0 ? 'LOSS' : 'PROFIT'} · ${monthName.toUpperCase()}`,
+              value: `${profit < 0 ? '−' : ''}${rupees(Math.abs(profit))}`,
+              valueColor: profit < 0 ? theme.colors.danger : theme.colors.text,
+              sub: 'received minus spent',
+              go: () => navigation.navigate('Reports'),
+            },
+          ].map((k) => (
+            <TouchableOpacity
+              key={k.key}
+              activeOpacity={0.8}
+              onPress={k.go}
+              style={[
+                styles.kpiCard,
+                {
+                  backgroundColor: tint(k.tone, theme.isDark ? 0.1 : 0.06, theme.colors.card),
+                  borderColor: tint(k.tone, theme.isDark ? 0.3 : 0.28, theme.colors.card),
+                  borderTopColor: k.tone,
+                },
+              ]}>
+              <Text style={[styles.kpiLabel, { color: theme.colors.textMuted }]} numberOfLines={1}>
+                {k.label}
               </Text>
-            </View>
+              <Text style={[styles.kpiValue, { color: k.valueColor || theme.colors.text }]} numberOfLines={1}>
+                {k.value}
+              </Text>
+              {k.bar !== undefined && (
+                <View style={[styles.kpiTrack, { backgroundColor: theme.colors.border }]}>
+                  <View style={[styles.kpiFill, { width: `${k.bar}%`, backgroundColor: k.tone }]} />
+                </View>
+              )}
+              <Text style={[styles.kpiSub, { color: theme.colors.textMuted }]}>{k.sub}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-            {/* Period Tabs: 3M | 6M | 1Y */}
-            <View style={[styles.periodTabs, { backgroundColor: theme.colors.cardSubtle }]}>
-              {['3M', '6M', '1Y'].map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  onPress={() => setPeriod(p)}
-                  style={[
-                    styles.periodTabBtn,
-                    period === p && { backgroundColor: theme.colors.card, shadowOpacity: 0.1 },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.periodTabText,
-                      { color: period === p ? theme.colors.text : theme.colors.textMuted },
-                    ]}>
-                    {p}
+        {/* 2. WHO OWES, or a short all-clear line */}
+        {pending.length > 0 ? (
+          <Card
+            style={[
+              styles.sectionCard,
+              {
+                backgroundColor: tint('#EF4444', theme.isDark ? 0.07 : 0.035, theme.colors.card),
+                borderColor: tint('#EF4444', 0.2, theme.colors.card),
+              },
+            ]}>
+            <View style={styles.sectionHead}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Needs payment</Text>
+                <View style={[styles.countPill, { backgroundColor: theme.colors.dangerSoft }]}>
+                  <Text style={[styles.countPillText, { color: theme.colors.danger }]}>{pending.length}</Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {pending.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => setBulkRemindOpen(true)}
+                    style={[styles.remindAllBtn, { backgroundColor: theme.colors.warningSoft, borderColor: theme.colors.warningBorder }]}>
+                    <Icon name="logo-whatsapp" size={13} color={theme.colors.warningDark} />
+                    <Text style={[styles.remindAllText, { color: theme.colors.warningDark }]}>Remind all</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => navigation.navigate('Members', { filter: 'owing' })}>
+                  <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>
+                    {pending.length > 6 ? `See all ${pending.length}` : 'Open list'}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Native Bar Chart / Progress Visualizer */}
-          <View style={styles.chartList}>
-            {filteredMonths.map((m, idx) => {
-              const collected = m.collected || 0;
-              const pending = m.pending || 0;
-              const total = collected + pending;
-              const colPct = total > 0 ? Math.round((collected / total) * 100) : 100;
-
-              return (
-                <View key={idx} style={styles.monthRow}>
-                  <View style={styles.monthLabelCol}>
-                    <Text style={[styles.monthName, { color: theme.colors.text }]}>{m.month}</Text>
-                    {m.isCurrentMonth && (
-                      <Badge label="Current" variant="info" size="sm" style={{ marginTop: 2 }} />
-                    )}
-                  </View>
-
-                  <View style={styles.monthBarCol}>
-                    <View style={[styles.stackedBarTrack, { backgroundColor: theme.colors.cardSubtle }]}>
-                      {collected > 0 && (
-                        <View
-                          style={[
-                            styles.stackedBarCol,
-                            {
-                              flex: collected,
-                              backgroundColor: theme.colors.primary,
-                              borderTopLeftRadius: 4,
-                              borderBottomLeftRadius: 4,
-                            },
-                          ]}
-                        />
-                      )}
-                      {pending > 0 && (
-                        <View
-                          style={[
-                            styles.stackedBarPend,
-                            {
-                              flex: pending,
-                              backgroundColor: theme.colors.danger,
-                              borderTopRightRadius: 4,
-                              borderBottomRightRadius: 4,
-                            },
-                          ]}
-                        />
-                      )}
-                    </View>
-
-                    <View style={styles.monthStatRow}>
-                      <Text style={[styles.monthStatCollected, { color: theme.colors.primaryDark }]}>
-                        Collected: {rupees(collected)}
-                      </Text>
-                      {pending > 0 ? (
-                        <Text style={[styles.monthStatPending, { color: theme.colors.danger }]}>
-                          Pending: {rupees(pending)}
-                        </Text>
-                      ) : (
-                        <Text style={[styles.monthStatPending, { color: theme.colors.successDark }]}>
-                          100% Cleared
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-
-            {filteredMonths.length === 0 && (
-              <Text style={[styles.emptySectionText, { color: theme.colors.textMuted }]}>
-                No monthly earnings recorded yet.
-              </Text>
-            )}
-          </View>
-        </Card>
-
-        {/* SECTION 3: MEMBERS BY PLAN DISTRIBUTION */}
-        {planDistribution.length > 0 && (
-          <Card style={styles.chartCard}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Members by Plan</Text>
-                <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                  Active membership package distribution
-                </Text>
               </View>
-              <Badge label={`${metrics.activeMembers.value} Active`} variant="info" size="sm" />
             </View>
 
-            <View style={styles.planList}>
-              {planDistribution.map((p, idx) => {
-                const color = getPlanColor(p.name, idx);
+            <View style={{ marginTop: 4 }}>
+              {pending.slice(0, 6).map((m, i) => {
+                const late = m.dueSince ? daysSince(m.dueSince) : 0;
+                const room = isHostel && rooms.find((r) => r._id === String(m.roomId?._id || m.roomId || ''));
                 return (
-                  <View key={p.name} style={styles.planItem}>
-                    <View style={styles.planItemTop}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <View style={[styles.planDot, { backgroundColor: color }]} />
-                        <Text style={[styles.planItemName, { color: theme.colors.text }]}>
-                          {p.name}
+                  <View
+                    key={m._id}
+                    style={[styles.oweRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('MemberDetail', { id: m._id })}
+                      style={styles.personInfo}>
+                      <Avatar name={m.name} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[styles.personName, { color: theme.colors.text }]} numberOfLines={1}>
+                          {m.name}
+                        </Text>
+                        {room ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Icon name="bed-outline" size={12} color={theme.colors.primary} />
+                            <Text style={[styles.personSub, { color: theme.colors.textMuted }]} numberOfLines={1}>
+                              {roomLabel(room, groups)}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.personSub, { color: theme.colors.textMuted }]}>{m.phone || 'No phone'}</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.oweBottom}>
+                      <View>
+                        <Text style={[styles.dueAmount, { color: theme.colors.danger }]}>{rupees(m.balance)}</Text>
+                        <Text style={[styles.dueLateText, { color: late > 0 ? theme.colors.danger : theme.colors.textMuted }]}>
+                          {late > 0 ? `${plural(late, 'day')} late` : 'due today'}
                         </Text>
                       </View>
-                      <Text style={[styles.planItemCount, { color: theme.colors.textSecondary }]}>
-                        {p.count} member{p.count > 1 ? 's' : ''} ({p.pctRevenue || 0}% rev)
-                      </Text>
-                    </View>
-
-                    {/* Progress track */}
-                    <View style={[styles.planProgressTrack, { backgroundColor: theme.colors.cardSubtle }]}>
-                      <View
-                        style={[
-                          styles.planProgressBar,
-                          {
-                            width: `${Math.min(100, p.pctMembers || Math.round((p.count / (metrics.activeMembers.value || 1)) * 100))}%`,
-                            backgroundColor: color,
-                          },
-                        ]}
-                      />
+                      <View style={styles.actionBtns}>
+                        {m.phone ? (
+                          <TouchableOpacity
+                            accessibilityLabel={`Send WhatsApp reminder to ${m.name}`}
+                            onPress={() => Linking.openURL(waLink(m.phone, remindMsg(biz, m, m.balance)))}
+                            style={[styles.waBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
+                            <Icon name="logo-whatsapp" size={17} color="#25D366" />
+                          </TouchableOpacity>
+                        ) : null}
+                        <TouchableOpacity onPress={() => setRecordPaymentMember(m)} style={styles.collectBtn}>
+                          <Icon name="checkmark" size={14} color="#FFFFFF" />
+                          <Text style={styles.collectText}>Collect</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 );
               })}
             </View>
           </Card>
-        )}
-
-        {/* SECTION 4: MEMBERS DIRECTORY PREVIEW */}
-        <View style={styles.sectionHeaderRow}>
-          <View>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Members Directory</Text>
-            <Text style={[styles.sectionSub, { color: theme.colors.textSecondary }]}>
-              Recent member subscriptions & renewals
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Members')}>
-            <Text style={{ color: theme.colors.primary, fontWeight: '700', fontSize: 13 }}>
-              View All ({membersTable.length}) →
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Quick search and filter chips */}
-        <View style={styles.searchBarWrap}>
+        ) : (
           <View
             style={[
-              styles.searchInputBox,
-              {
-                backgroundColor: theme.colors.inputBg,
-                borderColor: theme.colors.inputBorder,
-              },
+              styles.clearLine,
+              { backgroundColor: tint('#10B981', 0.1, theme.colors.card), borderColor: tint('#10B981', 0.3, theme.colors.card) },
             ]}>
-            <Icon name="search-outline" size={16} color={theme.colors.textMuted} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search name or phone…"
-              placeholderTextColor={theme.colors.textMuted}
-              style={[styles.searchInput, { color: theme.colors.text }]}
-            />
+            <Icon name="checkmark-circle-outline" size={18} color="#10B981" />
+            <Text style={[styles.clearText, { color: theme.colors.textSecondary }]}>
+              <Text style={{ fontWeight: '700', color: theme.colors.text }}>All fees are paid.</Text> Nobody owes anything right now.
+            </Text>
           </View>
-        </View>
+        )}
 
-        <View style={styles.filterChipRow}>
-          {[
-            { id: 'all', label: `All (${membersTable.length})` },
-            { id: 'active', label: 'Active' },
-            { id: 'overdue', label: 'Overdue' },
-            { id: 'due_soon', label: 'Due Soon' },
-          ].map((c) => {
-            const active = filter === c.id;
-            return (
+        {/* 2b. RECENT PAYMENTS */}
+        <Card
+          style={[
+            styles.sectionCard,
+            {
+              backgroundColor: tint('#10B981', theme.isDark ? 0.06 : 0.03, theme.colors.card),
+              borderColor: tint('#10B981', 0.2, theme.colors.card),
+            },
+          ]}>
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent payments</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Reports')}>
+              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>Reports</Text>
+            </TouchableOpacity>
+          </View>
+          {(dashboardData?.recentPayments || []).length ? (
+            (dashboardData.recentPayments || []).map((p, i) => (
               <TouchableOpacity
-                key={c.id}
-                onPress={() => setFilter(c.id)}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: active ? theme.colors.primarySoft : theme.colors.cardSubtle,
-                    borderColor: active ? theme.colors.primary : theme.colors.borderSubtle,
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    {
-                      color: active ? theme.colors.primaryDark : theme.colors.textSecondary,
-                      fontWeight: active ? '700' : '500',
-                    },
-                  ]}>
-                  {c.label}
-                </Text>
+                key={p._id}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('MemberDetail', { id: p.memberId })}
+                style={[styles.payRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
+                <Avatar name={p.name} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.personName, { color: theme.colors.text }]} numberOfLines={1}>{p.name}</Text>
+                  <Text style={[styles.personSub, { color: theme.colors.textMuted }]}>
+                    {shortDate(p.date)} · {PAY_MODE[p.mode] || 'Cash'}
+                  </Text>
+                </View>
+                <Text style={styles.payAmount}>+{rupees(p.amount)}</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            ))
+          ) : (
+            <Text style={[styles.emptySectionText, { color: theme.colors.textMuted, marginTop: 8 }]}>
+              No payments yet. They'll show up here as you collect them.
+            </Text>
+          )}
+        </Card>
 
-        {/* Members Cards List */}
-        <View style={{ marginTop: 8 }}>
-          {filteredMembers.slice(0, 10).map((m) => (
-            <MemberCard
-              key={m._id}
-              member={m}
-              biz={biz}
-              onPress={() => navigation.navigate('MemberDetail', { id: m._id })}
-              onCollect={(mem) => setRecordPaymentMember(mem)}
-              onRemind={(mem) => setReminderMember(mem)}
-            />
-          ))}
+        {/* 3. BEDS (Hostel) OR ACTIVE MEMBERS (Gym/Mess/Tuition) */}
+        {isHostel && totalBeds > 0 ? (
+          <Card
+            style={[
+              styles.sectionCard,
+              {
+                backgroundColor: tint('#8B5CF6', theme.isDark ? 0.08 : 0.04, theme.colors.card),
+                borderColor: tint('#8B5CF6', 0.22, theme.colors.card),
+              },
+            ]}
+            onPress={() => navigation.navigate('RoomsTab')}>
+            <View style={styles.sectionHead}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Beds</Text>
+              <Icon name="chevron-forward" size={15} color={theme.colors.textMuted} />
+            </View>
 
-          {filteredMembers.length === 0 && (
-            <View style={styles.emptyCardBox}>
-              <Text style={[styles.emptyCardText, { color: theme.colors.textMuted }]}>
-                No members found matching your search.
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8, gap: 4 }}>
+              <Text style={[styles.bedsCountNumber, { color: theme.colors.text }]}>
+                {filledBeds}
+              </Text>
+              <Text style={[styles.bedsCountLabel, { color: theme.colors.textMuted }]}>
+                of {plural(totalBeds, 'bed')} filled
               </Text>
             </View>
-          )}
 
-          {filteredMembers.length > 10 && (
-            <Button
-              title={`View Remaining ${filteredMembers.length - 10} Members`}
-              variant="outline"
-              style={{ marginTop: 6, marginBottom: 16 }}
-              onPress={() => navigation.navigate('Members')}
-            />
+            {/* Purple Occupancy Bar */}
+            <View
+              style={[
+                styles.progressTrack,
+                { backgroundColor: theme.colors.cardSubtle, marginTop: 10, marginBottom: 14 },
+              ]}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${totalBeds > 0 ? Math.round((filledBeds / totalBeds) * 100) : 0}%`,
+                    backgroundColor: '#8B5CF6',
+                  },
+                ]}
+              />
+            </View>
+
+            {freeRooms.length > 0 ? (
+              <View>
+                {freeRooms.slice(0, 4).map((r) => (
+                  <View key={r._id} style={styles.freeRoomRow}>
+                    <Text
+                      style={[styles.freeRoomName, { color: theme.colors.text }]}
+                      numberOfLines={1}>
+                      {roomLabel(r, groups)}
+                    </Text>
+                    <Text style={[styles.freeBedsBadge, { color: '#10B981' }]}>
+                      {plural(r.capacity - (r.occupied || 0), 'free bed')}
+                    </Text>
+                  </View>
+                ))}
+                {freeRooms.length > 4 && (
+                  <Text style={[styles.moreRoomsText, { color: theme.colors.text }]}>
+                    +{freeRooms.length - 4} more rooms with space
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <Text style={[styles.emptySectionText, { color: theme.colors.textMuted }]}>
+                Every bed is taken.
+              </Text>
+            )}
+          </Card>
+        ) : (
+          <Card style={styles.sectionCard} onPress={() => navigation.navigate('Members')}>
+            <View style={styles.sectionHead}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                  Active {w.members}
+                </Text>
+              </View>
+              <Icon name="chevron-forward" size={15} color={theme.colors.textMuted} />
+            </View>
+            <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 8 }}>
+              <Text style={{ fontWeight: '700', fontSize: 18, color: theme.colors.text }}>
+                {activeMembers}
+              </Text>{' '}
+              currently enrolled
+            </Text>
+          </Card>
+        )}
+
+        {/* 4. RENEWING SOON */}
+        <Card
+          style={[
+            styles.sectionCard,
+            {
+              backgroundColor: tint('#F59E0B', theme.isDark ? 0.07 : 0.04, theme.colors.card),
+              borderColor: tint('#F59E0B', 0.22, theme.colors.card),
+            },
+          ]}>
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Renewing soon</Text>
+          </View>
+
+          {renewingSoon.length > 0 ? (
+            <View style={{ marginTop: 8 }}>
+              {renewingSoon.map((m) => {
+                const days = daysUntil(m.nextRenewal);
+                return (
+                  <View
+                    key={m._id}
+                    style={[styles.rowItem, { borderBottomColor: theme.colors.border }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('MemberDetail', { id: m._id })}
+                      style={styles.personInfo}>
+                      <Avatar name={m.name} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[styles.personName, { color: theme.colors.text }]} numberOfLines={1}>
+                          {m.name}
+                        </Text>
+                        <Text style={[styles.personSub, { color: theme.colors.textMuted }]}>
+                          {rupees(m.planAmount)} on {shortDate(m.nextRenewal)} · in {days} days
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {m.phone && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const msg = `Hi ${m.name}, your ${biz?.name || 'membership'} plan renews on ${shortDate(m.nextRenewal)} (${rupees(m.planAmount)}). Thank you!`;
+                          Linking.openURL(waLink(m.phone, msg));
+                        }}
+                        style={[styles.waBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, marginLeft: 8 }]}>
+                        <Icon name="logo-whatsapp" size={17} color="#25D366" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={[styles.renewingEmptyText, { color: theme.colors.textMuted }]}>
+              Nobody renews in the next 2 weeks.
+              {upcoming[0] && (
+                <>
+                  {' '}Next:{' '}
+                  <Text style={{ fontWeight: '700', color: theme.colors.text }}>
+                    {upcoming[0].name}
+                  </Text>{' '}
+                  on {shortDate(upcoming[0].nextRenewal)}.
+                </>
+              )}
+            </Text>
           )}
-        </View>
+        </Card>
+
+        {/* 5. ATTENDANCE TODAY (if enabled) */}
+        {biz?.attendanceEnabled !== false && attendanceToday && attendanceToday.counts?.total > 0 && (
+          <Card style={styles.sectionCard} onPress={() => navigation.navigate('AttendanceTab')}>
+            <View style={styles.sectionHead}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Attendance today</Text>
+              </View>
+              <Icon name="chevron-forward" size={15} color={theme.colors.textMuted} />
+            </View>
+
+            <Text style={{ fontSize: 13, color: theme.colors.textMuted, marginTop: 8 }}>
+              <Text style={{ fontWeight: '700', fontSize: 18, color: theme.colors.text }}>
+                {attendanceToday.counts?.present || 0}
+              </Text>{' '}
+              of {attendanceToday.counts?.total || 0} {biz?.type === 'gym' ? 'checked in' : 'present'}
+            </Text>
+          </Card>
+        )}
       </ScrollView>
 
-      {/* MODALS */}
+      {/* Modals */}
       <AddMemberModal
         visible={addMemberOpen}
         biz={biz}
         onClose={() => setAddMemberOpen(false)}
-        onMemberAdded={fetchDashboard}
+        onMemberAdded={fetchDashboardData}
+      />
+
+      <AddExpenseModal
+        visible={addExpenseOpen}
+        biz={biz}
+        onClose={() => setAddExpenseOpen(false)}
+        onSaved={fetchDashboardData}
       />
 
       <RecordPaymentModal
@@ -568,27 +616,15 @@ export default function DashboardScreen({ navigation }) {
         member={recordPaymentMember}
         biz={biz}
         onClose={() => setRecordPaymentMember(null)}
-        onPaymentRecorded={fetchDashboard}
+        onPaymentRecorded={fetchDashboardData}
       />
 
-      <SendReminderModal
-        visible={Boolean(reminderMember)}
-        member={reminderMember}
+      <BulkRemindModal
+        visible={bulkRemindOpen}
+        title="who owe"
+        people={pending}
         biz={biz}
-        onClose={() => setReminderMember(null)}
-      />
-
-      <FeeBreakdownModal
-        visible={feeBreakdownOpen}
-        plans={metrics.arpu.planFeeBreakdown || []}
-        avgFee={metrics.arpu.value}
-        onClose={() => setFeeBreakdownOpen(false)}
-      />
-
-      <CreateBusinessModal
-        visible={createBizOpen}
-        onClose={() => setCreateBizOpen(false)}
-        onCreated={fetchDashboard}
+        onClose={() => setBulkRemindOpen(false)}
       />
     </SafeAreaView>
   );
@@ -598,259 +634,344 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  bizHeaderTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  centerBox: {
     flex: 1,
-  },
-  bizBadgeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  bizTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    maxWidth: 180,
-  },
-  bizSubBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  bizPickerContainer: {
-    borderBottomWidth: 1,
-    padding: 12,
-  },
-  bizPickerLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  bizPickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 8,
-    gap: 10,
-    marginBottom: 4,
-  },
-  bizPickerIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bizPickerItemName: {
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-  bizPickerItemType: {
-    fontSize: 11,
   },
   scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 36,
+  },
+  todayHeader: {
+    marginBottom: 16,
+  },
+  todayTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  todayDate: {
+    fontSize: 13.5,
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  todayActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  btnActionSecondary: {
+    flex: 1,
+    height: 42,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnActionSecondaryText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  btnActionPrimary: {
+    flex: 1,
+    height: 42,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnActionPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  heroCard: {
     padding: 16,
-    paddingBottom: 32,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  heroMain: {
+    marginBottom: 16,
+  },
+  heroLabel: {
+    fontSize: 13.5,
+    fontWeight: '500',
+  },
+  heroAmount: {
+    fontSize: 34,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  heroAmountSmall: {
+    fontSize: 21,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  heroSub: {
+    fontSize: 13.5,
+    marginTop: 3,
+  },
+  progressWrap: {
+    marginTop: 14,
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12.5,
+    marginTop: 7,
+    fontWeight: '400',
+  },
+  monthCard: {
+    borderTopWidth: 1,
+    paddingTop: 16,
+  },
+  monthCardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  monthMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  monthMetric: {
+    flex: 1,
+  },
+  metricLabel: {
+    fontSize: 12,
+    marginBottom: 3,
+  },
+  metricVal: {
+    fontSize: 19,
+    fontWeight: '800',
   },
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  chartCard: {
-    marginBottom: 14,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 10,
     marginBottom: 12,
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  cardSub: {
-    fontSize: 11.5,
-    marginTop: 2,
-  },
-  periodTabs: {
-    flexDirection: 'row',
-    borderRadius: 6,
-    padding: 2,
-  },
-  periodTabBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  periodTabText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  chartList: {
-    gap: 12,
-    marginTop: 4,
-  },
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  monthLabelCol: {
-    width: 65,
-  },
-  monthName: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  monthBarCol: {
-    flex: 1,
-  },
-  stackedBarTrack: {
-    height: 12,
-    borderRadius: 4,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  stackedBarCol: {
-    height: '100%',
-  },
-  stackedBarPend: {
-    height: '100%',
-  },
-  monthStatRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  monthStatCollected: {
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
-  monthStatPending: {
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
-  emptySectionText: {
-    textAlign: 'center',
-    paddingVertical: 16,
-    fontSize: 12,
-  },
-  planList: {
-    gap: 10,
-    marginTop: 4,
-  },
-  planItem: {
+  kpiCard: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderTopWidth: 3,
     gap: 4,
   },
-  planItemTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+  },
+  kpiValue: {
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  kpiTrack: {
+    height: 5,
+    borderRadius: 99,
+    overflow: 'hidden',
+    marginVertical: 2,
+  },
+  kpiFill: {
+    height: '100%',
+    borderRadius: 99,
+  },
+  kpiSub: {
+    fontSize: 12.5,
+  },
+  countPill: {
+    minWidth: 22,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 99,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  planDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  countPillText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
-  planItemName: {
+  remindAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  remindAllText: {
     fontSize: 12.5,
     fontWeight: '600',
   },
-  planItemCount: {
-    fontSize: 11.5,
+  oweRow: {
+    paddingVertical: 12,
+    gap: 8,
   },
-  planProgressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
+  oweBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 42,
   },
-  planProgressBar: {
-    height: '100%',
-    borderRadius: 3,
+  waBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sectionHeaderRow: {
+  collectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 38,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundColor: '#10B981',
+  },
+  collectText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  clearLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  clearText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  payRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+  },
+  payAmount: {
+    color: '#10B981',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sectionCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  sectionHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 10,
-    marginBottom: 8,
+    alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15.5,
+    fontWeight: '700',
+  },
+  seeAllText: {
+    fontSize: 12.5,
+    fontWeight: '500',
+  },
+  bedsCountNumber: {
+    fontSize: 26,
     fontWeight: '800',
   },
-  sectionSub: {
+  bedsCountLabel: {
+    fontSize: 13.5,
+  },
+  freeRoomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 7,
+  },
+  freeRoomName: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
+  },
+  freeBedsBadge: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  moreRoomsText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  emptySectionText: {
+    fontSize: 13,
+    marginTop: 8,
+  },
+  renewingEmptyText: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  rowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  personInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  personName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  personSub: {
     fontSize: 12,
     marginTop: 1,
   },
-  searchBarWrap: {
-    marginBottom: 8,
+  dueCol: {
+    alignItems: 'flex-end',
+    marginRight: 8,
   },
-  searchInputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    height: 38,
-    gap: 8,
+  dueAmount: {
+    fontSize: 14,
+    fontWeight: '700',
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
+  dueLateText: {
+    fontSize: 11,
+    marginTop: 1,
   },
-  filterChipRow: {
+  actionBtns: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 10,
   },
-  filterChip: {
-    borderWidth: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+  actionBtn: {
+    width: 32,
+    height: 32,
     borderRadius: 6,
-  },
-  filterChipText: {
-    fontSize: 11.5,
-  },
-  emptyCardBox: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  emptyCardText: {
-    fontSize: 13,
-  },
-  emptyContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
   },
 });
-

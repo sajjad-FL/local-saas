@@ -15,18 +15,42 @@ export default function Badge({
   const getColors = () => {
     switch (variant) {
       case 'success':
-        return { bg: theme.colors.successSoft, text: theme.colors.successDark, border: '#A7F3D0' };
+        return {
+          bg: theme.colors.successSoft,
+          text: theme.colors.successDark,
+          border: theme.colors.successBorder,
+        };
       case 'warning':
-        return { bg: theme.colors.warningSoft, text: theme.colors.warningDark, border: '#FDE68A' };
+        return {
+          bg: theme.colors.warningSoft,
+          text: theme.colors.warningDark,
+          border: theme.colors.warningBorder,
+        };
       case 'danger':
-        return { bg: theme.colors.dangerSoft, text: theme.colors.dangerDark, border: '#FECACA' };
+        return {
+          bg: theme.colors.dangerSoft,
+          text: theme.colors.dangerDark,
+          border: theme.colors.dangerBorder,
+        };
       case 'info':
-        return { bg: theme.colors.infoSoft, text: theme.colors.infoDark, border: '#BFDBFE' };
+        return {
+          bg: theme.colors.infoSoft,
+          text: theme.colors.infoDark,
+          border: theme.colors.infoBorder,
+        };
       case 'purple':
-        return { bg: theme.colors.purpleSoft, text: theme.colors.purpleDark, border: '#DDD6FE' };
+        return {
+          bg: theme.colors.purpleSoft,
+          text: theme.colors.purpleDark,
+          border: theme.colors.purpleBorder,
+        };
       case 'gray':
       default:
-        return { bg: theme.colors.cardSubtle, text: theme.colors.textSecondary, border: theme.colors.borderSubtle };
+        return {
+          bg: theme.colors.cardSubtle,
+          text: theme.colors.textSecondary,
+          border: theme.colors.border,
+        };
     }
   };
 
@@ -75,4 +99,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

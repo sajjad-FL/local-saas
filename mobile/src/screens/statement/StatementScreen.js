@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { useTheme } from '../../context/ThemeContext';
 import { rupees, formatDate, getApiBaseUrl } from '../../api/api';
 import Card from '../../components/Card';
@@ -95,8 +95,10 @@ export default function StatementScreen({ route, navigation }) {
   const handleShareStatement = async () => {
     try {
       const text = `Member Statement for ${member.name} (${business.name})\nBalance: ${rupees(balance)}\nGenerated on: ${formatDate(generatedAt)}`;
-      const fileUri = `${FileSystem.documentDirectory}statement_${member.name.replace(/\s+/g, '_')}.txt`;
-      await FileSystem.writeAsStringAsync(fileUri, text);
+      const file = new File(Paths.document, `statement_${member.name.replace(/\s+/g, '_')}.txt`);
+      file.create({ overwrite: true });
+      file.write(text);
+      const fileUri = file.uri;
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri);
       } else {

@@ -1,20 +1,17 @@
 import { Router } from 'express';
 import { register, login } from '../controllers/authController.js';
+import { rateLimit } from '../middlewares/rateLimit.js';
 
 export const authRoutes = Router();
 
-// in-memory limiter: 10 attempts per IP per 15 min, enough to stop password guessing
-const attempts = new Map();
-function limitAttempts(req, res, next) {
-  const now = Date.now();
-  const hits = (attempts.get(req.ip) || []).filter((t) => now - t < 15 * 60000);
-  if (hits.length >= 10) return res.status(429).json({ error: 'too many attempts — try again in 15 minutes' });
-  attempts.set(req.ip, [...hits, now]);
-  next();
-}
+// Login: 10 wrong passwords per IP per 15 min stops guessing; successful logins don't count,
+// so staff sharing one office Wi-Fi never lock each other out.
+const limitLogins = rateLimit({ max: 10, windowMs: 15 * 60000, failuresOnly: true, message: 'too many wrong passwords — try again in 15 minutes' });
+// Registration: 10 accounts per IP per 15 min
+const limitSignups = rateLimit({ max: 10, windowMs: 15 * 60000, message: 'too many attempts — try again in 15 minutes' });
 
-authRoutes.post('/register', limitAttempts, register);
-authRoutes.post('/login', limitAttempts, login);
+authRoutes.post('/register', limitSignups, register);
+authRoutes.post('/login', limitLogins, login);
 
 export default authRoutes;
 

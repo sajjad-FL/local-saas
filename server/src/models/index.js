@@ -9,3 +9,6 @@ export { Due } from './Due.js';
 export { Payment } from './Payment.js';
 export { Reminder } from './Reminder.js';
 
+export { Expense } from './Expense.js';
+export { Attendance } from './Attendance.js';
+export { AdminLog } from './AdminLog.js';
