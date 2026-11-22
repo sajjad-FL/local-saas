@@ -454,119 +454,16 @@ function UpiGatewaySettings() {
   );
 }
 
-// 2. Staff Accounts Settings Component
+// 2. Team: staff now have their own page, with outlets and access levels
 function StaffAccountsSettings() {
-  const biz = useBiz();
-  const qc = useQueryClient();
-  const [phone, setPhone] = useState('');
-  const [copiedInvite, setCopiedInvite] = useState(false);
-  const [revokeTarget, setRevokeTarget] = useState(null);
-
-  const { data: staff } = useQuery({
-    queryKey: ['staff', biz._id],
-    queryFn: () => api(`/businesses/${biz._id}/staff`),
-  });
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['staff', biz._id] });
-
-  const add = useMutation({
-    mutationFn: () => api(`/businesses/${biz._id}/staff`, { method: 'POST', body: { phone: phone.replace(/\D/g, '') } }),
-    onSuccess: () => { setPhone(''); invalidate(); },
-  });
-
-  const remove = useMutation({
-    mutationFn: (uid) => api(`/businesses/${biz._id}/staff/${uid}`, { method: 'DELETE' }),
-    onSuccess: () => { setRevokeTarget(null); invalidate(); },
-  });
-
-  const handleCopyInvite = () => {
-    const inviteLink = `${window.location.origin}/login?inviteBiz=${encodeURIComponent(biz.name)}`;
-    navigator.clipboard.writeText(inviteLink);
-    setCopiedInvite(true);
-    setTimeout(() => setCopiedInvite(false), 2000);
-  };
-
   return (
-    <div className="analytics-card">
-      <div className="card-header-row" style={{ marginBottom: 12 }}>
-        <div>
-          <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <UserIcon size={17} style={{ color: 'var(--primary)' }} />
-            Staff Accounts & Access Controls
-          </h3>
-          <span className="analytics-card-subtitle">
-            Authorized staff can manage members and record dues, but cannot modify UPI ID or remove other staff.
-          </span>
-        </div>
+    <section className="analytics-card" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 260px' }}>
+        <h2 className="md-card-title" style={{ margin: 0 }}>Staff and their access</h2>
+        <p className="muted small" style={{ margin: '4px 0 0' }}>Add staff, pick which outlets they can open, and choose what they can do there.</p>
       </div>
-
-      <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} style={{ marginBottom: 12 }}>
-        <div className="field">
-          <label className="input-label">
-            <PhoneIcon size={14} /> Staff Mobile Number
-          </label>
-          <div className="form-input-action-row">
-            <input
-              type="tel"
-              inputMode="numeric"
-              placeholder="10-digit registered phone"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-            />
-            <button disabled={add.isPending || phone.length !== 10}>
-              <PlusIcon size={15} /> {add.isPending ? 'Authorizing…' : 'Authorize Staff'}
-            </button>
-          </div>
-
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 4, flexWrap: 'wrap', gap: 6 }}>
-            <span className="small muted">
-              Staff must have a {biz.name} account. Share the invite link to get them started.
-            </span>
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ minHeight: 24, padding: '2px 8px', fontSize: 11 }}
-              onClick={handleCopyInvite}>
-              <CopyIcon size={12} /> {copiedInvite ? '✓ Copied invite link' : 'Copy invite link'}
-            </button>
-          </div>
-        </div>
-      </form>
-      {add.error && <p className="small red-text" role="alert" style={{ marginBottom: 8 }}>{add.error.message}</p>}
-
-      {(staff || []).map((s) => (
-        <div className="card row" key={s._id} style={{ alignItems: 'center', margin: '6px 0', padding: '10px 12px', border: '1px solid var(--border)' }}>
-          <Avatar name={s.name} />
-          <div className="grow" style={{ minWidth: 0, marginLeft: 8 }}>
-            <b style={{ fontSize: 13.5 }}>{s.name}</b>
-            <div className="muted small">📞 +91 {s.phone}</div>
-          </div>
-          <button
-            type="button"
-            className="btn-secondary red-text"
-            style={{ minHeight: 26, padding: '2px 8px', fontSize: 11 }}
-            onClick={() => setRevokeTarget(s)}>
-            Revoke Access
-          </button>
-        </div>
-      ))}
-
-      {staff && staff.length === 0 && (
-        <p className="muted small" style={{ margin: '4px 2px' }}>No additional staff accounts authorized yet.</p>
-      )}
-
-      <ConfirmDialog
-        isOpen={!!revokeTarget}
-        onClose={() => setRevokeTarget(null)}
-        onConfirm={() => revokeTarget && remove.mutate(revokeTarget._id)}
-        title={`Revoke staff access for ${revokeTarget?.name}?`}
-        message="This staff member will no longer be able to log in to view members or record payments for this business."
-        confirmText="Revoke Access"
-        danger
-        busy={remove.isPending}
-      />
-    </div>
+      <Link to="/setup?tab=staff" className="btn"><UsersIcon size={15} /> Open Staff</Link>
+    </section>
   );
 }
 

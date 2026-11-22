@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 940px; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="border: 1px solid #E7E9F0; border-radius: 12px; display: flex; align-items: center; gap: 10px; padding: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+      <span style="color: #64748B">⌄</span>
+    </div>
+    <!-- three items become one: "Setup" -->
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Setup</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">3 plans · 2 batches · 3 outlets · 3 staff</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Setup</h1>
+      </div>
+      <!-- the main button follows the tab -->
+      <button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ {{addLabel}}</button>
+    </div>
+
+    <!-- one card per area: a glance and a way in -->
+    <section aria-label="Areas" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+        <button type="button" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid {{t.border}}; box-shadow: {{t.shadow}}; border-radius: 14px; text-align: left; color: #0F172A">
+          <span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: {{t.bg}}; color: {{t.ink}}; display: grid; place-items: center; font-weight: 700">{{t.icon}}</span>
+          <span style="display: flex; flex-direction: column"><span style="font-size: 12.5px; color: #64748B; font-weight: 500">{{t.label}}</span><b style="font-size: 20px">{{t.value}}</b><span style="font-size: 12px; color: #94A3B8">{{t.note}}</span></span>
+        </button>
+      </sc-for>
+    </section>
+
+    <div role="tablist" aria-label="Setup" style="display: flex; gap: 4px; border-bottom: 1px solid #E7E9F0">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="height: 42px; padding: 0 14px; border: 0; border-bottom: 2px solid {{t.line}}; margin-bottom: -1px; background: transparent; color: {{t.ink}}; font-size: 14px; font-weight: {{t.weight}}; display: inline-flex; align-items: center; gap: 8px">{{t.label}}<span style="height: 20px; min-width: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: {{t.countBg}}; color: {{t.countInk}}; font-size: 11.5px; font-weight: 600; display: inline-grid; place-items: center">{{t.count}}</span></button>
+      </sc-for>
+    </div>
+
+    <!-- PLANS -->
+    <sc-if value="{{showPlans}}" hint-placeholder-val="{{ true }}">
+      <section style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px">
+        <sc-for list="{{plans}}" as="p" hint-placeholder-count="3">
+          <article style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px">
+              <span style="display: flex; flex-direction: column"><b style="font-size: 16px">{{p.name}}</b><span style="font-size: 12.5px; color: #64748B">every {{p.cycle}}</span></span>
+              <button type="button" aria-label="More" style="width: 32px; height: 32px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; color: #475569">⋯</button>
+            </div>
+            <b style="font-size: 24px; letter-spacing: -0.01em">{{p.price}}<span style="font-size: 13px; font-weight: 500; color: #64748B"> {{p.per}}</span></b>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #EEF0F5; font-size: 12.5px; color: #64748B">
+              <span>{{p.members}} members on it</span>
+              <sc-if value="{{p.warn}}" hint-placeholder-val="{{ false }}"><span style="height: 22px; padding: 0 8px; border-radius: 99px; background: #FFF6E5; color: #92400E; font-weight: 600; display: inline-flex; align-items: center">Name says 6 months, cycle is 30 days</span></sc-if>
+            </div>
+          </article>
+        </sc-for>
+        <button type="button" style="min-height: 150px; border: 2px dashed #D9D2FE; border-radius: 16px; background: #FBFAFF; color: #3D27B8; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px">+ Add plan<span style="font-size: 12.5px; font-weight: 500; color: #64748B">Monthly, quarterly, yearly…</span></button>
+      </section>
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: center"><span><b style="font-size: 15px">Batches &amp; time slots</b> <span style="font-size: 12.5px; color: #94A3B8">optional</span></span><button type="button" style="border: 0; background: none; color: #4A2EE6; font-weight: 600; font-size: 13px; padding: 0">+ Add batch</button></div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <span style="height: 36px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px">Morning 6–8 <span style="color: #94A3B8">· 14</span></span>
+          <span style="height: 36px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px">Evening 6–8 <span style="color: #94A3B8">· 10</span></span>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- OUTLETS (same as the Outlets page, now a tab) -->
+    <sc-if value="{{showOutlets}}" hint-placeholder-val="{{ false }}">
+      <section style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px">
+        <sc-for list="{{outlets}}" as="o" hint-placeholder-count="3">
+          <article style="background: #FFFFFF; border: 1px solid {{o.border}}; box-shadow: {{o.shadow}}; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="width: 40px; height: 40px; border-radius: 11px; background: {{o.bg}}; color: {{o.ink}}; display: grid; place-items: center; font-weight: 700">{{o.short}}</span><span style="flex: 1; display: flex; flex-direction: column"><b>{{o.name}}</b><span style="font-size: 12.5px; color: #64748B">{{o.kind}}</span></span><sc-if value="{{o.current}}" hint-placeholder-val="{{ false }}"><span style="height: 22px; padding: 0 8px; border-radius: 99px; background: #ECFDF3; color: #066B3F; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center">Open now</span></sc-if></div>
+            <dl style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; font-size: 13px"><div><dt style="color: #94A3B8; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600">Active</dt><dd style="margin: 2px 0 0; font-weight: 700">{{o.active}}</dd></div><div><dt style="color: #94A3B8; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600">To collect</dt><dd style="margin: 2px 0 0; font-weight: 700; color: #B42318">{{o.owe}}</dd></div><div><dt style="color: #94A3B8; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600">Staff</dt><dd style="margin: 2px 0 0; font-weight: 700">{{o.staff}}</dd></div></dl>
+            <button type="button" style="height: 38px; border: {{o.btnBorder}}; border-radius: 10px; background: {{o.btnBg}}; color: {{o.btnInk}}; font-weight: 600">{{o.btn}}</button>
+          </article>
+        </sc-for>
+      </section>
+    </sc-if>
+
+    <!-- STAFF (same as the Staff page, now a tab) -->
+    <sc-if value="{{showStaff}}" hint-placeholder-val="{{ false }}">
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; overflow: hidden">
+        <sc-for list="{{staff}}" as="s" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-top: 1px solid #EEF0F5; font-size: 14px">
+            <span style="width: 36px; height: 36px; border-radius: 99px; background: {{s.bg}}; color: {{s.ink}}; display: grid; place-items: center; font-weight: 700; font-size: 13px">{{s.short}}</span>
+            <span style="flex: 1; display: flex; flex-direction: column"><b style="font-weight: 600">{{s.name}}</b><span style="font-size: 12.5px; color: #64748B">{{s.outlets}}</span></span>
+            <span style="height: 24px; padding: 0 9px; border-radius: 99px; background: {{s.lvBg}}; color: {{s.lvInk}}; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">{{s.level}}</span>
+            <button type="button" style="height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; font-weight: 600; font-size: 13px">Change access</button>
+          </div>
+        </sc-for>
+      </section>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":940}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 0 }; }
+  renderVals() {
+    const st = this.state;
+    const T = [
+      { label: 'Plans & batches', count: '3', add: 'Add plan', icon: '₹', bg: '#ECFDF3', ink: '#066B3F', tile: 'Plans', value: '3', note: '2 batches' },
+      { label: 'Outlets', count: '3', add: 'Add outlet', icon: '⌂', bg: '#F1EEFF', ink: '#3D27B8', tile: 'Outlets', value: '3', note: 'KK Fitness open now' },
+      { label: 'Staff', count: '3', add: 'Add staff', icon: '☺', bg: '#EEF4FF', ink: '#1D4ED8', tile: 'Staff', value: '3', note: '1 not signed up yet' },
+    ];
+    const on = (i) => i === st.tab;
+    return {
+      addLabel: T[st.tab].add,
+      tiles: [
+        ...T.map((t, i) => ({ icon: t.icon, bg: t.bg, ink: t.ink, label: t.tile, value: t.value, note: t.note, border: on(i) ? '#5B3DF5' : '#E7E9F0', shadow: on(i) ? '0 0 0 1px #5B3DF5' : 'none', pick: () => this.setState({ tab: i }) })),
+        { icon: '⚙', bg: '#F1F3F7', ink: '#475569', label: 'Business settings', value: '→', note: 'UPI, reminders, attendance', border: '#E7E9F0', shadow: 'none', pick: () => {} },
+      ],
+      tabs: T.map((t, i) => ({ label: t.label, count: t.count, on: on(i), line: on(i) ? '#5B3DF5' : 'transparent', ink: on(i) ? '#0F172A' : '#64748B', weight: on(i) ? '600' : '500', countBg: on(i) ? '#5B3DF5' : '#F1F3F7', countInk: on(i) ? '#FFFFFF' : '#64748B', pick: () => this.setState({ tab: i }) })),
+      showPlans: st.tab === 0, showOutlets: st.tab === 1, showStaff: st.tab === 2,
+      plans: [
+        { name: 'Basic', cycle: '30 days', price: '₹1,500', per: '/ month', members: 14, warn: false },
+        { name: '3 month', cycle: '90 days', price: '₹4,500', per: '/ 3 months', members: 7, warn: false },
+        { name: '6 moth plan', cycle: '30 days', price: '₹5,000', per: '/ month', members: 3, warn: true },
+      ],
+      outlets: [
+        { name: 'KK Fitness', short: 'KF', kind: 'Gym · Owner', active: 24, owe: '₹8,500', staff: 2, bg: '#F1EEFF', ink: '#3D27B8', current: true, border: '#5B3DF5', shadow: '0 0 0 1px #5B3DF5', btn: 'Go to Collect', btnBg: '#FFFFFF', btnInk: '#0F172A', btnBorder: '1px solid #E2E5EC' },
+        { name: 'KK Fitness – Yousufguda', short: 'KY', kind: 'Gym · Owner', active: 41, owe: '₹12,000', staff: 2, bg: '#E8F6FF', ink: '#0B5E8A', current: false, border: '#E7E9F0', shadow: 'none', btn: 'Open this outlet', btnBg: '#5B3DF5', btnInk: '#FFFFFF', btnBorder: '0' },
+        { name: 'KK Ladies Hostel', short: 'KL', kind: 'Hostel · Owner', active: 18, owe: 'All paid', staff: 1, bg: '#FCEEF6', ink: '#9D1C5E', current: false, border: '#E7E9F0', shadow: 'none', btn: 'Open this outlet', btnBg: '#5B3DF5', btnInk: '#FFFFFF', btnBorder: '0' },
+      ],
+      staff: [
+        { name: 'Priya Nair', short: 'PN', outlets: 'All outlets', level: 'Full', lvBg: '#FEF1F0', lvInk: '#B42318', bg: '#FCEEF6', ink: '#9D1C5E' },
+        { name: 'Imran Khan', short: 'IK', outlets: 'KK Fitness – Yousufguda', level: 'Add', lvBg: '#EEF4FF', lvInk: '#1D4ED8', bg: '#E8F6FF', ink: '#0B5E8A' },
+        { name: 'Ramesh · not signed up yet', short: 'R', outlets: 'KK Ladies Hostel', level: 'See only', lvBg: '#F1F3F7', lvInk: '#475569', bg: '#FFF1E6', ink: '#9A3412' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

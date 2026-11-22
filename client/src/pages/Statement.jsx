@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { rupees } from '../api.js';
-import { PrinterIcon, RupeeIcon } from '../ui.jsx';
+import { PrinterIcon, RupeeIcon, Loader } from '../ui.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const fmt = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -21,7 +21,7 @@ export default function Statement() {
     },
   });
 
-  if (isLoading) return <p className="center">Loading statement…</p>;
+  if (isLoading) return <Loader page label="Loading your statement" />;
   if (error) {
     return (
       <main className="statement">

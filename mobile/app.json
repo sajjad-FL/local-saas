@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Local SaaS",
+    "name": "LocalSaaS",
     "slug": "local-saas-mobile",
     "scheme": "localsaas",
     "version": "1.0.0",
@@ -14,7 +14,7 @@
     "android": {
       "package": "com.localsaas.app",
       "adaptiveIcon": {
-        "backgroundColor": "#10B981",
+        "backgroundColor": "#5B3DF5",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

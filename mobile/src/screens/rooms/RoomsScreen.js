@@ -18,6 +18,7 @@ import Badge from '../../components/Badge';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
+import { ScreenSkeleton } from '../../components/Loader';
 import AddMemberModal from '../modals/AddMemberModal';
 import { AddRoomModal, EditRoomModal } from '../modals/RoomModals';
 import { tint } from '../../constants/theme';
@@ -167,7 +168,7 @@ function RoomMini({ room, theme, onBed, onEdit }) {
         })}
       </View>
       <View style={styles.miniFoot}>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: due ? theme.colors.danger : free ? theme.colors.primary : theme.colors.infoDark }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: due ? theme.colors.danger : free ? theme.colors.successDark : theme.colors.infoDark }}>
           {free ? `${free} free` : 'Full'}
         </Text>
         {room.bedRent != null && <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.text }}>{rupees(room.bedRent)}</Text>}
@@ -394,6 +395,8 @@ export default function RoomsScreen({ navigation }) {
     }
   };
 
+  if (loading && rooms.length === 0) return <ScreenSkeleton navigation={navigation} kind="rooms" />;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* Universal TopBar Header */}
@@ -402,7 +405,7 @@ export default function RoomsScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
         }>
         {/* Header: title, hint, Add tenant (same as the web on phones) */}
         <Text style={[styles.headTitle, { color: theme.colors.text }]}>Rooms</Text>
@@ -672,7 +675,7 @@ const styles = StyleSheet.create({
   firstRoomBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', marginBottom: 12 },
   headTitle: { fontSize: 24, fontWeight: '600' },
   headSub: { fontSize: 14, marginTop: 2, marginBottom: 14 },
-  addTenantBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 10, backgroundColor: '#10B981', marginBottom: 14 },
+  addTenantBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 10, backgroundColor: '#5B3DF5', marginBottom: 14 },
   addTenantText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   chipScroll: { gap: 6, paddingBottom: 12 },
   chip: { height: 34, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1, justifyContent: 'center' },

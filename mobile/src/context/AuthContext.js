@@ -59,6 +59,23 @@ export function AuthProvider({ children }) {
     throw new Error(data?.error || 'Registration failed');
   };
 
+  // Sign-up with the business in one go: the account, then its business, then switch screens,
+  // so the "create your business" screen never flashes in between
+  const signUp = async ({ name, phone, password, business, type, upiId }) => {
+    const data = await api('/auth/register', { method: 'POST', body: { name, phone, password } });
+    if (!data?.token) throw new Error(data?.error || 'Registration failed');
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+    try {
+      const biz = await api('/businesses', { method: 'POST', body: { name: business, type, upiId: upiId || undefined } });
+      if (biz?._id) await AsyncStorage.setItem(STORAGE_KEYS.BIZ_ID, biz._id);
+    } catch {
+      // the account exists; the app asks for the business next
+    }
+    setToken(data.token);
+    setUser(parseToken(data.token));
+    return data;
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
@@ -71,7 +88,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, isLoading, login, register, logout, userId: user?.userId }}>
+    <AuthContext.Provider value={{ token, user, isLoading, login, register, signUp, logout, userId: user?.userId }}>
       {children}
     </AuthContext.Provider>
   );

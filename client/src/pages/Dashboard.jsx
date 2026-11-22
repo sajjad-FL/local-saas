@@ -2,18 +2,22 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, can, ADD } from '../api.js';
 import { useBiz } from '../App.jsx';
 import { words } from '../wording.js';
-import { PlusIcon, RupeeIcon } from '../ui.jsx';
+import { PlusIcon, RupeeIcon, UserPlusIcon } from '../ui.jsx';
 import DashboardHome from './DashboardHome.jsx';
 import { AddExpense } from './MoneyReport.jsx';
+import { CollectPaymentModal, PickMember } from './Members.jsx';
 
 export default function Dashboard() {
   const biz = useBiz();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const w = words(biz.type);
   const [addingExpense, setAddingExpense] = useState(false);
+  const [picking, setPicking] = useState(false); // "Record payment": choose who paid
+  const [paying, setPaying] = useState(null); // then the payment form for them
 
   const { data } = useQuery({
     queryKey: ['dashboard', biz._id],
@@ -21,23 +25,36 @@ export default function Dashboard() {
   });
 
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+  // same query as the sidebar's profile badge
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api('/me'), staleTime: 5 * 60000 });
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = (me?.name || '').trim().split(/\s+/)[0];
+
+  // the four things done most, one tap each (big tiles on phones)
+  const actions = [
+    { key: 'pay', label: 'Record payment', short: 'Payment', icon: RupeeIcon, primary: true, onClick: () => setPicking(true) },
+    { key: 'member', label: `Add ${w.member}`, short: w.member[0].toUpperCase() + w.member.slice(1), icon: PlusIcon, onClick: () => navigate('/members?add=1') },
+    { key: 'enquiry', label: 'Add enquiry', short: 'Enquiry', icon: UserPlusIcon, onClick: () => navigate('/enquiries?add=1') },
+    { key: 'expense', label: 'Add expense', short: 'Expense', icon: RupeeIcon, onClick: () => setAddingExpense(true) },
+  ].filter(() => can(biz, ADD)); // see-only staff get no add buttons
 
   return (
     <>
-      <div className="page-header home-header">
+      <div className="page-header home-header db-head">
         <div className="page-title-wrap">
-          <h1 className="page-title">Today</h1>
-          <p className="home-date">{today}</p>
+          <p className="db-date">{today}</p>
+          <h1 className="db-hello">{greeting}{firstName ? `, ${firstName}` : ''}</h1>
         </div>
-        <div className="home-actions">
-          <button type="button" className="btn-secondary" onClick={() => setAddingExpense(true)}>
-            <RupeeIcon size={15} /> Add expense
-          </button>
-          {/* the Members page has the full form (plan, group, room) */}
-          <button type="button" className="btn" onClick={() => navigate('/members?add=1')}>
-            <PlusIcon size={15} /> Add {words(biz.type).member}
-          </button>
-        </div>
+        <nav className="db-quick" aria-label="Quick actions">
+          {actions.map((a) => (
+            <button key={a.key} type="button" className={`db-quick-btn ${a.primary ? 'pri' : ''} q-${a.key}`} onClick={a.onClick}>
+              <span className="db-quick-icon"><a.icon size={15} /></span>
+              <span className="db-quick-long">{a.label}</span>
+              <span className="db-quick-short">{a.short}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
       <AnimatePresence>
@@ -51,6 +68,27 @@ export default function Dashboard() {
               qc.invalidateQueries({ queryKey: ['report', biz._id] });
               qc.invalidateQueries({ queryKey: ['expenses', biz._id] });
             }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {picking && (
+          <PickMember
+            members={(data?.membersTable || []).filter((m) => m.status === 'active')}
+            word={w.member}
+            onClose={() => setPicking(false)}
+            onPick={(m) => { setPicking(false); setPaying(m); }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {paying && (
+          <CollectPaymentModal
+            member={paying}
+            balance={paying.balance > 0 ? paying.balance : paying.planAmount}
+            plan={null}
+            onClose={() => setPaying(null)}
+            onSuccess={() => { qc.invalidateQueries(); setPaying(null); }}
           />
         )}
       </AnimatePresence>

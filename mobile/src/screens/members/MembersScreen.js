@@ -23,6 +23,7 @@ import Icon from '../../components/Icon';
 import Avatar from '../../components/Avatar';
 import { tint } from '../../constants/theme';
 import TopBar from '../../components/TopBar';
+import { ScreenSkeleton } from '../../components/Loader';
 
 // Modals
 import AddMemberModal from '../modals/AddMemberModal';
@@ -299,6 +300,9 @@ export default function MembersScreen({ navigation, route }) {
     return [b?.name, fl?.name, `Room ${r.roomNo}`].filter(Boolean).join(' · ');
   };
 
+  // first load: placeholders, not the "no members yet" message
+  if (loading && members.length === 0) return <ScreenSkeleton navigation={navigation} kind="list" />;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* TopBar with Hostel Brand & Theme switch */}
@@ -307,7 +311,7 @@ export default function MembersScreen({ navigation, route }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
         }>
         {/* Page Header: title + Expense / Add (same as the web on phones) */}
         <View style={styles.headRow}>
@@ -334,7 +338,7 @@ export default function MembersScreen({ navigation, route }) {
           {[
             { key: 'all', label: 'All', value: String(filterCounts.all), tone: '#3B82F6', valueColor: theme.colors.text },
             { key: 'owing', label: 'Owing', value: rupees(totalOwingAmount), tone: totalOwingAmount > 0 ? '#EF4444' : '#10B981', valueColor: totalOwingAmount > 0 ? theme.colors.danger : theme.colors.text },
-            { key: 'clear', label: 'Paid', value: String(filterCounts.clear), tone: '#10B981', valueColor: theme.colors.primary },
+            { key: 'clear', label: 'Paid', value: String(filterCounts.clear), tone: '#10B981', valueColor: theme.colors.successDark },
             { key: 'renewing', label: 'Renewing', value: String(upcomingRenewals.length), tone: '#F59E0B', valueColor: theme.colors.warningDark },
           ].map((t) => {
             const active = activeTab === t.key;
@@ -814,7 +818,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   kpiActive: {
-    shadowColor: '#10B981',
+    shadowColor: '#5B3DF5',
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,

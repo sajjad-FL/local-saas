@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Money – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 1000px; position: relative; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="border: 1px solid #E7E9F0; border-radius: 12px; display: flex; align-items: center; gap: 10px; padding: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+      <span style="color: #64748B">⌄</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Money</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Outlets</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Staff</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Plans &amp; setup</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 16px">
+    <!-- header: same as Collect — small line, big title, quick actions on the right -->
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">{{subtitle}}</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Money</h1>
+      </div>
+      <nav aria-label="Quick actions" style="display: flex; gap: 8px">
+        <button type="button" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(255,255,255,.18); display: grid; place-items: center">₹</span>Add expense</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #ECFDF3; color: #066B3F; display: grid; place-items: center">+</span>Record payment</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #F1F3F7; color: #475569; display: grid; place-items: center">↓</span>Download ⌄</button>
+      </nav>
+    </div>
+
+    <!-- period: one quiet row instead of a big gradient box -->
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div role="tablist" aria-label="Period" style="display: flex; gap: 4px; padding: 4px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 12px">
+        <sc-for list="{{periods}}" as="p" hint-placeholder-count="4">
+          <button type="button" role="tab" aria-selected="{{p.on}}" onClick="{{p.pick}}" style="height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: {{p.bg}}; color: {{p.ink}}; font-size: 13.5px; font-weight: {{p.weight}}">{{p.label}}</button>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px">
+        <button type="button" aria-label="Previous" style="width: 36px; height: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #475569">‹</button>
+        <span style="min-width: 190px; text-align: center; display: flex; flex-direction: column"><b style="font-size: 15px">{{range}}</b><span style="font-size: 12px; color: #64748B">{{rangeSub}}</span></span>
+        <button type="button" aria-label="Next" style="width: 36px; height: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #CBD2DC">›</button>
+      </div>
+    </div>
+
+    <!-- the four numbers, Collect icon-card style -->
+    <section aria-label="This period" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px">
+          <span style="display: flex; align-items: center; gap: 10px">
+            <span style="width: 38px; height: 38px; flex: none; border-radius: 11px; background: {{c.bg}}; color: {{c.ink}}; display: grid; place-items: center; font-weight: 700">{{c.icon}}</span>
+            <span style="display: flex; flex-direction: column"><span style="font-size: 12.5px; color: #64748B; font-weight: 500">{{c.label}}</span><b style="font-size: 22px; letter-spacing: -0.01em; color: {{c.valueInk}}">{{c.value}}</b></span>
+          </span>
+          <span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid #EEF0F5; font-size: 12.5px; color: #64748B">
+            <span>{{c.note}}</span>
+            <span style="height: 22px; padding: 0 8px; border-radius: 99px; background: {{c.trendBg}}; color: {{c.trendInk}}; font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap">{{c.trend}}</span>
+          </span>
+        </div>
+      </sc-for>
+    </section>
+
+    <!-- tabs, same as Collect follow-ups -->
+    <div role="tablist" aria-label="Show" style="display: flex; gap: 4px; border-bottom: 1px solid #E7E9F0">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="height: 42px; padding: 0 14px; border: 0; border-bottom: 2px solid {{t.line}}; margin-bottom: -1px; background: transparent; color: {{t.ink}}; font-size: 14px; font-weight: {{t.weight}}; display: inline-flex; align-items: center; gap: 8px">{{t.label}}<span style="height: 20px; min-width: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: {{t.countBg}}; color: {{t.countInk}}; font-size: 11.5px; font-weight: 600; display: inline-grid; place-items: center">{{t.count}}</span></button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{showOverview}}" hint-placeholder-val="{{ true }}">
+      <div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start">
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 700">Month by month</h2>
+            <span style="display: flex; gap: 12px; font-size: 12px; color: #64748B"><span><i style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #16A34A; margin-right: 5px"></i>Received</span><span><i style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #F87171; margin-right: 5px"></i>Spent</span><span><i style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #FCD34D; margin-right: 5px"></i>Still owed</span></span>
+          </div>
+          <!-- bars: one group per month -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; height: 150px; align-items: end; padding: 0 8px; border-bottom: 1px solid #EEF0F5">
+            <sc-for list="{{months}}" as="m" hint-placeholder-count="3">
+              <div style="display: flex; justify-content: center; align-items: flex-end; gap: 5px; height: 100%">
+                <span title="Received" style="width: 22px; height: {{m.hIn}}; background: #16A34A; border-radius: 5px 5px 0 0"></span>
+                <span title="Spent" style="width: 22px; height: {{m.hOut}}; background: #F87171; border-radius: 5px 5px 0 0"></span>
+                <span title="Still owed" style="width: 22px; height: {{m.hOwe}}; background: #FCD34D; border-radius: 5px 5px 0 0"></span>
+              </div>
+            </sc-for>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+            <thead><tr style="text-align: right; color: #64748B; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase"><th style="text-align: left; padding: 6px 0; font-weight: 600">Month</th><th style="padding: 6px 0; font-weight: 600">Received</th><th style="padding: 6px 0; font-weight: 600">Spent</th><th style="padding: 6px 0; font-weight: 600">Profit</th><th style="padding: 6px 0; font-weight: 600">Still owed</th></tr></thead>
+            <tbody>
+              <sc-for list="{{months}}" as="m" hint-placeholder-count="3">
+                <tr style="border-top: 1px solid #EEF0F5; text-align: right"><td style="text-align: left; padding: 11px 0; font-weight: 500">{{m.label}}</td><td style="color: #066B3F">{{m.in}}</td><td style="color: #B42318">{{m.out}}</td><td style="font-weight: 700">{{m.profit}}</td><td style="color: #B45309">{{m.owe}}</td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </section>
+
+        <div style="display: flex; flex-direction: column; gap: 16px">
+          <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 700">How members paid</h2>
+            <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 5px">
+                <span style="display: flex; justify-content: space-between; font-size: 13.5px"><span>{{m.label}} <span style="color: #94A3B8">· {{m.pct}}</span></span><b>{{m.amount}}</b></span>
+                <span style="height: 8px; border-radius: 99px; background: #F1F3F7; overflow: hidden"><span style="display: block; height: 100%; width: {{m.pct}}; background: {{m.color}}; border-radius: 99px"></span></span>
+              </div>
+            </sc-for>
+          </section>
+          <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 15px; font-weight: 700">Where money went</h2><button type="button" style="border: 0; background: none; color: #4A2EE6; font-weight: 600; font-size: 13px; padding: 0">+ Add expense</button></div>
+            <sc-for list="{{spend}}" as="s" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px"><span style="width: 30px; height: 30px; border-radius: 9px; background: #FEF1F0; color: #B42318; display: grid; place-items: center; font-size: 13px">{{s.icon}}</span><span style="flex: 1">{{s.label}}</span><b style="color: #B42318">−{{s.amount}}</b></div>
+            </sc-for>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showExpenses}}" hint-placeholder-val="{{ false }}">
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; overflow: hidden">
+        <sc-for list="{{expenseRows}}" as="e" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-top: 1px solid #EEF0F5; font-size: 14px"><span style="width: 34px; height: 34px; border-radius: 10px; background: #FEF1F0; color: #B42318; display: grid; place-items: center">{{e.icon}}</span><span style="flex: 1; display: flex; flex-direction: column"><b style="font-weight: 600">{{e.label}}</b><span style="font-size: 12.5px; color: #64748B">{{e.when}}</span></span><b style="color: #B42318">−{{e.amount}}</b><button type="button" aria-label="Delete" style="width: 32px; height: 32px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; color: #94A3B8">🗑</button></div>
+        </sc-for>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{showWho}}" hint-placeholder-val="{{ false }}">
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 6px 18px 12px">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+          <thead><tr style="color: #64748B; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase"><th style="text-align: left; padding: 10px 0; font-weight: 600">Member</th><th style="font-weight: 600">Oct</th><th style="font-weight: 600">Nov</th><th style="font-weight: 600">Dec</th><th style="text-align: right; font-weight: 600">Owes</th></tr></thead>
+          <tbody>
+            <sc-for list="{{who}}" as="w" hint-placeholder-count="4">
+              <tr style="border-top: 1px solid #EEF0F5; text-align: center"><td style="text-align: left; padding: 11px 0; font-weight: 500">{{w.name}}</td><td><span style="padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; background: {{w.c1bg}}; color: {{w.c1ink}}">{{w.c1}}</span></td><td><span style="padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; background: {{w.c2bg}}; color: {{w.c2ink}}">{{w.c2}}</span></td><td style="color: #CBD2DC">—</td><td style="text-align: right; font-weight: 700; color: {{w.oweInk}}">{{w.owe}}</td></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </section>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { period: 1, tab: 0 }; }
+  renderVals() {
+    const st = this.state;
+    const fmt = (n) => '₹' + n.toLocaleString('en-IN');
+    const months = [
+      { label: 'Sep 2026', in: 41000, out: 12500, owe: 0 },
+      { label: 'Oct 2026', in: 38000, out: 14200, owe: 2500 },
+      { label: 'Nov 2026', in: 29500, out: 9800, owe: 8500 },
+    ];
+    const max = 41000;
+    const tabs = [['Overview', ''], ['Expenses', '6'], ['Who paid', '24']];
+    return {
+      subtitle: 'Nov 2026 so far · ₹29,500 in · ₹8,500 still to collect',
+      range: ['Nov 2026', 'Sep–Nov 2026', 'FY 2026–27', '1 Nov – 23 Nov'][st.period],
+      rangeSub: ['1 Nov – 30 Nov', '1 Sep 2026 – 30 Nov 2026', '1 Apr 2026 – 31 Mar 2027', 'Pick any dates'][st.period],
+      periods: ['Month', 'Quarter', 'Year', 'Custom'].map((label, i) => ({ label, on: i === st.period, bg: i === st.period ? '#F1EEFF' : 'transparent', ink: i === st.period ? '#3D27B8' : '#475569', weight: i === st.period ? '600' : '500', pick: () => this.setState({ period: i }) })),
+      cards: [
+        { icon: '↓', bg: '#ECFDF3', ink: '#066B3F', label: 'Received', value: fmt(108500), valueInk: '#066B3F', note: 'from 71 payments', trend: '▲ 12% vs last', trendBg: '#ECFDF3', trendInk: '#066B3F' },
+        { icon: '↑', bg: '#FEF1F0', ink: '#B42318', label: 'Spent', value: fmt(36500), valueInk: '#0F172A', note: '6 expenses', trend: '▼ 4% vs last', trendBg: '#ECFDF3', trendInk: '#066B3F' },
+        { icon: '₹', bg: '#F1EEFF', ink: '#3D27B8', label: 'Profit', value: fmt(72000), valueInk: '#0F172A', note: 'received minus spent', trend: '66% margin', trendBg: '#F1EEFF', trendInk: '#3D27B8' },
+        { icon: '!', bg: '#FFF6E5', ink: '#92400E', label: 'Still to collect', value: fmt(11000), valueInk: '#B42318', note: 'of ₹1,19,500 in fees', trend: '92% collected', trendBg: '#FFF6E5', trendInk: '#92400E' },
+      ],
+      tabs: tabs.map(([label, count], i) => ({ label, count, on: i === st.tab, line: i === st.tab ? '#5B3DF5' : 'transparent', ink: i === st.tab ? '#0F172A' : '#64748B', weight: i === st.tab ? '600' : '500', countBg: count ? (i === st.tab ? '#F1EEFF' : '#F1F3F7') : 'transparent', countInk: i === st.tab ? '#3D27B8' : '#64748B', pick: () => this.setState({ tab: i }) })),
+      showOverview: st.tab === 0, showExpenses: st.tab === 1, showWho: st.tab === 2,
+      months: months.map((m) => ({ label: m.label, in: fmt(m.in), out: m.out ? fmt(m.out) : '—', profit: fmt(m.in - m.out), owe: m.owe ? fmt(m.owe) : '—', hIn: (m.in / max * 100) + '%', hOut: (m.out / max * 100) + '%', hOwe: (m.owe / max * 100) + '%' })),
+      modes: [
+        { label: 'UPI', pct: '64%', amount: fmt(69400), color: '#5B3DF5' },
+        { label: 'Cash', pct: '31%', amount: fmt(33600), color: '#16A34A' },
+        { label: 'Card / bank', pct: '5%', amount: fmt(5500), color: '#0EA5E9' },
+      ],
+      spend: [
+        { icon: '⌂', label: 'Rent', amount: fmt(24000) },
+        { icon: '⚡', label: 'Electricity', amount: fmt(7300) },
+        { icon: '⚙', label: 'Equipment repair', amount: fmt(5200) },
+      ],
+      expenseRows: [
+        { icon: '⌂', label: 'Rent', when: '1 Nov · paid to landlord', amount: fmt(8000) },
+        { icon: '⚡', label: 'Electricity', when: '6 Nov', amount: fmt(2600) },
+        { icon: '⚙', label: 'Treadmill belt', when: '12 Nov · Imran added', amount: fmt(5200) },
+        { icon: '⌂', label: 'Rent', when: '1 Oct', amount: fmt(8000) },
+      ],
+      who: [
+        { name: 'Rohit Kumar', c1: 'Paid', c1bg: '#ECFDF3', c1ink: '#066B3F', c2: 'Late', c2bg: '#FEF1F0', c2ink: '#B42318', owe: fmt(1500), oweInk: '#B42318' },
+        { name: 'Neha Singh', c1: 'Paid', c1bg: '#ECFDF3', c1ink: '#066B3F', c2: 'Paid', c2bg: '#ECFDF3', c2ink: '#066B3F', owe: '—', oweInk: '#94A3B8' },
+        { name: 'Aman Gupta', c1: 'Paid', c1bg: '#ECFDF3', c1ink: '#066B3F', c2: 'Due', c2bg: '#FFF6E5', c2ink: '#92400E', owe: fmt(1000), oweInk: '#B45309' },
+        { name: 'Pooja Rao', c1: 'Paid', c1bg: '#ECFDF3', c1ink: '#066B3F', c2: 'Paid', c2bg: '#ECFDF3', c2ink: '#066B3F', owe: '—', oweInk: '#94A3B8' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

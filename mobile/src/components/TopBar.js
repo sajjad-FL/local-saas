@@ -44,7 +44,7 @@ export default function TopBar({
               onPress={() => businesses.length > 1 && setBizPickerOpen(true)}
               style={[
                 styles.brandMark,
-                { backgroundColor: typeConfig.gradient[0] },
+                { backgroundColor: theme.colors.primary },
               ]}>
               <Icon name={typeConfig.icon} size={17} color="#FFFFFF" />
             </TouchableOpacity>
@@ -138,7 +138,7 @@ export default function TopBar({
                       <View
                         style={[
                           styles.smallBadge,
-                          { backgroundColor: bCfg.gradient[0] },
+                          { backgroundColor: theme.colors.primary },
                         ]}>
                         <Icon name={bCfg.icon} size={14} color="#FFFFFF" />
                       </View>

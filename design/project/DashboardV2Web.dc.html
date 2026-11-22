@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard v2 – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4A2EE6}a:hover{color:#3D27B8}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 1000px; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid #E7E9F0; border-radius: 12px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Plans &amp; setup</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 18px">
+
+    <!-- 1. greeting + the four things you do most, one tap each -->
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">Friday, 20 November</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Good evening, Sajjad</h1>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button type="button" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">₹ Record payment</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">+ Member</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">+ Enquiry</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">+ Expense</button>
+      </div>
+    </div>
+
+    <!-- 2. today at a glance -->
+    <section aria-label="Today" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{today}}" as="t" hint-placeholder-count="4">
+        <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px; text-decoration: none; color: #0F172A">
+          <span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: {{t.bg}}; color: {{t.ink}}; display: grid; place-items: center; font-weight: 700; font-size: 16px">{{t.icon}}</span>
+          <span style="display: flex; flex-direction: column; min-width: 0">
+            <span style="font-size: 12.5px; color: #64748B; font-weight: 500">{{t.label}}</span>
+            <b style="font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums">{{t.value}}</b>
+          </span>
+          <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: {{t.noteInk}}; white-space: nowrap">{{t.note}}</span>
+        </a>
+      </sc-for>
+    </section>
+
+    <!-- 3. the month: progress, comparison, 6-month trend -->
+    <section aria-label="This month" style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; overflow: hidden">
+      <div style="padding: 20px 22px; border-right: 1px solid #EEF0F5; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: end">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span style="font-size: 13px; font-weight: 600; color: #64748B">Collected in November</span>
+            <span style="font-size: 12px; font-weight: 700; color: #066B3F; background: #ECFDF3; padding: 2px 8px; border-radius: 99px">▲ 12% vs October</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 6px">
+            <b style="font-size: 34px; font-weight: 700; letter-spacing: -0.02em">₹38,000</b>
+            <span style="font-size: 14px; color: #64748B">of ₹52,500 · 72%</span>
+          </div>
+          <div role="img" aria-label="72% collected" style="height: 8px; margin-top: 12px; border-radius: 99px; background: #EEF0F5; overflow: hidden; display: flex"><span style="width: 72%; background: #16A34A"></span></div>
+          <p style="margin: 10px 0 0; font-size: 13px; color: #64748B">At this pace you'll reach <b style="color: #0F172A">₹49,000</b> by 30 Nov.</p>
+        </div>
+        <div role="img" aria-label="Collected per month, June to November" style="display: flex; align-items: flex-end; gap: 8px; height: 96px">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="6">
+            <span style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <span style="width: 22px; height: {{b.h}}; border-radius: 6px 6px 3px 3px; background: {{b.color}}"></span>
+              <span style="font-size: 11px; color: #64748B; font-weight: {{b.weight}}">{{b.m}}</span>
+            </span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr))">
+        <a href="#" style="padding: 20px 18px; background: #FFF8F7; text-decoration: none; color: #0F172A; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; font-weight: 600; color: #B42318">To collect</span>
+          <b style="font-size: 22px; color: #B42318">₹14,500</b>
+          <span style="font-size: 12.5px; color: #64748B">5 members →</span>
+        </a>
+        <a href="#" style="padding: 20px 18px; border-left: 1px solid #EEF0F5; text-decoration: none; color: #0F172A; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; font-weight: 600; color: #64748B">Spent</span>
+          <b style="font-size: 22px">₹12,000</b>
+          <span style="font-size: 12.5px; color: #64748B">rent, salary</span>
+        </a>
+        <a href="#" style="padding: 20px 18px; border-left: 1px solid #EEF0F5; text-decoration: none; color: #0F172A; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; font-weight: 600; color: #64748B">Profit</span>
+          <b style="font-size: 22px; color: #066B3F">₹26,000</b>
+          <span style="font-size: 12.5px; color: #066B3F">▲ ₹4,000</span>
+        </a>
+      </div>
+    </section>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 18px; align-items: start">
+
+      <!-- 4. follow up today, now with enquiries and a done tick -->
+      <section aria-labelledby="v2-todo" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 20px 0">
+          <div>
+            <h2 id="v2-todo" style="margin: 0; font-size: 17px; font-weight: 700">Follow up today</h2>
+            <p style="margin: 2px 0 0; font-size: 13px; color: #64748B">{{hint}}</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="font-size: 13px; color: #64748B; font-weight: 500">{{doneText}}</span>
+            <span role="img" aria-label="{{doneText}}" style="width: 90px; height: 6px; border-radius: 99px; background: #EEF0F5; overflow: hidden; display: flex"><span style="width: {{donePct}}; background: #5B3DF5"></span></span>
+          </div>
+        </div>
+        <div role="tablist" aria-label="Who to follow up" style="display: flex; gap: 2px; padding: 12px 14px 0; border-bottom: 1px solid #EEF0F5; overflow-x: auto">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+            <sc-if value="{{t.on}}" hint-placeholder-val="{{ false }}">
+              <button type="button" role="tab" aria-selected="true" onClick="{{t.pick}}" style="flex: none; height: 40px; padding: 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid #5B3DF5; background: none; color: #3D27B8; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 99px; background: {{t.dot}}"></span>{{t.label}}<span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: #5B3DF5; color: #FFFFFF; font-size: 12px; display: grid; place-items: center">{{t.count}}</span></button>
+            </sc-if>
+            <sc-if value="{{t.off}}" hint-placeholder-val="{{ true }}">
+              <button type="button" role="tab" aria-selected="false" onClick="{{t.pick}}" style="flex: none; height: 40px; padding: 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: #64748B; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 99px; background: {{t.dot}}"></span>{{t.label}}<span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: #F1F3F7; color: #475569; font-size: 12px; display: grid; place-items: center">{{t.count}}</span></button>
+            </sc-if>
+          </sc-for>
+        </div>
+        <ul style="list-style: none; margin: 0; padding: 6px 8px 8px">
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+            <li style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; opacity: {{r.opacity}}">
+              <button type="button" aria-pressed="{{r.doneStr}}" aria-label="Mark {{r.name}} done for today" onClick="{{r.toggle}}" style="width: 24px; height: 24px; flex: none; padding: 0; border-radius: 99px; border: 2px solid {{r.ringColor}}; background: {{r.ringBg}}; color: #FFFFFF; display: grid; place-items: center; font-size: 13px; font-weight: 800">{{r.tick}}</button>
+              <span style="width: 38px; height: 38px; flex: none; border-radius: 99px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-size: 13px; font-weight: 700">{{r.initials}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+                <b style="font-weight: 600; font-size: 14.5px; text-decoration: {{r.strike}}">{{r.name}}</b>
+                <span style="font-size: 12.5px; color: {{r.subInk}}; font-weight: 500">{{r.sub}}</span>
+              </span>
+              <b style="font-size: 15px; font-weight: 700; color: {{r.amtInk}}; min-width: 70px; text-align: right">{{r.amount}}</b>
+              <span style="display: flex; gap: 6px">
+                <button type="button" aria-label="WhatsApp {{r.name}}" style="width: 36px; height: 36px; border: 1px solid #D5F0E2; border-radius: 10px; background: #F0FBF5; color: #066B3F; display: grid; place-items: center; padding: 0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-13.3 7.9L3 21l1.1-4.6A9 9 0 1 1 21 12Z"></path></svg>
+                </button>
+                <button type="button" style="height: 36px; min-width: 92px; padding: 0 12px; border: {{r.ctaBorder}}; border-radius: 10px; background: {{r.ctaBg}}; color: {{r.ctaInk}}; font-size: 13px; font-weight: 600">{{r.cta}}</button>
+              </span>
+            </li>
+          </sc-for>
+        </ul>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 16px; border-top: 1px solid #EEF0F5">
+          <a href="#" style="font-size: 13px; font-weight: 600; text-decoration: none">See all →</a>
+          <sc-if value="{{canRemindAll}}" hint-placeholder-val="{{ true }}">
+            <button type="button" style="height: 34px; padding: 0 12px; border: 1px solid #D5F0E2; border-radius: 10px; background: #F0FBF5; color: #066B3F; font-weight: 600; font-size: 13px">Remind all on WhatsApp</button>
+          </sc-if>
+        </div>
+      </section>
+
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <!-- 5. suggestions: the app spots something and offers the one tap that fixes it -->
+        <section aria-labelledby="v2-tips" style="background: linear-gradient(180deg, #F7F5FF 0%, #FFFFFF 70%); border: 1px solid #E2DCFD; border-radius: 18px; padding: 16px 18px">
+          <h2 id="v2-tips" style="margin: 0 0 10px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 8px; background: #5B3DF5; color: #FFFFFF; display: grid; place-items: center; font-size: 13px">✦</span>Suggestions</h2>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+            <sc-for list="{{tips}}" as="t" hint-placeholder-count="3">
+              <li style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #FFFFFF; border: 1px solid #ECEAF7; border-radius: 12px">
+                <span style="flex: 1; font-size: 13.5px; line-height: 1.4">{{t.text}}</span>
+                <button type="button" style="flex: none; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: #F1EEFF; color: #3D27B8; font-size: 12.5px; font-weight: 600">{{t.cta}}</button>
+              </li>
+            </sc-for>
+          </ul>
+        </section>
+
+        <!-- 6. attendance: today plus the last 7 days -->
+        <section aria-labelledby="v2-att" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; padding: 16px 18px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline">
+            <h2 id="v2-att" style="margin: 0; font-size: 15px; font-weight: 700">Came in</h2>
+            <a href="#" style="font-size: 13px; font-weight: 600; text-decoration: none">Mark today →</a>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 4px"><b style="font-size: 26px">14</b><span style="font-size: 13px; color: #64748B">of 24 today · avg 16 this week</span></div>
+          <div role="img" aria-label="Check-ins, last 7 days" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; align-items: end; height: 70px; margin-top: 10px">
+            <sc-for list="{{week}}" as="d" hint-placeholder-count="7">
+              <span style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+                <span style="width: 100%; max-width: 26px; height: {{d.h}}; border-radius: 5px 5px 2px 2px; background: {{d.color}}"></span>
+                <span style="font-size: 11px; color: #64748B; font-weight: {{d.weight}}">{{d.label}}</span>
+              </span>
+            </sc-for>
+          </div>
+        </section>
+
+        <!-- 7. growth this month -->
+        <section aria-label="Members this month" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; overflow: hidden">
+          <div style="padding: 14px 16px"><span style="display: block; font-size: 12.5px; color: #64748B">Joined</span><b style="font-size: 20px; color: #066B3F">+3</b></div>
+          <div style="padding: 14px 16px; border-left: 1px solid #EEF0F5"><span style="display: block; font-size: 12.5px; color: #64748B">Left</span><b style="font-size: 20px; color: #B42318">−1</b></div>
+          <div style="padding: 14px 16px; border-left: 1px solid #EEF0F5"><span style="display: block; font-size: 12.5px; color: #64748B">Active now</span><b style="font-size: 20px">24</b></div>
+        </section>
+
+        <!-- 8. recent payments, compact -->
+        <section aria-labelledby="v2-pay" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; padding: 16px 18px 6px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline">
+            <h2 id="v2-pay" style="margin: 0; font-size: 15px; font-weight: 700">Recent payments</h2>
+            <a href="#" style="font-size: 13px; font-weight: 600; text-decoration: none">Money →</a>
+          </div>
+          <ul style="list-style: none; margin: 8px 0 0; padding: 0">
+            <sc-for list="{{payments}}" as="p" hint-placeholder-count="3">
+              <li style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #F0F2F6; font-size: 14px">
+                <span style="flex: 1"><b style="font-weight: 600">{{p.name}}</b> <span style="color: #64748B; font-size: 12.5px">· {{p.when}}</span></span>
+                <b style="color: #066B3F">+{{p.amount}}</b>
+              </li>
+            </sc-for>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'late', done: { 'late-2': true } }; }
+  renderVals() {
+    const lists = {
+      late: [['Rohit Kumar', 'Expired 41 days ago · 2 fees unpaid', '₹3,000'], ['Neha Singh', 'Expired 19 days ago', '₹4,000'], ['Sajjad Alam', 'Expired 4 days ago', '₹1,500'], ['Aman Gupta', 'Due today', '₹1,000']],
+      soon: [['Pooja Rao', 'Expires tomorrow', '₹1,500'], ['Divya Menon', 'Expires in 3 days', '₹1,500'], ['Vikram Shah', 'Expires in 6 days', '₹4,000']],
+      away: [['Karan Mehta', 'Not come for 35 days', ''], ['Meena Joshi', 'Not come for 12 days', '']],
+      enq: [['Ravi Teja', 'Call back today · Monthly', ''], ['Ananya Gupta', 'Call back missed 2 days ago', ''], ['Sara Khan', 'Asked yesterday · Instagram', '']],
+    };
+    const meta = {
+      late: { label: 'Expired', dot: '#DC2626', hint: 'Plan ended and the fee is still unpaid', cta: 'Collect', ink: '#B42318', primary: true },
+      soon: { label: 'Expiring', dot: '#D97706', hint: 'Remind them before the plan ends', cta: 'Remind', ink: '#92400E' },
+      away: { label: 'Not coming', dot: '#7C3AED', hint: 'Away 7+ days: a quick call keeps them coming', cta: 'Call', ink: '#6D28D9' },
+      enq: { label: 'Enquiries', dot: '#2563EB', hint: 'People who asked about joining', cta: 'Call', ink: '#1D4ED8' },
+    };
+    const st = this.state;
+    const m = meta[st.tab];
+    const allKeys = Object.keys(lists).flatMap((k) => lists[k].map((_, i) => k + '-' + i));
+    const doneCount = allKeys.filter((k) => st.done[k]).length;
+    const rows = lists[st.tab].map(([name, sub, amount], i) => {
+      const key = st.tab + '-' + i;
+      const done = !!st.done[key];
+      return {
+        name, sub, amount, subInk: m.ink, amtInk: st.tab === 'late' ? '#B42318' : '#0F172A',
+        initials: name.split(' ').map((p) => p[0]).join(''),
+        cta: m.cta,
+        ctaBg: m.primary ? '#5B3DF5' : '#FFFFFF', ctaInk: m.primary ? '#FFFFFF' : '#0F172A', ctaBorder: m.primary ? '0' : '1px solid #E2E5EC',
+        doneStr: done ? 'true' : 'false', tick: done ? '✓' : '',
+        ringColor: done ? '#16A34A' : '#CBD2DE', ringBg: done ? '#16A34A' : '#FFFFFF',
+        opacity: done ? '0.55' : '1', strike: done ? 'line-through' : 'none',
+        toggle: () => this.setState({ done: { ...st.done, [key]: !done } }),
+      };
+    });
+    const bars = [['Jun', 30], ['Jul', 36], ['Aug', 33], ['Sep', 41], ['Oct', 34], ['Nov', 38]].map(([mo, v], i, a) => ({
+      m: mo, h: Math.round((v / 45) * 80) + 'px', color: i === a.length - 1 ? '#5B3DF5' : '#D9D2FE', weight: i === a.length - 1 ? '700' : '500',
+    }));
+    const week = [['Sa', 18], ['Su', 9], ['Mo', 19], ['Tu', 17], ['We', 16], ['Th', 18], ['Fr', 14]].map(([d, v], i, a) => ({
+      label: i === a.length - 1 ? 'Today' : d, h: Math.round((v / 24) * 52) + 'px', color: i === a.length - 1 ? '#5B3DF5' : '#C4B8FF', weight: i === a.length - 1 ? '700' : '500',
+    }));
+    return {
+      today: [
+        { icon: '₹', label: 'Collected today', value: '₹5,500', note: '3 payments', bg: '#ECFDF3', ink: '#066B3F', noteInk: '#64748B' },
+        { icon: '✓', label: 'Came in today', value: '14', note: '58%', bg: '#F1EEFF', ink: '#3D27B8', noteInk: '#64748B' },
+        { icon: '+', label: 'New enquiries', value: '2', note: '1 to call', bg: '#EEF4FF', ink: '#1D4ED8', noteInk: '#1D4ED8' },
+        { icon: '!', label: 'Fees due today', value: '₹1,000', note: '1 member', bg: '#FFF1E6', ink: '#9A3412', noteInk: '#9A3412' },
+      ],
+      bars, week,
+      tabs: Object.keys(meta).map((id) => ({ label: meta[id].label, dot: meta[id].dot, count: String(lists[id].length), on: id === st.tab, off: id !== st.tab, pick: () => this.setState({ tab: id }) })),
+      rows, hint: m.hint, canRemindAll: st.tab === 'late' || st.tab === 'soon',
+      doneText: doneCount + ' of ' + allKeys.length + ' done', donePct: Math.round((doneCount / allKeys.length) * 100) + '%',
+      tips: [
+        { text: '3 plans expire this week (₹7,000). Remind them before they lapse.', cta: 'Remind 3' },
+        { text: 'Rohit owes for 2 months. A call works better than a message.', cta: 'Call' },
+        { text: '2 members haven\'t come in 30+ days. They may be about to quit.', cta: 'See who' },
+      ],
+      payments: [{ name: 'Vikram Shah', when: 'Today · UPI', amount: '₹4,000' }, { name: 'Divya Menon', when: 'Today · Cash', amount: '₹1,500' }, { name: 'Meena Joshi', when: '17 Nov · UPI', amount: '₹4,000' }],
+    };
+  }
+}
+</script>
+</body>
+</html>

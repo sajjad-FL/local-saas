@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup – mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <header style="display: flex; align-items: flex-end; justify-content: space-between">
+      <div>
+        <p style="margin: 0; font-size: 12.5px; color: #64748B; font-weight: 500">3 plans · 3 outlets · 3 staff</p>
+        <h1 style="margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Setup</h1>
+      </div>
+      <button type="button" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ {{addShort}}</button>
+    </header>
+    <!-- segmented tabs, full width -->
+    <div role="tablist" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 12px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="height: 36px; border: 0; border-radius: 9px; background: {{t.bg}}; color: {{t.ink}}; font-size: 13.5px; font-weight: {{t.weight}}">{{t.label}}</button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{showPlans}}" hint-placeholder-val="{{ true }}">
+      <sc-for list="{{plans}}" as="p" hint-placeholder-count="3">
+        <article style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px">
+          <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 15px">{{p.name}}</b><span style="font-size: 12.5px; color: #64748B">every {{p.cycle}} · {{p.members}} members</span>
+            <sc-if value="{{p.warn}}" hint-placeholder-val="{{ false }}"><span style="margin-top: 4px; font-size: 12px; color: #92400E; font-weight: 600">Name says 6 months, cycle is 30 days</span></sc-if></span>
+          <b style="font-size: 17px">{{p.price}}</b>
+          <span style="color: #94A3B8">›</span>
+        </article>
+      </sc-for>
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <span style="display: flex; justify-content: space-between"><b style="font-size: 14px">Batches</b><span style="color: #4A2EE6; font-weight: 600; font-size: 13px">+ Add</span></span>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px"><span style="height: 32px; padding: 0 10px; border: 1px solid #E2E5EC; border-radius: 99px; display: inline-flex; align-items: center; font-size: 13px">Morning 6–8 · 14</span><span style="height: 32px; padding: 0 10px; border: 1px solid #E2E5EC; border-radius: 99px; display: inline-flex; align-items: center; font-size: 13px">Evening 6–8 · 10</span></div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{showOutlets}}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{outlets}}" as="o" hint-placeholder-count="3">
+        <article style="background: #FFFFFF; border: 1px solid {{o.border}}; border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 10px">
+          <span style="width: 40px; height: 40px; border-radius: 11px; background: {{o.bg}}; color: {{o.ink}}; display: grid; place-items: center; font-weight: 700">{{o.short}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 14.5px">{{o.name}}</b><span style="font-size: 12px; color: #64748B">{{o.sub}}</span></span>
+          <button type="button" style="height: 36px; padding: 0 12px; border: {{o.btnBorder}}; border-radius: 9px; background: {{o.btnBg}}; color: {{o.btnInk}}; font-weight: 600; font-size: 13px">{{o.btn}}</button>
+        </article>
+      </sc-for>
+    </sc-if>
+
+    <sc-if value="{{showStaff}}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{staff}}" as="s" hint-placeholder-count="3">
+        <article style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 10px">
+          <span style="width: 38px; height: 38px; border-radius: 99px; background: {{s.bg}}; color: {{s.ink}}; display: grid; place-items: center; font-weight: 700; font-size: 13px">{{s.short}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 14.5px">{{s.name}}</b><span style="font-size: 12px; color: #64748B">{{s.outlets}}</span></span>
+          <span style="height: 24px; padding: 0 9px; border-radius: 99px; background: {{s.lvBg}}; color: {{s.lvInk}}; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">{{s.level}}</span>
+        </article>
+      </sc-for>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 0 }; }
+  renderVals() {
+    const st = this.state;
+    const L = [['Plans', 'Plan'], ['Outlets', 'Outlet'], ['Staff', 'Staff']];
+    return {
+      addShort: L[st.tab][1],
+      tabs: L.map(([label], i) => ({ label, on: i === st.tab, bg: i === st.tab ? '#F1EEFF' : 'transparent', ink: i === st.tab ? '#3D27B8' : '#475569', weight: i === st.tab ? '600' : '500', pick: () => this.setState({ tab: i }) })),
+      showPlans: st.tab === 0, showOutlets: st.tab === 1, showStaff: st.tab === 2,
+      plans: [
+        { name: 'Basic', cycle: '30 days', price: '₹1,500', members: 14, warn: false },
+        { name: '3 month', cycle: '90 days', price: '₹4,500', members: 7, warn: false },
+        { name: '6 moth plan', cycle: '30 days', price: '₹5,000', members: 3, warn: true },
+      ],
+      outlets: [
+        { name: 'KK Fitness', short: 'KF', sub: 'Open now · 24 active', bg: '#F1EEFF', ink: '#3D27B8', border: '#5B3DF5', btn: 'Collect', btnBg: '#FFFFFF', btnInk: '#0F172A', btnBorder: '1px solid #E2E5EC' },
+        { name: 'Yousufguda', short: 'KY', sub: '41 active · ₹12,000 due', bg: '#E8F6FF', ink: '#0B5E8A', border: '#E7E9F0', btn: 'Open', btnBg: '#5B3DF5', btnInk: '#FFFFFF', btnBorder: '0' },
+        { name: 'KK Ladies Hostel', short: 'KL', sub: '18 active · all paid', bg: '#FCEEF6', ink: '#9D1C5E', border: '#E7E9F0', btn: 'Open', btnBg: '#5B3DF5', btnInk: '#FFFFFF', btnBorder: '0' },
+      ],
+      staff: [
+        { name: 'Priya Nair', short: 'PN', outlets: 'All outlets', level: 'Full', lvBg: '#FEF1F0', lvInk: '#B42318', bg: '#FCEEF6', ink: '#9D1C5E' },
+        { name: 'Imran Khan', short: 'IK', outlets: 'Yousufguda', level: 'Add', lvBg: '#EEF4FF', lvInk: '#1D4ED8', bg: '#E8F6FF', ink: '#0B5E8A' },
+        { name: 'Ramesh', short: 'R', outlets: 'Ladies Hostel · not signed up', level: 'See only', lvBg: '#F1F3F7', lvInk: '#475569', bg: '#FFF1E6', ink: '#9A3412' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Members v2 – mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4A2EE6}a:hover{color:#3D27B8}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <header>
+      <p style="margin: 0; font-size: 12.5px; color: #64748B; font-weight: 500">24 active · 3 joined this month</p>
+      <h1 style="margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Members</h1>
+    </header>
+
+    <!-- quick actions: the same four-tile row as Collect -->
+    <nav aria-label="Quick actions" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{actions}}" as="a" hint-placeholder-count="4">
+        <button type="button" style="height: 68px; padding: 0; border: 1px solid #E7E9F0; border-radius: 14px; background: #FFFFFF; color: #0F172A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12px; font-weight: 600">
+          <span style="width: 30px; height: 30px; border-radius: 10px; background: {{a.bg}}; color: {{a.ink}}; display: grid; place-items: center; font-size: 15px; font-weight: 700">{{a.icon}}</span>{{a.label}}
+        </button>
+      </sc-for>
+    </nav>
+
+    <!-- 2x2 icon cards, same as Collect -->
+    <section aria-label="At a glance" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+        <button type="button" onClick="{{c.pick}}" style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #FFFFFF; border: 1px solid {{c.border}}; border-radius: 14px; text-align: left; color: #0F172A">
+          <span style="width: 32px; height: 32px; flex: none; border-radius: 10px; background: {{c.bg}}; color: {{c.ink}}; display: grid; place-items: center; font-weight: 700; font-size: 14px">{{c.icon}}</span>
+          <span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 12px; color: #64748B">{{c.label}}</span><b style="font-size: 17px; color: {{c.valueInk}}">{{c.value}}</b></span>
+        </button>
+      </sc-for>
+    </section>
+
+    <label style="display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E7E9F0; color: #64748B">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search members</span>
+      <input type="search" placeholder="Search name or phone" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #0F172A">
+      <button type="button" style="height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: #F4F6FA; color: #334155; font-size: 13px; font-weight: 600">Filter</button>
+    </label>
+
+    <!-- status pills, like Collect on phones -->
+    <div role="tablist" aria-label="Show members" style="display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px; padding: 0 16px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+        <sc-if value="{{t.on}}" hint-placeholder-val="{{ false }}">
+          <button type="button" role="tab" aria-selected="true" onClick="{{t.pick}}" style="flex: none; height: 34px; padding: 0 12px; border: 0; border-radius: 99px; background: #0F172A; color: #FFFFFF; font-size: 13px; font-weight: 600">{{t.label}} · {{t.count}}</button>
+        </sc-if>
+        <sc-if value="{{t.off}}" hint-placeholder-val="{{ true }}">
+          <button type="button" role="tab" aria-selected="false" onClick="{{t.pick}}" style="flex: none; height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; background: #FFFFFF; color: #0F172A; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px"><span style="width: 7px; height: 7px; border-radius: 99px; background: {{t.dot}}"></span>{{t.label}} · {{t.count}}</button>
+        </sc-if>
+      </sc-for>
+    </div>
+
+    <!-- the desktop column headings become a select-all + sort row -->
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px">
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #64748B; font-weight: 500">
+        <input type="checkbox" style="width: 18px; height: 18px; margin: 0; accent-color: #5B3DF5"> {{shown}} members
+      </label>
+      <button type="button" style="height: 34px; padding: 0 10px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-size: 13px; color: #0F172A"><span style="color: #64748B">Sort:</span> <b style="font-weight: 600">Status</b> ↓</button>
+    </div>
+
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+        <li style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px; padding: 12px">
+          <!-- Member + Status -->
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="width: 40px; height: 40px; flex: none; border-radius: 99px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-size: 13px; font-weight: 700">{{r.initials}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 15px; font-weight: 600">{{r.name}}</b><span style="font-size: 12px; color: #64748B">{{r.phone}}</span></span>
+            <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
+              <span style="display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 99px; background: {{r.pillBg}}; color: {{r.subInk}}; font-size: 12px; font-weight: 600"><span style="width: 6px; height: 6px; border-radius: 99px; background: currentColor"></span>{{r.status}}</span>
+              <span style="font-size: 11.5px; color: #64748B">{{r.sub}}</span>
+            </span>
+          </div>
+          <!-- Plan & batch · Last visit · Balance, labelled like the desktop columns -->
+          <dl style="display: grid; grid-template-columns: 1.2fr 1fr 0.9fr; gap: 8px; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid #F1F3F7">
+            <div><dt style="font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #94A3B8">Plan &amp; batch</dt><dd style="margin: 2px 0 0; font-size: 12.5px; font-weight: 500">{{r.plan}}<span style="display: block; color: #64748B; font-size: 11.5px; font-weight: 400">{{r.batch}}</span></dd></div>
+            <div><dt style="font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #94A3B8">Last visit</dt><dd style="margin: 2px 0 0; font-size: 12.5px; font-weight: 500; color: {{r.visitInk}}">{{r.visit}}</dd></div>
+            <div style="text-align: right"><dt style="font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #94A3B8">Balance</dt><dd style="margin: 2px 0 0; font-size: 14px; font-weight: 700; color: {{r.amtInk}}">{{r.amount}}</dd></div>
+          </dl>
+          <!-- Actions -->
+          <div style="display: flex; gap: 8px; margin-top: 10px">
+            <button type="button" aria-label="WhatsApp {{r.name}}" style="width: 44px; height: 40px; flex: none; border: 1px solid #D5F0E2; border-radius: 10px; background: #F0FBF5; color: #066B3F; padding: 0; font-size: 14px">✆</button>
+            <sc-if value="{{r.hasCta}}" hint-placeholder-val="{{ true }}">
+              <button type="button" style="flex: 1; height: 40px; padding: 0 14px; border: {{r.ctaBorder}}; border-radius: 10px; background: {{r.ctaBg}}; color: {{r.ctaInk}}; font-size: 13px; font-weight: 600">{{r.cta}}</button>
+            </sc-if>
+            <button type="button" aria-label="Open {{r.name}}" style="flex: {{r.openFlex}}; min-width: 44px; height: 40px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #334155; font-size: 13px; font-weight: 600">{{r.openLabel}}</button>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'all' }; }
+  renderVals() {
+    const people = [
+      { name: 'Rohit Kumar', phone: '98111 20457', plan: 'Monthly', batch: 'Evening 6–8', g: 'late', late: 41, bal: 3000, away: 12 },
+      { name: 'Neha Singh', phone: '99870 44120', plan: 'Quarterly', batch: 'Ladies 10–12', g: 'late', late: 19, bal: 4000, away: 9 },
+      { name: 'Sajjad Alam', phone: '70027 29745', plan: 'Monthly', batch: 'Morning 6–8', g: 'late', late: 8, bal: 1500, away: null },
+      { name: 'Pooja Rao', phone: '88850 11234', plan: 'Monthly', batch: 'Ladies 10–12', g: 'soon', renew: 2, bal: 0, away: 11 },
+      { name: 'Karan Mehta', phone: '98200 66510', plan: 'Monthly', batch: 'Morning 6–8', g: 'away', renew: 18, bal: 0, away: 35 },
+      { name: 'Vikram Shah', phone: '97690 33421', plan: 'Quarterly', batch: 'Morning 6–8', g: 'ok', renew: 52, bal: 0, away: 0 },
+    ];
+    const TABS = {
+      all: ['All', '#94A3B8', () => true, 24], late: ['Expired', '#DC2626', (p) => p.g === 'late', 3],
+      soon: ['Expiring', '#D97706', (p) => p.g === 'soon', 2], away: ['Not coming', '#7C3AED', (p) => p.away === null || p.away >= 7, 4],
+      ok: ['Paid up', '#16A34A', (p) => p.bal === 0, 19],
+    };
+    const st = this.state;
+    const rows = people.filter(TABS[st.tab][2]).map((p) => {
+      let status, sub, subInk, pillBg, cta = '', primary = false;
+      if (p.g === 'late') { status = 'Expired'; sub = p.late + ' days late'; subInk = '#B42318'; pillBg = '#FEF1F0'; cta = 'Collect'; primary = true; }
+      else if (p.g === 'soon') { status = 'Expiring'; sub = 'in ' + p.renew + ' days'; subInk = '#92400E'; pillBg = '#FFF6E5'; cta = 'Remind'; }
+      else { status = 'Active'; sub = 'renews in ' + p.renew + 'd'; subInk = '#066B3F'; pillBg = '#ECFDF3'; cta = p.away >= 7 ? 'Call' : ''; }
+      return {
+        ...p, status, sub, subInk, pillBg, cta, hasCta: !!cta, initials: p.name.split(' ').map((x) => x[0]).join(''),
+        openLabel: cta ? '›' : 'Open', openFlex: cta ? '0 0 44px' : '1',
+        ctaBg: primary ? '#5B3DF5' : '#FFFFFF', ctaInk: primary ? '#FFFFFF' : '#0F172A', ctaBorder: primary ? '0' : '1px solid #E2E5EC',
+        amount: p.bal > 0 ? '₹' + p.bal.toLocaleString('en-IN') : 'Paid up', amtInk: p.bal > 0 ? '#B42318' : '#066B3F',
+        visit: p.away === null ? 'no visits yet' : p.away === 0 ? 'came today' : 'visited ' + p.away + 'd ago', visitInk: p.away === null || p.away >= 7 ? '#B45309' : '#64748B',
+      };
+    });
+    const card = (id, icon, bg, ink, label, value, valueInk) => ({ icon, bg, ink, label, value, valueInk, border: st.tab === id ? '#5B3DF5' : '#E7E9F0', pick: () => this.setState({ tab: id }) });
+    return {
+      rows, shown: String(rows.length),
+      actions: [
+        { icon: '+', label: 'Member', bg: '#5B3DF5', ink: '#FFFFFF' },
+        { icon: '₹', label: 'Payment', bg: '#F1EEFF', ink: '#3D27B8' },
+        { icon: '✆', label: 'Remind', bg: '#ECFDF3', ink: '#066B3F' },
+        { icon: '↓', label: 'Export', bg: '#F1F3F7', ink: '#334155' },
+      ],
+      tabs: Object.keys(TABS).map((id) => ({ label: TABS[id][0], dot: TABS[id][1], count: String(TABS[id][3]), on: id === st.tab, off: id !== st.tab, pick: () => this.setState({ tab: id }) })),
+      cards: [
+        card('late', '₹', '#FEF1F0', '#B42318', 'Owe money', '₹8,500', '#B42318'),
+        card('soon', '⏱', '#FFF6E5', '#92400E', 'Expiring', '₹3,000', '#0F172A'),
+        card('away', '!', '#F3EEFF', '#6D28D9', 'Not coming', '4', '#0F172A'),
+        card('all', '✓', '#ECFDF3', '#066B3F', 'Active', '24', '#0F172A'),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

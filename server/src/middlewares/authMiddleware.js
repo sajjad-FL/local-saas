@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { Business, Member, User } from '../models/index.js';
+import { accessFor, levelNeeded, LEVELS } from '../services/staffService.js';
 
 export const signToken = (user) =>
   jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -31,12 +32,24 @@ const paused = (biz, res) => res.status(403).json({ error: 'this business is pau
 // Ownership filter: business is owned by user or user is in staffIds
 export const mine = (userId) => ({ $or: [{ ownerId: userId }, { staffIds: userId }] });
 
+// Staff only get what their access level allows; owners pass straight through
+async function checkAccess(req, res, biz) {
+  req.access = await accessFor(biz, req.userId);
+  const need = levelNeeded(req.method, req.originalUrl);
+  if (req.access.level < need) {
+    res.status(403).json({ error: `your access (${LEVELS[req.access.level]}) can't do this — ask the owner`, accessDenied: true });
+    return false;
+  }
+  return true;
+}
+
 // Route param resolver for :bizId
 export async function resolveBizParam(req, res, next, id) {
   try {
     const biz = await Business.findOne({ _id: id, ...mine(req.userId) });
     if (!biz) return res.status(404).json({ error: 'business not found' });
     if (biz.status === 'suspended') return paused(biz, res);
+    if (!(await checkAccess(req, res, biz))) return;
     req.business = biz;
     next();
   } catch (err) {
@@ -51,6 +64,7 @@ export async function resolveMemberParam(req, res, next, id) {
     const biz = member && await Business.findOne({ _id: member.businessId, ...mine(req.userId) });
     if (!biz) return res.status(404).json({ error: 'member not found' });
     if (biz.status === 'suspended') return paused(biz, res);
+    if (!(await checkAccess(req, res, biz))) return;
     req.member = member;
     req.business = biz;
     next();

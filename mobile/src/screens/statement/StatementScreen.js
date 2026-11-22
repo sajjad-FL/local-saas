@@ -16,6 +16,7 @@ import { rupees, formatDate, getApiBaseUrl } from '../../api/api';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
+import Loader from '../../components/Loader';
 
 export default function StatementScreen({ route, navigation }) {
   const { token } = route.params || {};
@@ -50,7 +51,7 @@ export default function StatementScreen({ route, navigation }) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
         <View style={styles.centerBox}>
-          <Text style={{ color: theme.colors.textSecondary }}>Loading statement…</Text>
+          <Loader label="Loading your statement" />
         </View>
       </SafeAreaView>
     );

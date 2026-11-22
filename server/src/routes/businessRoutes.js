@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { resolveBizParam } from '../middlewares/authMiddleware.js';
 import {
   getBusinesses,
+  getBusinessSummary,
   createBusiness,
   updateBusiness,
   deleteBusiness,
@@ -11,13 +12,14 @@ import {
   removeStaff,
 } from '../controllers/businessController.js';
 import { getGroups, createGroup, renameGroup, deleteGroup, addFloor, renameFloor, deleteFloor } from '../controllers/groupController.js';
-import { getPlans, createPlan } from '../controllers/planController.js';
+import { getPlans, createPlan, updatePlan } from '../controllers/planController.js';
 import { getRooms, createRoom, updateRoom, deleteRoom } from '../controllers/roomController.js';
 import { getMembers, createMember } from '../controllers/memberController.js';
 import { getDashboardData } from '../controllers/dashboardController.js';
 import { getReport } from '../controllers/reportController.js';
 import { getAttendanceDay, markAttendance, markAllPresent, checkinLink, importAttendance, getNotComing } from '../controllers/attendanceController.js';
 import { getExpenses, createExpense, deleteExpense } from '../controllers/expenseController.js';
+import { getEnquiries, createEnquiry, updateEnquiry, deleteEnquiry } from '../controllers/enquiryController.js';
 import { exportPaymentsCsv, exportBalancesCsv, exportDuesCsv, exportExpensesCsv, exportBackupJson } from '../controllers/exportController.js';
 
 export const businessRoutes = Router();
@@ -26,6 +28,7 @@ businessRoutes.param('bizId', resolveBizParam);
 
 // Businesses
 businessRoutes.get('/', getBusinesses);
+businessRoutes.get('/summary', getBusinessSummary);
 businessRoutes.post('/', createBusiness);
 businessRoutes.patch('/:bizId', updateBusiness);
 businessRoutes.delete('/:bizId', deleteBusiness);
@@ -48,6 +51,7 @@ businessRoutes.delete('/:bizId/groups/:groupId/floors/:floorId', deleteFloor);
 // Plans
 businessRoutes.get('/:bizId/plans', getPlans);
 businessRoutes.post('/:bizId/plans', createPlan);
+businessRoutes.patch('/:bizId/plans/:planId', updatePlan);
 
 // Rooms
 businessRoutes.get('/:bizId/rooms', getRooms);
@@ -75,6 +79,12 @@ businessRoutes.get('/:bizId/report', getReport);
 businessRoutes.get('/:bizId/expenses', getExpenses);
 businessRoutes.post('/:bizId/expenses', createExpense);
 businessRoutes.delete('/:bizId/expenses/:expenseId', deleteExpense);
+
+// Enquiries: people who asked about joining
+businessRoutes.get('/:bizId/enquiries', getEnquiries);
+businessRoutes.post('/:bizId/enquiries', createEnquiry);
+businessRoutes.patch('/:bizId/enquiries/:enquiryId', updateEnquiry);
+businessRoutes.delete('/:bizId/enquiries/:enquiryId', deleteEnquiry);
 
 // CSV Exports
 businessRoutes.get('/:bizId/export/payments.csv', exportPaymentsCsv);

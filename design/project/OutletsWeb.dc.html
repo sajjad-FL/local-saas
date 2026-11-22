@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Outlets – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4A2EE6}a:hover{color:#3D27B8}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 900px; position: relative; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <!-- the switcher now lists every outlet and links here -->
+    <div style="border: 1px solid #E7E9F0; border-radius: 12px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 8px">
+        <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">{{curInitials}}</span>
+        <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">{{curName}}</b><span style="font-size: 12px; color: #64748B">{{curSub}}</span></span>
+        <span style="color: #64748B">⌄</span>
+      </div>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Outlets</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Plans &amp; setup</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">Your branches · switch, add or manage</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Outlets</h1>
+      </div>
+      <button type="button" onClick="{{openAdd}}" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ Add outlet</button>
+    </div>
+
+    <!-- all outlets together, same icon cards as Collect -->
+    <section aria-label="All outlets" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{totals}}" as="t" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px">
+          <span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: {{t.bg}}; color: {{t.ink}}; display: grid; place-items: center; font-weight: 700">{{t.icon}}</span>
+          <span style="display: flex; flex-direction: column"><span style="font-size: 12.5px; color: #64748B; font-weight: 500">{{t.label}}</span><b style="font-size: 20px; color: {{t.valueInk}}">{{t.value}}</b></span>
+        </div>
+      </sc-for>
+    </section>
+
+    <!-- one card per outlet -->
+    <section aria-label="Outlets" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px">
+      <sc-for list="{{outlets}}" as="o" hint-placeholder-count="3">
+        <article style="background: #FFFFFF; border: 1px solid {{o.border}}; box-shadow: {{o.shadow}}; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="width: 44px; height: 44px; border-radius: 12px; background: {{o.avBg}}; color: {{o.avInk}}; display: grid; place-items: center; font-weight: 700; font-size: 15px">{{o.initials}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+              <span style="display: flex; align-items: center; gap: 8px"><b style="font-size: 16px; font-weight: 700">{{o.name}}</b>
+                <sc-if value="{{o.current}}" hint-placeholder-val="{{ false }}"><span style="height: 22px; padding: 0 8px; border-radius: 99px; background: #ECFDF3; color: #066B3F; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center">● Open now</span></sc-if>
+              </span>
+              <span style="font-size: 12.5px; color: #64748B">{{o.kind}} · {{o.role}}</span>
+            </span>
+            <button type="button" aria-label="More actions for {{o.name}}" style="width: 36px; height: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #475569; padding: 0">⋯</button>
+          </div>
+          <dl style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0; background: #EEF0F5; border-radius: 12px; overflow: hidden">
+            <div style="padding: 10px 12px; background: #FAFBFC"><dt style="font-size: 11.5px; color: #64748B">Active</dt><dd style="margin: 2px 0 0; font-weight: 700; font-size: 17px">{{o.active}}</dd></div>
+            <div style="padding: 10px 12px; background: #FAFBFC"><dt style="font-size: 11.5px; color: #64748B">To collect</dt><dd style="margin: 2px 0 0; font-weight: 700; font-size: 17px; color: {{o.oweInk}}">{{o.owe}}</dd></div>
+            <div style="padding: 10px 12px; background: #FAFBFC"><dt style="font-size: 11.5px; color: #64748B">Collected · Nov</dt><dd style="margin: 2px 0 0; font-weight: 700; font-size: 17px; color: #066B3F">{{o.collected}}</dd></div>
+          </dl>
+          <div style="display: flex; gap: 8px">
+            <sc-if value="{{o.notCurrent}}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{o.open}}" style="flex: 1; height: 40px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">Open this outlet</button>
+            </sc-if>
+            <sc-if value="{{o.current}}" hint-placeholder-val="{{ false }}">
+              <button type="button" style="flex: 1; height: 40px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">Go to Collect</button>
+            </sc-if>
+            <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">Rename</button>
+          </div>
+        </article>
+      </sc-for>
+
+      <!-- add card -->
+      <button type="button" onClick="{{openAdd}}" style="min-height: 220px; border: 2px dashed #D9D2FE; border-radius: 18px; background: #FBFAFF; color: #3D27B8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 15px">
+        <span style="width: 44px; height: 44px; border-radius: 12px; background: #F1EEFF; display: grid; place-items: center; font-size: 22px">+</span>
+        Add another outlet
+        <span style="font-size: 13px; font-weight: 500; color: #64748B">A new branch with its own members and money</span>
+      </button>
+    </section>
+  </main>
+
+  <!-- add outlet dialog -->
+  <sc-if value="{{adding}}" hint-placeholder-val="{{ true }}">
+    <button type="button" aria-label="Close" onClick="{{closeAdd}}" style="position: absolute; inset: 0; border: 0; padding: 0; background: rgba(15,23,42,.36); cursor: default"></button>
+    <section role="dialog" aria-modal="true" aria-labelledby="ao-title" style="position: absolute; left: 50%; top: 110px; transform: translateX(-50%); width: 480px; background: #FFFFFF; border-radius: 18px; box-shadow: 0 24px 60px rgba(15,23,42,.25); padding: 22px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h2 id="ao-title" style="margin: 0; font-size: 18px; font-weight: 700">Add an outlet</h2>
+        <button type="button" aria-label="Close" onClick="{{closeAdd}}" style="width: 34px; height: 34px; border: 0; border-radius: 10px; background: #F4F6FA; padding: 0">✕</button>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #334155">Outlet name
+        <input value="KK Fitness – Banjara Hills" style="height: 44px; padding: 0 12px; border: 1.5px solid #5B3DF5; border-radius: 10px; font-size: 15px; color: #0F172A">
+      </label>
+      <fieldset style="border: 0; margin: 0; padding: 0">
+        <legend style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; padding: 0">Type</legend>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <span style="height: 36px; padding: 0 12px; border: 1.5px solid #5B3DF5; border-radius: 99px; background: #F1EEFF; color: #3D27B8; font-size: 13.5px; font-weight: 600; display: inline-flex; align-items: center">✓ Gym</span>
+          <span style="height: 36px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; font-size: 13.5px; display: inline-flex; align-items: center">Hostel / PG</span>
+          <span style="height: 36px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; font-size: 13.5px; display: inline-flex; align-items: center">Mess</span>
+          <span style="height: 36px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; font-size: 13.5px; display: inline-flex; align-items: center">Tuition</span>
+        </div>
+      </fieldset>
+      <label style="display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid #E7E9F0; border-radius: 12px; background: #FAFBFC; font-size: 14px">
+        <input type="checkbox" checked style="width: 18px; height: 18px; margin: 1px 0 0; accent-color: #5B3DF5">
+        <span><b style="font-weight: 600">Copy plans and batches from KK Fitness</b><span style="display: block; font-size: 12.5px; color: #64748B; margin-top: 2px">3 plans · 2 batches. Members and money are not copied.</span></span>
+      </label>
+      <div style="display: flex; justify-content: flex-end; gap: 8px">
+        <button type="button" onClick="{{closeAdd}}" style="height: 42px; padding: 0 16px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600">Cancel</button>
+        <button type="button" onClick="{{closeAdd}}" style="height: 42px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600">Add and open it</button>
+      </div>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { current: 0, adding: false }; }
+  renderVals() {
+    const list = [
+      { name: 'KK Fitness', short: 'KF', kind: 'Gym', role: 'Owner', active: 24, owe: 8500, collected: 38000, tone: '#F1EEFF:#3D27B8' },
+      { name: 'KK Fitness – Yousufguda', short: 'KY', kind: 'Gym', role: 'Owner · 2 staff', active: 41, owe: 12000, collected: 61500, tone: '#E8F6FF:#0B5E8A' },
+      { name: 'KK Ladies Hostel', short: 'KL', kind: 'Hostel / PG', role: 'Owner · 1 staff', active: 18, owe: 0, collected: 117000, tone: '#FCEEF6:#9D1C5E' },
+    ];
+    const st = this.state;
+    const fmt = (n) => '₹' + n.toLocaleString('en-IN');
+    const cur = list[st.current];
+    const sum = (k) => list.reduce((s, o) => s + o[k], 0);
+    return {
+      curName: cur.name, curInitials: cur.short, curSub: cur.kind + ' · ' + list.length + ' outlets',
+      totals: [
+        { icon: '⌂', bg: '#F1EEFF', ink: '#3D27B8', label: 'Outlets', value: String(list.length), valueInk: '#0F172A' },
+        { icon: '✓', bg: '#ECFDF3', ink: '#066B3F', label: 'Active members', value: String(sum('active')), valueInk: '#0F172A' },
+        { icon: '₹', bg: '#FEF1F0', ink: '#B42318', label: 'To collect, all outlets', value: fmt(sum('owe')), valueInk: '#B42318' },
+        { icon: '↑', bg: '#ECFDF3', ink: '#066B3F', label: 'Collected in November', value: fmt(sum('collected')), valueInk: '#066B3F' },
+      ],
+      outlets: list.map((o, i) => {
+        const [avBg, avInk] = o.tone.split(':');
+        const current = i === st.current;
+        return {
+          ...o, initials: o.short, avBg, avInk, current, notCurrent: !current,
+          active: String(o.active), owe: o.owe ? fmt(o.owe) : 'All paid', oweInk: o.owe ? '#B42318' : '#066B3F', collected: fmt(o.collected),
+          border: current ? '#5B3DF5' : '#E7E9F0', shadow: current ? '0 0 0 1px #5B3DF5' : 'none',
+          open: () => this.setState({ current: i }),
+        };
+      }),
+      adding: st.adding, openAdd: () => this.setState({ adding: true }), closeAdd: () => this.setState({ adding: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

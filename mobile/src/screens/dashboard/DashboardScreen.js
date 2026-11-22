@@ -18,6 +18,7 @@ import Badge from '../../components/Badge';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
+import { ScreenSkeleton } from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { tint } from '../../constants/theme';
 
@@ -167,6 +168,9 @@ export default function DashboardScreen({ navigation }) {
     .sort((a, b) => new Date(a.nextRenewal) - new Date(b.nextRenewal));
   const renewingSoon = upcoming.filter((m) => daysUntil(m.nextRenewal) <= 14).slice(0, 6);
 
+  // first load: placeholders in the dashboard's shape
+  if (loading && !dashboardData) return <ScreenSkeleton navigation={navigation} kind="dashboard" />;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* TopBar with Brand + Sun/Moon theme toggle */}
@@ -178,7 +182,7 @@ export default function DashboardScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
+            tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card}
           />
         }>
         {/* TODAY HEADER & QUICK ACTIONS */}
@@ -203,7 +207,7 @@ export default function DashboardScreen({ navigation }) {
 
             <TouchableOpacity
               activeOpacity={0.8}
-              style={[styles.btnActionPrimary, { backgroundColor: '#10B981' }]}
+              style={[styles.btnActionPrimary, { backgroundColor: theme.colors.primary }]}
               onPress={() => setAddMemberOpen(true)}>
               <Text style={styles.btnActionPrimaryText}>
                 + Add {w.member ? w.member.toLowerCase() : 'member'}
@@ -842,7 +846,7 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: 18,
     borderRadius: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: '#5B3DF5',
   },
   collectText: {
     color: '#FFFFFF',

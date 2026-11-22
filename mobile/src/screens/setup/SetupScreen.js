@@ -19,6 +19,7 @@ import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
+import { ScreenSkeleton } from '../../components/Loader';
 import { tint } from '../../constants/theme';
 import { words } from '../../constants/wording';
 import { copyNumbers } from '../../constants/roomNumbers';
@@ -122,6 +123,7 @@ export default function SetupScreen({ navigation }) {
   const [groups, setGroups] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loaded, setLoaded] = useState(false); // the first fetch has finished
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -159,6 +161,8 @@ export default function SetupScreen({ navigation }) {
       }
     } catch (err) {
       console.warn('Setup fetch error', err);
+    } finally {
+      setLoaded(true);
     }
   }, [biz?._id, biz?.type]);
 
@@ -420,6 +424,8 @@ export default function SetupScreen({ navigation }) {
     );
   };
 
+  if (!loaded) return <ScreenSkeleton navigation={navigation} kind="setup" />;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* Universal TopBar */}
@@ -428,7 +434,7 @@ export default function SetupScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
         }>
         <Text style={[styles.headTitle, { color: theme.colors.text }]}>Setup</Text>
         <Text style={[styles.sectionSub, { color: theme.colors.textMuted, marginTop: -8, marginBottom: 14 }]}>{w.setupHint}</Text>
@@ -441,7 +447,7 @@ export default function SetupScreen({ navigation }) {
           return (
           <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={[styles.stepBadge, { backgroundColor: rooms.length ? '#10B981' : theme.colors.cardSubtle }]}>
+              <View style={[styles.stepBadge, { backgroundColor: rooms.length ? theme.colors.primary : theme.colors.cardSubtle }]}>
                 {rooms.length ? <Icon name="checkmark" size={13} color="#FFFFFF" /> : <Text style={{ fontWeight: '700', color: theme.colors.textMuted }}>1</Text>}
               </View>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Buildings, floors & rooms</Text>
@@ -602,7 +608,7 @@ export default function SetupScreen({ navigation }) {
           <View style={styles.sectionHeadRow}>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={[styles.stepBadge, { backgroundColor: plans.length ? '#10B981' : theme.colors.cardSubtle }]}>
+                <View style={[styles.stepBadge, { backgroundColor: plans.length ? theme.colors.primary : theme.colors.cardSubtle }]}>
                   {plans.length ? <Icon name="checkmark" size={13} color="#FFFFFF" /> : <Text style={{ fontWeight: '700', color: theme.colors.textMuted }}>{isHostel ? 2 : 1}</Text>}
                 </View>
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{w.plans}</Text>
@@ -663,7 +669,7 @@ export default function SetupScreen({ navigation }) {
         {!isHostel && (
           <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={[styles.stepBadge, { backgroundColor: groups.length ? '#10B981' : theme.colors.cardSubtle }]}>
+              <View style={[styles.stepBadge, { backgroundColor: groups.length ? theme.colors.primary : theme.colors.cardSubtle }]}>
                 {groups.length ? <Icon name="checkmark" size={13} color="#FFFFFF" /> : <Text style={{ fontWeight: '700', color: theme.colors.textMuted }}>2</Text>}
               </View>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{w.groups}</Text>

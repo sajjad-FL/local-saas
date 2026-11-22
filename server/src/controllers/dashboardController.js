@@ -1,4 +1,5 @@
-import { Payment, Member, Due, Subscription, Plan } from '../models/index.js';
+import { Payment, Member, Due, Subscription, Plan, Attendance } from '../models/index.js';
+import { localDay, addDays } from '../services/attendanceService.js';
 import { memberBalances, remainingByDue as remainingByDueMap } from '../services/billingService.js';
 
 export async function getDashboardData(req, res, next) {
@@ -433,7 +434,30 @@ export async function getDashboardData(req, res, next) {
       };
     });
 
+    // ---- for the home screen: today, the last 7 days of attendance, and this month's growth ----
+    const tz = req.business.timezone || 'Asia/Kolkata';
+    const today = localDay(now, tz);
+    const paidToday = allPayments.filter((p) => localDay(p.date, tz) === today);
+    let week = null;
+    if (req.business.attendanceEnabled !== false) {
+      const from = addDays(today, -6);
+      const rows = await Attendance.aggregate([
+        { $match: { businessId, status: 'present', day: { $gte: from, $lte: today } } },
+        { $group: { _id: '$day', present: { $sum: 1 } } },
+      ]);
+      const byDay = new Map(rows.map((r) => [r._id, r.present]));
+      week = Array.from({ length: 7 }, (_, i) => { const day = addDays(from, i); return { day, present: byDay.get(day) || 0 }; });
+    }
+    const leftThisMonth = members.filter((m) => m.status === 'left' && m.leftAt && m.leftAt >= currentMonthStart).length;
+
     res.json({
+      home: {
+        today: { collected: paidToday.reduce((s, p) => s + p.amount, 0), payments: paidToday.length },
+        week,
+        lastMonthCollected: lastRev,
+        joinedThisMonth: newThisMonth,
+        leftThisMonth,
+      },
       metrics: {
         activeMembers: {
           value: activeMembersCount,

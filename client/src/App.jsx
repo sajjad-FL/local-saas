@@ -1,10 +1,11 @@
 import { useState, useEffect, createContext, useContext, lazy, Suspense } from 'react';
 import { Routes, Route, NavLink, Link, Navigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useIsFetching, useIsMutating } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api, userId } from './api.js';
 import DownloadConfirm from './DownloadConfirm.jsx';
 import { ConfirmHost } from './confirm.jsx';
+import { words } from './wording.js';
 import {
   HomeIcon,
   UsersIcon,
@@ -21,11 +22,16 @@ import {
   LayoutDashboardIcon,
   SlidersHorizontalIcon,
   CalendarCheckIcon,
+  UserPlusIcon,
   DoorIcon,
   ShieldIcon,
   BIZ_TYPES,
+  CheckIcon,
+  Loader,
 } from './ui.jsx';
 import Login from './pages/Login.jsx';
+import { Logo, TYPES, TYPE_ART } from './brand.jsx';
+const Landing = lazy(() => import('./pages/Landing.jsx'));
 // pages load on demand so a member opening a statement link doesn't download the whole dashboard
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
 const Members = lazy(() => import('./pages/Members.jsx'));
@@ -35,6 +41,7 @@ const Setup = lazy(() => import('./pages/Setup.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
 const Statement = lazy(() => import('./pages/Statement.jsx'));
 const Attendance = lazy(() => import('./pages/Attendance.jsx'));
+const Enquiries = lazy(() => import('./pages/Enquiries.jsx'));
 const Rooms = lazy(() => import('./pages/Rooms.jsx'));
 const CheckIn = lazy(() => import('./pages/CheckIn.jsx'));
 const AdminPanel = lazy(() => import('./pages/Admin.jsx'));
@@ -64,7 +71,7 @@ export default function App() {
   const { pathname } = useLocation();
   if (pathname.startsWith('/s/') || pathname.startsWith('/c/')) {
     return (
-      <Suspense fallback={<p className="center">Loading…</p>}>
+      <Suspense fallback={<Loader page />}>
         <Routes>
           <Route path="/s/:token" element={<Statement />} />
           <Route path="/c/:token" element={<CheckIn />} />
@@ -73,10 +80,19 @@ export default function App() {
     );
   }
 
+  // signed out: the landing page, then log in or sign up
   if (!token) {
+    const onLogin = (t) => { localStorage.setItem('token', t); setToken(t); };
     return (
       <ThemeContext.Provider value={{ theme, toggleTheme }}>
-        <Login onLogin={(t) => { localStorage.setItem('token', t); setToken(t); }} />
+        <Suspense fallback={<Loader page />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login mode="login" onLogin={onLogin} />} />
+            <Route path="/signup" element={<Login key="signup" mode="signup" onLogin={onLogin} />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Suspense>
       </ThemeContext.Provider>
     );
   }
@@ -91,6 +107,16 @@ export default function App() {
 
 function Shell({ onLogout }) {
   const location = useLocation();
+  // phones: the sidebar opens as a slide-in menu
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => { setNavOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setNavOpen(false); };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+  }, [navOpen]);
   const { theme, toggleTheme } = useTheme();
   const { data: businesses, refetch } = useQuery({ queryKey: ['businesses'], queryFn: () => api('/businesses') });
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api('/me'), staleTime: 5 * 60000 });
@@ -114,16 +140,16 @@ function Shell({ onLogout }) {
 
   // platform admin area: its own screen; only admins get in
   if (location.pathname.startsWith('/admin')) {
-    if (!me) return <p className="center">Loading…</p>;
+    if (!me) return <Loader page />;
     if (me.role !== 'admin') return <Navigate to="/" replace />;
     return (
-      <Suspense fallback={<p className="center">Loading…</p>}>
+      <Suspense fallback={<Loader page />}>
         <AdminPanel me={me} onLogout={onLogout} hasBusiness={!!businesses?.length} />
       </Suspense>
     );
   }
 
-  if (!businesses) return <p className="center">Loading workspace…</p>;
+  if (!businesses) return <Loader page label="Opening your workspace" />;
   if (!businesses.length) return me?.role === 'admin' ? <Navigate to="/admin" replace /> : <CreateBusiness onCreated={refetch} />;
   const activeCount = (membersList || []).filter((m) => m.status === 'active').length;
 
@@ -131,15 +157,20 @@ function Shell({ onLogout }) {
   const attendanceOn = biz.attendanceEnabled !== false;
   const isHostel = biz.type === 'hostel';
   const TypeIcon = typeConfig.icon;
+  // sidebar business card: initials, then "Gym · 24 members"
+  const bizInitials = (biz.name || '?').trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+  const bizKind = { gym: 'Gym', hostel: 'Hostel', mess: 'Mess', tuition: 'Tuition' }[biz.type] || 'Business';
+  const memberWord = words(biz.type).member === 'member' ? 'Members' : words(biz.type).member[0].toUpperCase() + words(biz.type).member.slice(1) + 's';
 
   const getPageTitle = (path) => {
     if (path === '/') return 'Dashboard';
     if (path.startsWith('/members/')) return 'Member Profile';
     if (path.startsWith('/members')) return 'Members Directory';
-    if (path.startsWith('/reports')) return 'Reports & Analytics';
-    if (path.startsWith('/setup')) return 'Setup & Plans';
+    if (path.startsWith('/reports')) return 'Money';
+    if (path.startsWith('/setup')) return 'Setup';
     if (path.startsWith('/settings')) return 'Settings';
     if (path.startsWith('/attendance')) return 'Attendance';
+    if (path.startsWith('/enquiries')) return 'Enquiries';
     if (path.startsWith('/rooms')) return 'Rooms';
     return 'Dashboard';
   };
@@ -147,22 +178,28 @@ function Shell({ onLogout }) {
   return (
     <BizContext.Provider value={biz}>
       <DownloadConfirm />
+      <TopProgress />
       <div className="app-layout">
         {/* Desktop Dark Sidebar (#0F172A) */}
-        <aside className="app-sidebar">
+        {navOpen && <div className="nav-scrim" aria-hidden="true" onClick={() => setNavOpen(false)} />}
+        <aside id="app-menu" className={`app-sidebar${navOpen ? ' open' : ''}`} aria-label="Menu">
           {/* Logo Brand Header */}
+          <div className="sidebar-logo">
+            <Logo size={26} />
+            <button type="button" className="logout-btn sidebar-close" style={{ marginLeft: 'auto' }} aria-label="Close menu" onClick={() => setNavOpen(false)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+          </div>
           <div className="sidebar-header">
             <div className="business-card-switch">
-              <span className="business-icon-badge" style={{ background: `linear-gradient(135deg, ${typeConfig.gradient[0]}, ${typeConfig.gradient[1]})` }}>
-                <TypeIcon size={20} />
-              </span>
+              <span className="business-icon-badge" aria-hidden="true">{bizInitials}</span>
               <div className="business-meta">
                 <div className="business-title">{biz.name}</div>
-                <div className="business-type-tag">
-                  <span>{typeConfig.badge}</span>
-                  {businesses.length > 1 && <ChevronDownIcon size={12} />}
-                </div>
+                <div className="business-type-tag">{bizKind} · {activeCount} {words(biz.type).member}{activeCount === 1 ? '' : 's'}</div>
               </div>
+              {businesses.length > 1 && (
+                <svg className="business-switch-chevrons" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5" /></svg>
+              )}
               {businesses.length > 1 && (
                 <select
                   className="business-select-native"
@@ -180,17 +217,14 @@ function Shell({ onLogout }) {
             </div>
           </div>
 
-          {/* Group 1: MAIN MENU */}
-          <div className="sidebar-nav-label">MAIN MENU</div>
-          <nav className="sidebar-nav">
+          <nav className="sidebar-nav" aria-label="Main">
             <NavLink to="/" end className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
-              <LayoutDashboardIcon size={18} />
-              <span>Dashboard</span>
+              <HomeIcon size={18} />
+              <span>Collect</span>
             </NavLink>
             <NavLink to="/members" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
               <UsersIcon size={18} />
-              <span style={{ flex: 1 }}>Members</span>
-              {activeCount > 0 && <span className="sidebar-count-badge">{activeCount}</span>}
+              <span>{memberWord}</span>
             </NavLink>
             {isHostel && (
               <NavLink to="/rooms" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
@@ -204,18 +238,18 @@ function Shell({ onLogout }) {
                 <span>Attendance</span>
               </NavLink>
             )}
+            <NavLink to="/enquiries" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <UserPlusIcon size={18} />
+              <span>Enquiries</span>
+            </NavLink>
             <NavLink to="/reports" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
               <BarChartIcon size={18} />
-              <span>Reports</span>
+              <span>Money</span>
             </NavLink>
-          </nav>
-
-          {/* Group 2: CONFIG */}
-          <div className="sidebar-nav-label" style={{ marginTop: 18 }}>CONFIG</div>
-          <nav className="sidebar-nav">
             <NavLink to="/setup" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
               <SlidersHorizontalIcon size={18} />
-              <span>Setup & Plans</span>
+              <span>Setup</span>
+              {businesses.length > 1 && <span className="sidebar-count" title={`${businesses.length} outlets`}>{businesses.length}</span>}
             </NavLink>
             <NavLink to="/settings" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
               <SettingsIcon size={18} />
@@ -259,8 +293,11 @@ function Shell({ onLogout }) {
         {/* Main Content Area */}
         <div className="main-wrapper">
           <header className="topbar">
-            <div className="brand" style={{ position: 'relative', minWidth: 0, flex: '1 1 auto' }}>
-              <span className="brand-mark" style={{ background: `linear-gradient(135deg, ${typeConfig.gradient[0]}, ${typeConfig.gradient[1]})` }}>
+            <button type="button" className="menu-btn" aria-label="Open menu" aria-controls="app-menu" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <Link to="/setup?tab=outlets" className="brand brand-link" title="Your outlets" style={{ position: 'relative', minWidth: 0, flex: '1 1 auto' }}>
+              <span className="brand-mark">
                 <TypeIcon size={18} />
               </span>
               <div className="brand-info" style={{ minWidth: 0 }}>
@@ -268,7 +305,8 @@ function Shell({ onLogout }) {
                 <span className="brand-sep">/</span>
                 <span className="brand-badge">{getPageTitle(location.pathname)}</span>
               </div>
-            </div>
+              <ChevronDownIcon size={14} className="brand-chev" aria-hidden="true" />
+            </Link>
 
             <div className="topbar-actions">
               <button
@@ -302,6 +340,9 @@ function Shell({ onLogout }) {
               <Route path="/setup" element={<Setup />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/attendance" element={<Attendance />} />
+              <Route path="/enquiries" element={<Enquiries />} />
+              <Route path="/outlets" element={<Navigate to="/setup?tab=outlets" replace />} />
+              <Route path="/staff" element={<Navigate to="/setup?tab=staff" replace />} />
               <Route path="/rooms" element={isHostel ? <Rooms /> : <Navigate to="/" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -311,54 +352,6 @@ function Shell({ onLogout }) {
         </div>
 
         {/* Mobile Safe-Area Bottom Bar */}
-        <nav className="tabs" aria-label="Mobile Navigation">
-          <NavLink to="/" end className={({ isActive }) => `tab-link${isActive ? ' active' : ''}`}>
-            {({ isActive }) => (
-              <>
-                <LayoutDashboardIcon size={20} />
-                <span>Dashboard</span>
-                {isActive && <motion.div layoutId="tab-pill" className="tab-pill" />}
-              </>
-            )}
-          </NavLink>
-          <NavLink to="/members" className={({ isActive }) => `tab-link${isActive ? ' active' : ''}`}>
-            {({ isActive }) => (
-              <>
-                <UsersIcon size={20} />
-                <span>Members</span>
-                {isActive && <motion.div layoutId="tab-pill" className="tab-pill" />}
-              </>
-            )}
-          </NavLink>
-          <NavLink to="/reports" className={({ isActive }) => `tab-link${isActive ? ' active' : ''}`}>
-            {({ isActive }) => (
-              <>
-                <BarChartIcon size={20} />
-                <span>Reports</span>
-                {isActive && <motion.div layoutId="tab-pill" className="tab-pill" />}
-              </>
-            )}
-          </NavLink>
-          {/* hostels: the rooms board; others: attendance (or Setup when it's off) */}
-          <NavLink to={isHostel ? '/rooms' : attendanceOn ? '/attendance' : '/setup'} className={({ isActive }) => `tab-link${isActive ? ' active' : ''}`}>
-            {({ isActive }) => (
-              <>
-                {isHostel ? <DoorIcon size={20} /> : attendanceOn ? <CalendarCheckIcon size={20} /> : <SlidersHorizontalIcon size={20} />}
-                <span>{isHostel ? 'Rooms' : attendanceOn ? 'Attendance' : 'Setup'}</span>
-                {isActive && <motion.div layoutId="tab-pill" className="tab-pill" />}
-              </>
-            )}
-          </NavLink>
-          <NavLink to="/settings" className={({ isActive }) => `tab-link${isActive ? ' active' : ''}`}>
-            {({ isActive }) => (
-              <>
-                <SettingsIcon size={20} />
-                <span>Settings</span>
-                {isActive && <motion.div layoutId="tab-pill" className="tab-pill" />}
-              </>
-            )}
-          </NavLink>
-        </nav>
       </div>
     </BizContext.Provider>
   );
@@ -395,8 +388,21 @@ const PauseCircle = () => (
   </svg>
 );
 
+// A thin purple bar along the top while anything loads or saves in the background.
+// Shown only after a short wait, so quick requests don't make it flicker.
+function TopProgress() {
+  const busy = useIsFetching() + useIsMutating() > 0;
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!busy) { setShow(false); return undefined; }
+    const t = setTimeout(() => setShow(true), 250);
+    return () => clearTimeout(t);
+  }, [busy]);
+  return <div className={`top-progress${show ? ' on' : ''}`} role="progressbar" aria-hidden={!show} aria-label="Loading" />;
+}
+
 function CreateBusiness({ onCreated }) {
-  const [form, setForm] = useState({ name: '', type: 'gym', upiId: '' });
+  const [form, setForm] = useState({ name: '', type: 'hostel', upiId: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -416,62 +422,46 @@ function CreateBusiness({ onCreated }) {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card" style={{ maxWidth: 460 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 2 }}>Create Your Business Workspace</h1>
-        <p className="muted small" style={{ marginBottom: 14 }}>Select your business category to configure your workspace.</p>
+    <div className="auth2">
+      <header className="auth2-top"><Logo /></header>
+      <div className="auth2-body single">
+        <form className="auth2-card" onSubmit={submit}>
+          <h2 className="auth2-title">Set up your business</h2>
+          <p className="auth2-sub">Choose what you run. You can add more businesses later.</p>
 
-        {error && <p className="small red-text" style={{ marginBottom: 8 }}>{error}</p>}
+          <fieldset className="auth2-types">
+            <legend>Business type</legend>
+            <div className="type-tiles">
+              {TYPES.map((t) => {
+                const Art = TYPE_ART[t.key];
+                const on = form.type === t.key;
+                return (
+                  <label key={t.key} className={`type-tile${on ? ' on' : ''}`}>
+                    <input type="radio" name="type" value={t.key} checked={on} onChange={() => setForm({ ...form, type: t.key })} />
+                    <span className="type-tile-check" aria-hidden="true">{on && <CheckIcon size={12} />}</span>
+                    <Art />
+                    <b>{t.title}</b>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
 
-        <form onSubmit={submit}>
-          <Field label="Business / Workspace Name *" icon={BuildingIcon}>
-            <input
-              placeholder="e.g. Vivek Gym"
-              required
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </Field>
+          <label className="auth2-field">
+            <span>Business name</span>
+            <span className="auth2-input"><BuildingIcon size={17} />
+              <input placeholder="e.g. Green Nest PG" required maxLength={60} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </span>
+          </label>
+          <label className="auth2-field">
+            <span>UPI ID <small>(optional, for WhatsApp payment links)</small></span>
+            <span className="auth2-input"><RupeeIcon size={17} />
+              <input placeholder="e.g. payments@ybl" value={form.upiId} onChange={(e) => setForm({ ...form, upiId: e.target.value })} />
+            </span>
+          </label>
 
-          <label className="input-label" style={{ marginTop: 12, display: 'block' }}>Business Category</label>
-          <div className="type-grid" style={{ marginTop: 6, marginBottom: 12 }}>
-            {Object.entries(BIZ_TYPES).map(([k, meta]) => {
-              const Icon = meta.icon;
-              const sel = form.type === k;
-              return (
-                <button
-                  type="button"
-                  key={k}
-                  className={`type-card${sel ? ' selected' : ''}`}
-                  onClick={() => setForm({ ...form, type: k })}>
-                  <div className="type-icon" style={{ background: meta.soft, color: meta.accent }}>
-                    <Icon size={20} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 12.5 }}>{meta.label}</div>
-                    <div className="muted small" style={{ fontSize: 10.5 }}>{meta.desc}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <Field label="UPI VPA ID (Optional)" icon={RupeeIcon} hint="For WhatsApp payment links">
-            <input
-              placeholder="e.g. payments@ybl"
-              value={form.upiId}
-              onChange={(e) => setForm({ ...form, upiId: e.target.value })}
-            />
-          </Field>
-
-          <div style={{ marginTop: 16 }}>
-            <button
-              disabled={busy}
-              className="btn"
-              style={{ width: '100%', minHeight: 38, justifyContent: 'center', background: 'var(--green)' }}>
-              {busy ? 'Creating Workspace…' : 'Create & Get Started'}
-            </button>
-          </div>
+          {error && <p className="auth2-error" role="alert">{error}</p>}
+          <button type="submit" className="auth2-submit" disabled={busy}>{busy ? 'Creating…' : 'Create & get started'}</button>
         </form>
       </div>
     </div>

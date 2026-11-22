@@ -4,6 +4,7 @@ import { memberRoutes } from './memberRoutes.js';
 import { User } from '../models/index.js';
 import { updateProfile, changePassword } from '../controllers/authController.js';
 import { rateLimit } from '../middlewares/rateLimit.js';
+import { listStaff, addStaffMember, updateStaffMember, removeStaffMember } from '../controllers/staffController.js';
 
 export const apiRoutes = Router();
 
@@ -22,6 +23,12 @@ apiRoutes.get('/me', async (req, res, next) => {
 const limitPasswordChecks = rateLimit({ max: 10, windowMs: 15 * 60000, failuresOnly: true, message: 'too many wrong passwords — try again in 15 minutes' });
 apiRoutes.patch('/me', limitPasswordChecks, updateProfile);
 apiRoutes.post('/me/password', limitPasswordChecks, changePassword);
+
+// Staff across all of the signed-in owner's outlets
+apiRoutes.get('/staff', listStaff);
+apiRoutes.post('/staff', addStaffMember);
+apiRoutes.patch('/staff/:staffId', updateStaffMember);
+apiRoutes.delete('/staff/:staffId', removeStaffMember);
 
 apiRoutes.use('/businesses', businessRoutes);
 apiRoutes.use('/members', memberRoutes);

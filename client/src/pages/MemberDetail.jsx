@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { api, waLink, rupees, remindMsg, userId } from '../api.js';
+import { api, waLink, rupees, remindMsg, can, ADD, EDIT, DELETE } from '../api.js';
 import { useBiz } from '../App.jsx';
 import { confirmAction } from '../confirm.jsx';
 import {
@@ -21,6 +20,10 @@ export default function MemberDetail() {
   const [mode, setMode] = useState('cash');
   const [confirmModal, setConfirmModal] = useState(null); // { type: 'pause' | 'resume' | 'leave' | 'reverse' }
   const [lastPayment, setLastPayment] = useState(null); // for the "send receipt" prompt after recording
+  // the open tab lives in the URL (?tab=payments) so Back and shared links keep it
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') || 'overview';
+  const setTab = (t) => setParams((p) => { if (t === 'overview') p.delete('tab'); else p.set('tab', t); return p; }, { replace: true });
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['member', id],
@@ -94,7 +97,7 @@ export default function MemberDetail() {
   const { member, balance, subscription, payments = [], dues = [] } = data;
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
-  const isOwner = biz.ownerId === userId();
+  const canAdd = can(biz, ADD), canEdit = can(biz, EDIT), canDelete = can(biz, DELETE);
 
   // oldest first to compute the balance after each entry (same-day due before its payment), then newest on top
   let running = 0;
@@ -112,355 +115,303 @@ export default function MemberDetail() {
     (balance > 0 ? `Balance due: ${rupees(balance)}.` : balance < 0 ? `Advance: ${rupees(-balance)}.` : 'You are all paid up.') +
     ' Thank you!' + (statementUrl ? ` Statement: ${statementUrl}` : '');
 
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const isActive = member.status === 'active';
+  const isPaused = subscription?.status === 'paused';
+  const planText = subscription?.planId
+    ? `${subscription.planId.name} · ${rupees(subscription.amount ?? subscription.planId.amount)}${subscription.amount ? ' (custom)' : ''}`
+    : 'No active plan';
+  const dueDate = subscription?.periodEnd ? new Date(subscription.periodEnd) : null;
+  const dueLate = dueDate && dueDate <= new Date();
+  // payments clear the oldest fees first: the first fee not covered is what they've owed since
+  let paidLeft = totalPaid;
+  const owingSince = balance > 0 ? [...dues]
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .find((d) => { if (paidLeft >= d.amount) { paidLeft -= d.amount; return false; } paidLeft = 0; return new Date(d.dueDate) <= new Date(); })?.dueDate : null;
+  const today0 = new Date(new Date().toDateString());
+  const daysLate = owingSince ? Math.max(0, Math.floor((today0 - new Date(new Date(owingSince).toDateString())) / 86400000)) : 0;
+  const showAttendance = biz.attendanceEnabled !== false;
+  const isHostel = biz.type === 'hostel';
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'payments', label: 'Payments', count: ledger.length },
+    showAttendance && { id: 'attendance', label: 'Attendance' },
+    isHostel && { id: 'deposit', label: 'Deposit & notice' },
+  ].filter(Boolean);
+  const current = tabs.some((t) => t.id === tab) ? tab : 'overview';
+  const openPayments = () => {
+    setTab('payments');
+    setTimeout(() => document.getElementById('md-pay-amount')?.focus(), 50);
+  };
+
+  const ledgerList = (items) => (
+    <ul className="md-ledger">
+      {items.map((item) => (
+        <li key={item._id} className="md-ledger-row">
+          <span className={`md-ledger-icon ${item.kind}`}>
+            {item.kind === 'payment' ? <RupeeIcon size={15} /> : <CreditCardIcon size={15} />}
+          </span>
+          <span className="md-ledger-what">
+            <b>{item.kind === 'payment' ? 'Payment received' : 'Fee due'}</b>
+            <span>{fmtDate(item.when)}{item.mode ? ` · ${item.mode === 'upi' ? 'UPI' : item.mode[0].toUpperCase() + item.mode.slice(1)}` : ''}</span>
+          </span>
+          <span className="md-ledger-amt">
+            <b className={item.kind === 'payment' ? 'green' : 'red'}>{item.kind === 'payment' ? '+' : '−'}{rupees(item.amount)}</b>
+            <span>Balance {rupees(item.balanceAfter)}</span>
+          </span>
+          {canDelete && item.kind === 'payment' ? (
+            <button
+              type="button"
+              className="md-icon-btn"
+              title="Reverse this payment"
+              aria-label={`Reverse payment of ${rupees(item.amount)}`}
+              onClick={() => setConfirmModal({ type: 'reverse', payment: item })}>
+              <TrashIcon size={14} />
+            </button>
+          ) : <span className="md-icon-spacer" />}
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <>
       <Link to="/members" className="back-pill">
         <ChevronIcon size={13} style={{ transform: 'rotate(180deg)' }} />
-        <span className="hide-sm">Back to Members Directory</span><span className="show-sm">Members</span>
+        <span>Members</span>
       </Link>
 
-      <div className="page-header hide-sm" style={{ marginBottom: 16 }}>
-        <div className="page-title-wrap">
-          <h1 className="page-title">
-            {member.name}
-          </h1>
-          <p className="page-subtitle">
-            Member profile details, subscription plan cycles, and financial ledger history.
-          </p>
+      {/* Summary: who, what they owe, and the two things you do most */}
+      <section className="md-head">
+        <div className="md-who">
+          <Avatar name={member.name} lg />
+          <div className="md-who-text">
+            <h1>
+              {member.name}
+              {member.status === 'left' && <span className="badge gray">Left</span>}
+              {isPaused && <span className="badge orange">Paused</span>}
+            </h1>
+            <p>
+              {member.phone ? <a href={`tel:${member.phone}`}>{member.phone}</a> : 'No phone'}
+              <span aria-hidden="true"> · </span>{planText}
+            </p>
+          </div>
         </div>
+
+        <div className="md-balance">
+          <span className="md-balance-label">{balance > 0 ? 'Owes' : balance < 0 ? 'Advance' : 'Balance'}</span>
+          <span className={`md-balance-big ${balance > 0 ? 'red' : 'green'}`}>{balance === 0 ? 'Paid up' : rupees(Math.abs(balance))}</span>
+          {owingSince ? (
+            <span className="md-balance-sub red">
+              {daysLate > 0 ? `${daysLate} day${daysLate === 1 ? '' : 's'} late` : 'Due today'} · since {fmtDate(owingSince)}
+            </span>
+          ) : dueDate && isActive && !isPaused && (
+            <span className={`md-balance-sub ${dueLate ? 'red' : ''}`}>Next due {fmtDate(dueDate)}</span>
+          )}
+        </div>
+
+        <div className="md-head-actions">
+          {isActive && canAdd && (
+            <button type="button" className="btn md-primary" onClick={openPayments}>
+              <CheckIcon size={15} /> Record payment
+            </button>
+          )}
+          {member.phone && balance > 0 && (
+            <a
+              className="btn wa md-wa"
+              target="_blank"
+              rel="noreferrer"
+              href={waLink(member.phone, remindMsg(biz, member.name, balance) + (statementUrl ? ` See your statement: ${statementUrl}` : ''))}>
+              <WhatsAppIcon size={15} /> Remind
+            </a>
+          )}
+          {statementUrl && (
+            <a
+              className="btn-secondary md-share"
+              target="_blank"
+              rel="noreferrer"
+              title="A read-only page with every due and payment. No app or login needed."
+              href={member.phone
+                ? waLink(member.phone, `Hi ${member.name}, here is your account statement from ${biz.name}: ${statementUrl}`)
+                : statementUrl}>
+              <LinkIcon size={14} /> Share statement
+            </a>
+          )}
+        </div>
+      </section>
+
+      {/* Tabs */}
+      <div className="md-tabs" role="tablist" aria-label="Member details">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`md-tab-${t.id}`}
+            aria-selected={current === t.id}
+            aria-controls={`md-panel-${t.id}`}
+            className={`md-tab ${current === t.id ? 'on' : ''}`}
+            onClick={() => setTab(t.id)}>
+            {t.label}
+            {t.count > 0 && <span className="md-tab-count">{t.count}</span>}
+          </button>
+        ))}
       </div>
 
-      {/* 2-Column Responsive Layout on Desktop */}
-      <div className="settings-grid" style={{ marginBottom: 18 }}>
-        {/* Left Column: Member Profile Card */}
-        <Rise i={0}>
-          <div className="analytics-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div className="profile-top-bar" style={{ paddingBottom: 12 }}>
-                <div className="profile-avatar-wrap">
-                  <Avatar name={member.name} lg />
-                  <div className="profile-name-block">
-                    <h2>
-                      {member.name}
-                      {member.status === 'left' && <span className="badge gray" style={{ fontSize: 11 }}>Left</span>}
-                    </h2>
-                    <div className="muted small hide-sm" style={{ marginTop: 2 }}>
-                      Member ID: <span style={{ fontFamily: 'monospace' }}>{member._id.slice(-6).toUpperCase()}</span>
-                    </div>
-                  </div>
-                </div>
+      <div className="md-panel" role="tabpanel" id={`md-panel-${current}`} aria-labelledby={`md-tab-${current}`}>
+        {current === 'overview' && (
+          <div className="md-overview">
+            <section className="analytics-card md-card">
+              <h2 className="md-card-title">Details</h2>
+              <dl className="md-facts">
+                <div><dt>Phone</dt><dd>{member.phone ? <a href={`tel:${member.phone}`}>{member.phone}</a> : '—'}</dd></div>
+                <div><dt>Plan</dt><dd>{planText}</dd></div>
+                {owingSince && <div><dt>Unpaid since</dt><dd className="red">{fmtDate(owingSince)}{daysLate > 0 ? ` (${daysLate} days)` : ''}</dd></div>}
+                <div><dt>Next renewal</dt><dd>{dueDate ? fmtDate(dueDate) : '—'}</dd></div>
+                <div><dt>Joined</dt><dd>{fmtDate(member.joinDate)}</dd></div>
+                <div><dt>Total paid</dt><dd className="green">{rupees(totalPaid)}</dd></div>
+                <div><dt>Member ID</dt><dd className="mono">{member._id.slice(-6).toUpperCase()}</dd></div>
+              </dl>
+            </section>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span className={`badge ${balance > 0 ? 'red' : 'green'}`} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    <span className="badge-dot pulse-dot" />
-                    {balance > 0 ? `Unpaid ${rupees(balance)}` : balance < 0 ? `Advance ${rupees(-balance)}` : 'Paid Up (₹0 Due)'}
-                  </span>
-                  {subscription?.status === 'paused' && <span className="badge orange">Paused</span>}
-                </div>
+            <section className="analytics-card md-card">
+              <div className="md-card-head">
+                <h2 className="md-card-title">Recent activity</h2>
+                {ledger.length > 3 && <button type="button" className="md-link" onClick={() => setTab('payments')}>See all {ledger.length}</button>}
               </div>
+              {ledger.length ? ledgerList(ledger.slice(0, 3)) : <p className="md-empty">No fees or payments yet.</p>}
+            </section>
 
-              {/* Key-Value Info Cards Grid */}
-              <div className="profile-meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', margin: '12px 0' }}>
-                <div className="meta-item">
-                  <div className="meta-label">
-                    <PhoneIcon size={12} style={{ color: 'var(--primary)' }} /> Mobile Phone
-                  </div>
-                  <div className="meta-value">
-                    {member.phone ? (
-                      <a href={`tel:${member.phone}`} style={{ color: 'var(--primary)' }}>
-                        {member.phone}
-                      </a>
-                    ) : (
-                      <span className="muted">Not registered</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="meta-item">
-                  <div className="meta-label">
-                    <CreditCardIcon size={12} style={{ color: 'var(--primary)' }} /> Current Plan
-                  </div>
-                  <div className="meta-value">
-                    {subscription?.planId ? (
-                      <span>{subscription.planId.name} ({rupees(subscription.amount ?? subscription.planId.amount)}{subscription.amount ? ', custom' : ''})</span>
-                    ) : (
-                      <span className="muted">No active plan</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="meta-item">
-                  <div className="meta-label">
-                    <RupeeIcon size={12} style={{ color: 'var(--green)' }} /> Total Paid
-                  </div>
-                  <div className="meta-value green-text" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {rupees(totalPaid)}
-                  </div>
-                </div>
-
-                <div className="meta-item">
-                  <div className="meta-label">
-                    <CalendarIcon size={12} style={{ color: 'var(--primary)' }} /> Joined On
-                  </div>
-                  <div className="meta-value">
-                    {new Date(member.joinDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                </div>
-
-                <div className="meta-item">
-                  <div className="meta-label">
-                    <ClockIcon size={12} style={{ color: 'var(--primary)' }} /> Next Due Date
-                  </div>
-                  <div className="meta-value">
-                    {subscription?.periodEnd ? (
-                      <span className={new Date(subscription.periodEnd) <= new Date() ? 'red-text' : ''}>
-                        {new Date(subscription.periodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </span>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Toolbar */}
-            <div className="row member-actions" style={{ paddingTop: 12, borderTop: '1px solid var(--border-subtle)', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <div className="row member-actions-main" style={{ gap: 6, flexWrap: 'wrap' }}>
-                {member.phone && balance > 0 && (
-                  <motion.a
-                    className="btn wa"
-                    target="_blank"
-                    rel="noreferrer"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
-                    href={waLink(member.phone, remindMsg(biz, member.name, balance) + (statementUrl ? ` See your statement: ${statementUrl}` : ''))}>
-                    <WhatsAppIcon size={14} /> Send WhatsApp Reminder
-                  </motion.a>
-                )}
+            {(statementUrl || isActive) && (
+              <section className="analytics-card md-card md-manage">
+                <h2 className="md-card-title">Manage</h2>
                 {statementUrl && (
-                  <a
-                    className="btn btn-secondary"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
-                    title="A read-only page with every due and payment. No app or login needed."
-                    href={member.phone
-                      ? waLink(member.phone, `Hi ${member.name}, here is your account statement from ${biz.name}: ${statementUrl}`)
-                      : statementUrl}>
-                    <LinkIcon size={13} /> Share Statement
-                  </a>
-                )}
-                {statementUrl && (
-                  <button
-                    type="button"
-                    className="btn-link small muted"
-                    title="Stop the current link working and issue a new one"
-                    disabled={rotateShare.isPending}
-                    onClick={async () => {
-                      if (await confirmAction({
-                        title: 'Reset the statement link?',
-                        message: `The link already sent to ${member.name} will stop working. Send them the new one after this.`,
-                        confirmText: 'Reset link', danger: true,
-                      })) rotateShare.mutate();
-                    }}>
-                    Reset link
-                  </button>
-                )}
-              </div>
-
-              <div className="row" style={{ gap: 6 }}>
-                {subscription && member.status === 'active' && (
-                  subscription.status === 'paused' ? (
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
-                      disabled={pauseResume.isPending}
-                      onClick={() => setConfirmModal({ type: 'resume' })}>
-                      <PlayIcon size={13} /> Resume
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
-                      disabled={pauseResume.isPending}
-                      onClick={() => setConfirmModal({ type: 'pause' })}>
-                      <PauseIcon size={13} /> Pause
-                    </button>
-                  )
-                )}
-                {member.status === 'active' && (
-                  <button
-                    type="button"
-                    className="btn-secondary red-text"
-                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5, whiteSpace: 'nowrap' }}
-                    disabled={markLeft.isPending}
-                    onClick={() => setConfirmModal({ type: 'leave' })}>
-                    Mark as Left
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </Rise>
-
-        {/* Right Column: Record Payment Form */}
-        {member.status === 'active' && (
-          <Rise i={1}>
-            <div className="analytics-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <form onSubmit={(e) => { e.preventDefault(); pay.mutate(); }}>
-                <div className="card-header-row" style={{ marginBottom: 12 }}>
-                  <div>
-                    <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <RupeeIcon size={17} style={{ color: 'var(--green)' }} />
-                      Record Payment Received
-                    </h3>
-                    <span className="analytics-card-subtitle">
-                      Record a payment received in cash, UPI or card
+                  <div className="md-manage-row">
+                    <span>
+                      <b>Statement link</b>
+                      <span>A read-only page with every due and payment, no login needed.</span>
                     </span>
-                  </div>
-                </div>
-
-                {/* Quick Amount Chips (Starting from 1000) */}
-                <div className="chips-row member-pay-chips" style={{ marginBottom: 12 }}>
-                  <span className="small muted" style={{ alignSelf: 'center', marginRight: 2, fontWeight: 600 }}>Quick fill:</span>
-                  {balance > 0 && (
                     <button
                       type="button"
-                      className="chip"
-                      style={{ background: 'var(--primary-soft)', color: 'var(--primary)', borderColor: 'var(--primary-border)' }}
-                      onClick={() => setAmount(String(balance))}>
-                      Clear {rupees(balance)}
+                      className="btn-secondary md-small"
+                      disabled={rotateShare.isPending}
+                      onClick={async () => {
+                        if (await confirmAction({
+                          title: 'Reset the statement link?',
+                          message: `The link already sent to ${member.name} will stop working. Send them the new one after this.`,
+                          confirmText: 'Reset link', danger: true,
+                        })) rotateShare.mutate();
+                      }}>
+                      Reset link
                     </button>
-                  )}
-                  {[1000, 1500, 2000, 2500, 3000, 5000].map((quick) => (
-                    <button
-                      key={quick}
-                      type="button"
-                      className="chip"
-                      onClick={() => setAmount(String(quick))}>
-                      +{rupees(quick)}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="form-grid two-col" style={{ marginBottom: 14 }}>
-                  <Field label="Payment Amount (₹) *" icon={RupeeIcon}>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="1"
-                      placeholder="e.g. 1500"
-                      required
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                    />
-                  </Field>
-
-                  <Field label="Payment Mode *" icon={CreditCardIcon}>
-                    <select value={mode} onChange={(e) => setMode(e.target.value)}>
-                      <option value="cash">💵 Cash Received</option>
-                      <option value="upi">⚡ Direct UPI / QR Scan</option>
-                      <option value="other">🏦 Bank Transfer / Card</option>
-                    </select>
-                  </Field>
-                </div>
-
-                <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
-                  <button disabled={pay.isPending || !amount} style={{ width: '100%', justifyContent: 'center' }}>
-                    <CheckIcon size={15} />
-                    {pay.isPending ? 'Recording Payment…' : 'Record Payment'}
-                  </button>
-                </div>
-              </form>
-              {pay.error && <p className="error" role="alert">{pay.error.message}</p>}
-              {lastPayment && member.phone && (
-                <div className="row" style={{ marginTop: 10, gap: 8, alignItems: 'center' }}>
-                  <CheckCircleIcon size={15} style={{ color: 'var(--green)' }} />
-                  <span className="small grow">Recorded {rupees(lastPayment.amount)}.</span>
-                  <a className="btn wa" target="_blank" rel="noreferrer"
-                    style={{ minHeight: 30, padding: '4px 10px', fontSize: 11.5 }}
-                    href={waLink(member.phone, receiptMsg)}
-                    onClick={() => setLastPayment(null)}>
-                    <WhatsAppIcon size={14} /> Send Receipt
-                  </a>
-                </div>
-              )}
-            </div>
-          </Rise>
-        )}
-      </div>
-
-      {biz.type === 'hostel' && <DepositNotice member={member} />}
-
-      {biz.attendanceEnabled !== false && <MemberAttendance memberId={member._id} isGym={biz.type === 'gym'} machineId={member.biometricId} />}
-
-      {/* Transaction Ledger Timeline */}
-      <Rise i={2}>
-        <div className="analytics-card">
-          <div className="card-header-row" style={{ marginBottom: 14 }}>
-            <div>
-              <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <ClockIcon size={17} style={{ color: 'var(--primary)' }} />
-                Transaction Ledger ({ledger.length})
-              </h3>
-              <span className="analytics-card-subtitle">
-                Chronological timeline of billed subscription cycles and recorded payments
-              </span>
-            </div>
-          </div>
-
-          <div className="timeline">
-            {ledger.map((item) => (
-              <div key={item._id} className="timeline-item">
-                <span className={`timeline-dot ${item.kind}`} />
-                <div className="card row" style={{ alignItems: 'center', margin: '4px 0', padding: '10px 14px' }}>
-                  <span className={`tx-icon ${item.kind === 'payment' ? 'in' : 'due'}`} style={{ width: 32, height: 32 }}>
-                    {item.kind === 'payment' ? <RupeeIcon size={15} /> : <CreditCardIcon size={15} />}
-                  </span>
-
-                  <div className="grow">
-                    <b style={{ fontSize: 13.5 }}>
-                      {item.kind === 'payment' ? 'Payment Received' : 'Fee Due'}
-                    </b>
-                    <div className="muted small">
-                      {new Date(item.when).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {item.mode && ` · Mode: ${item.mode.toUpperCase()}`}
-                    </div>
                   </div>
-
-                  <div style={{ textAlign: 'right', marginLeft: 12 }}>
-                    <span className={`amount ${item.kind === 'payment' ? 'green-text' : 'red-text'}`} style={{ fontSize: 14 }}>
-                      {item.kind === 'payment' ? '+' : '-'}{rupees(item.amount)}
+                )}
+                {subscription && isActive && canEdit && (
+                  <div className="md-manage-row">
+                    <span>
+                      <b>{isPaused ? 'Paused' : 'Pause membership'}</b>
+                      <span>{isPaused ? 'No fees while paused. Resuming adds the paused days to the due date.' : 'Stops fees for a while, for example when they go home.'}</span>
                     </span>
-                    <div className="ledger-balance">Bal {rupees(item.balanceAfter)}</div>
-                  </div>
-                  {isOwner && item.kind === 'payment' && (
                     <button
                       type="button"
-                      className="icon-btn"
-                      title="Reverse this payment"
-                      aria-label={`Reverse payment of ${rupees(item.amount)}`}
-                      onClick={() => setConfirmModal({ type: 'reverse', payment: item })}>
-                      <TrashIcon size={14} />
+                      className="btn-secondary md-small"
+                      disabled={pauseResume.isPending}
+                      onClick={() => setConfirmModal({ type: isPaused ? 'resume' : 'pause' })}>
+                      {isPaused ? <><PlayIcon size={13} /> Resume</> : <><PauseIcon size={13} /> Pause</>}
                     </button>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {!ledger.length && (
-              <div className="empty" style={{ padding: '24px 12px' }}>
-                <b>No transactions recorded yet</b>
-                <span>Subscription renewals and member payments will appear here in chronological order.</span>
-              </div>
+                  </div>
+                )}
+                {isActive && canEdit && (
+                  <div className="md-manage-row">
+                    <span>
+                      <b>Mark as left</b>
+                      <span>No more fees are added. Their payment history is kept.</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-secondary md-small md-danger"
+                      disabled={markLeft.isPending}
+                      onClick={() => setConfirmModal({ type: 'leave' })}>
+                      Mark as left
+                    </button>
+                  </div>
+                )}
+              </section>
             )}
           </div>
-        </div>
-      </Rise>
+        )}
+
+        {current === 'payments' && (
+          <div className="md-payments">
+            {isActive && canAdd && (
+              <section className="analytics-card md-card">
+                <form onSubmit={(e) => { e.preventDefault(); pay.mutate(); }}>
+                  <h2 className="md-card-title">Record a payment</h2>
+                  <div className="md-chips">
+                    {balance > 0 && (
+                      <button type="button" className="chip md-chip-main" onClick={() => setAmount(String(balance))}>
+                        Full {rupees(balance)}
+                      </button>
+                    )}
+                    {[1000, 1500, 2000, 3000, 5000].map((quick) => (
+                      <button key={quick} type="button" className="chip" onClick={() => setAmount(String(quick))}>
+                        {rupees(quick)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="form-grid two-col" style={{ marginBottom: 14 }}>
+                    <Field label="Amount (₹)" icon={RupeeIcon}>
+                      <input
+                        id="md-pay-amount"
+                        type="number"
+                        inputMode="decimal"
+                        min="1"
+                        placeholder="e.g. 1500"
+                        required
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Paid by" icon={CreditCardIcon}>
+                      <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                        <option value="cash">Cash</option>
+                        <option value="upi">UPI</option>
+                        <option value="other">Bank transfer or card</option>
+                      </select>
+                    </Field>
+                  </div>
+                  <button disabled={pay.isPending || !amount} style={{ width: '100%', justifyContent: 'center' }}>
+                    <CheckIcon size={15} /> {pay.isPending ? 'Saving…' : amount ? `Save ${rupees(Number(amount))} payment` : 'Save payment'}
+                  </button>
+                </form>
+                {pay.error && <p className="error" role="alert">{pay.error.message}</p>}
+                {lastPayment && member.phone && (
+                  <div className="md-receipt">
+                    <CheckCircleIcon size={15} />
+                    <span>Saved {rupees(lastPayment.amount)}.</span>
+                    <a className="btn wa md-small" target="_blank" rel="noreferrer"
+                      href={waLink(member.phone, receiptMsg)}
+                      onClick={() => setLastPayment(null)}>
+                      <WhatsAppIcon size={14} /> Send receipt
+                    </a>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="analytics-card md-card">
+              <h2 className="md-card-title">History <span className="md-muted">· newest first</span></h2>
+              {ledger.length ? ledgerList(ledger) : <p className="md-empty">No fees or payments yet. Fees appear here as each cycle is billed.</p>}
+            </section>
+          </div>
+        )}
+
+        {current === 'attendance' && showAttendance && (
+          <MemberAttendance memberId={member._id} isGym={biz.type === 'gym'} machineId={member.biometricId} />
+        )}
+
+        {current === 'deposit' && isHostel && <DepositNotice member={member} />}
+      </div>
 
       {/* Confirmation Modals */}
       <ConfirmDialog
@@ -553,8 +504,8 @@ function DepositNotice({ member }) {
   });
 
   return (
-    <Rise i={2}>
-      <form className="analytics-card" style={{ marginBottom: 18 }} onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
+    <Rise i={0}>
+      <form className="analytics-card" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
         <div className="card-header-row" style={{ marginBottom: 12 }}>
           <div>
             <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -604,8 +555,8 @@ function MemberAttendance({ memberId, isGym, machineId }) {
   const label = { present: isGym ? 'Came in' : 'Present', absent: 'Absent' };
 
   return (
-    <Rise i={2}>
-      <div className="analytics-card" style={{ marginBottom: 18 }}>
+    <Rise i={0}>
+      <div className="analytics-card">
         <div className="card-header-row" style={{ marginBottom: 10 }}>
           <div>
             <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>

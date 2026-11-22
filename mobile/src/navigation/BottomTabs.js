@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 2.5,
     borderRadius: 1.5,
-    backgroundColor: '#10B981',
+    backgroundColor: '#5B3DF5',
     marginTop: 3,
   },
   tabPillPlaceholder: {

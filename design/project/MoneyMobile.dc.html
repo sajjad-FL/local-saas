@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Money – mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <header>
+      <p style="margin: 0; font-size: 12.5px; color: #64748B; font-weight: 500">Nov so far · ₹29,500 in</p>
+      <h1 style="margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Money</h1>
+    </header>
+    <!-- quick tiles like Collect on phones -->
+    <nav aria-label="Quick actions" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px">
+      <button type="button" style="height: 64px; border: 0; border-radius: 12px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><span>₹</span>Expense</button>
+      <button type="button" style="height: 64px; border: 1px solid #E2E5EC; border-radius: 12px; background: #FFFFFF; font-weight: 600; font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><span style="color: #066B3F">+</span>Payment</button>
+      <button type="button" style="height: 64px; border: 1px solid #E2E5EC; border-radius: 12px; background: #FFFFFF; font-weight: 600; font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px"><span style="color: #475569">↓</span>Download</button>
+    </nav>
+    <!-- period: chips + arrows in one row -->
+    <div style="display: flex; align-items: center; gap: 6px">
+      <button type="button" aria-label="Previous" style="width: 36px; height: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF">‹</button>
+      <button type="button" style="flex: 1; height: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 14px">{{range}} ⌄</button>
+      <button type="button" aria-label="Next" style="width: 36px; height: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #CBD2DC">›</button>
+    </div>
+    <div style="display: flex; gap: 6px">
+      <sc-for list="{{periods}}" as="p" hint-placeholder-count="4">
+        <button type="button" onClick="{{p.pick}}" style="flex: 1; height: 32px; border: {{p.border}}; border-radius: 99px; background: {{p.bg}}; color: {{p.ink}}; font-size: 13px; font-weight: {{p.weight}}">{{p.label}}</button>
+      </sc-for>
+    </div>
+    <section aria-label="This period" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+        <div style="padding: 12px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px; display: flex; flex-direction: column; gap: 4px">
+          <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748B"><span style="width: 24px; height: 24px; border-radius: 7px; background: {{c.bg}}; color: {{c.ink}}; display: grid; place-items: center; font-weight: 700; font-size: 12px">{{c.icon}}</span>{{c.label}}</span>
+          <b style="font-size: 18px; color: {{c.valueInk}}">{{c.value}}</b>
+          <span style="font-size: 11.5px; font-weight: 600; color: {{c.trendInk}}">{{c.trend}}</span>
+        </div>
+      </sc-for>
+    </section>
+    <div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid #E7E9F0">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="flex: 1; height: 40px; border: 0; border-bottom: 2px solid {{t.line}}; margin-bottom: -1px; background: transparent; color: {{t.ink}}; font-size: 13.5px; font-weight: {{t.weight}}">{{t.label}}</button>
+      </sc-for>
+    </div>
+    <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-size: 14px; font-weight: 700">Month by month</h2>
+      <sc-for list="{{months}}" as="m" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid #EEF0F5">
+          <span style="display: flex; justify-content: space-between; font-size: 13.5px"><b style="font-weight: 600">{{m.label}}</b><b>{{m.profit}} <span style="font-weight: 500; color: #94A3B8; font-size: 12px">profit</span></b></span>
+          <span style="display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: #F1F3F7"><span style="width: {{m.wIn}}; background: #16A34A"></span><span style="width: {{m.wOut}}; background: #F87171"></span></span>
+          <span style="display: flex; justify-content: space-between; font-size: 12px; color: #64748B"><span style="color: #066B3F">In {{m.in}}</span><span style="color: #B42318">Out {{m.out}}</span><span style="color: #B45309">Owed {{m.owe}}</span></span>
+        </div>
+      </sc-for>
+    </section>
+    <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-size: 14px; font-weight: 700">How members paid</h2>
+      <span style="display: flex; height: 10px; border-radius: 99px; overflow: hidden"><span style="width: 64%; background: #5B3DF5"></span><span style="width: 31%; background: #16A34A"></span><span style="width: 5%; background: #0EA5E9"></span></span>
+      <span style="display: flex; justify-content: space-between; font-size: 12.5px; color: #475569"><span>UPI ₹69,400</span><span>Cash ₹33,600</span><span>Card ₹5,500</span></span>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { period: 1, tab: 0 }; }
+  renderVals() {
+    const st = this.state;
+    const fmt = (n) => '₹' + n.toLocaleString('en-IN');
+    const months = [
+      { label: 'Sep 2026', in: 41000, out: 12500, owe: 0 },
+      { label: 'Oct 2026', in: 38000, out: 14200, owe: 2500 },
+      { label: 'Nov 2026', in: 29500, out: 9800, owe: 8500 },
+    ];
+    return {
+      range: ['Nov 2026', 'Sep–Nov 2026', 'FY 2026–27', 'Custom'][st.period],
+      periods: ['Month', 'Quarter', 'Year', 'Custom'].map((label, i) => ({ label, border: i === st.period ? '1.5px solid #5B3DF5' : '1px solid #E2E5EC', bg: i === st.period ? '#F1EEFF' : '#FFFFFF', ink: i === st.period ? '#3D27B8' : '#475569', weight: i === st.period ? '600' : '500', pick: () => this.setState({ period: i }) })),
+      cards: [
+        { icon: '↓', bg: '#ECFDF3', ink: '#066B3F', label: 'Received', value: fmt(108500), valueInk: '#066B3F', trend: '▲ 12% vs last', trendInk: '#066B3F' },
+        { icon: '↑', bg: '#FEF1F0', ink: '#B42318', label: 'Spent', value: fmt(36500), valueInk: '#0F172A', trend: '▼ 4% vs last', trendInk: '#066B3F' },
+        { icon: '₹', bg: '#F1EEFF', ink: '#3D27B8', label: 'Profit', value: fmt(72000), valueInk: '#0F172A', trend: '66% margin', trendInk: '#3D27B8' },
+        { icon: '!', bg: '#FFF6E5', ink: '#92400E', label: 'To collect', value: fmt(11000), valueInk: '#B42318', trend: '92% collected', trendInk: '#92400E' },
+      ],
+      tabs: ['Overview', 'Expenses 6', 'Who paid'].map((label, i) => ({ label, on: i === st.tab, line: i === st.tab ? '#5B3DF5' : 'transparent', ink: i === st.tab ? '#0F172A' : '#64748B', weight: i === st.tab ? '600' : '500', pick: () => this.setState({ tab: i }) })),
+      months: months.map((m) => ({ label: m.label, in: fmt(m.in), out: fmt(m.out), owe: m.owe ? fmt(m.owe) : '—', profit: fmt(m.in - m.out), wIn: ((m.in - m.out) / 41000 * 100) + '%', wOut: (m.out / 41000 * 100) + '%' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

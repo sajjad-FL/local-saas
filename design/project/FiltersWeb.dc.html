@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Members filters – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4A2EE6}a:hover{color:#3D27B8}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;width:18px;height:18px;margin:0;border:1.5px solid #CBD2DE;border-radius:5px;background:#FFFFFF;display:grid;place-items:center;cursor:pointer}
+input[type=checkbox]:checked{background:#5B3DF5;border-color:#5B3DF5}
+input[type=checkbox]:checked::after{content:"";width:9px;height:5px;border:2px solid #FFFFFF;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+</style>
+</helmet>
+<div style="min-height: 900px; position: relative; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid #E7E9F0; border-radius: 12px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 12 members</span></span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Plans &amp; setup</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+      <div>
+        <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em">Members</h1>
+        <p style="margin: 4px 0 0; font-size: 14px; color: #64748B">10 active · ₹14,500 to collect · 3 expiring this week</p>
+      </div>
+      <button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ Add member</button>
+    </div>
+
+    <section aria-label="Member list" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04)">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 16px">
+        <label style="flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 14px; border-radius: 12px; background: #F4F6FA; color: #64748B">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search members</span>
+          <input type="search" placeholder="Search by name or phone" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 14px; color: #0F172A">
+        </label>
+
+        <!-- one dropdown per question; the status one does most of the work -->
+        <sc-for list="{{menus}}" as="m" hint-placeholder-count="3">
+          <div style="position: relative">
+            <button type="button" aria-haspopup="listbox" aria-expanded="{{m.openStr}}" onClick="{{m.toggle}}" style="height: 42px; min-width: {{m.minW}}; padding: 0 12px 0 14px; border: 1.5px solid {{m.border}}; border-radius: 12px; background: {{m.bg}}; color: {{m.ink}}; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; white-space: nowrap">
+              <span style="display: flex; align-items: center; gap: 8px">
+                <sc-if value="{{m.hasDot}}" hint-placeholder-val="{{ false }}"><span style="width: 8px; height: 8px; border-radius: 99px; background: {{m.dot}}"></span></sc-if>
+                <span style="color: #64748B; font-weight: 500">{{m.prefix}}</span>{{m.value}}
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="{{m.caret}}"></path></svg>
+            </button>
+            <sc-if value="{{m.open}}" hint-placeholder-val="{{ false }}">
+              <div role="listbox" aria-label="{{m.label}}" style="position: absolute; top: 48px; {{m.side}}: 0; z-index: 6; width: {{m.panelW}}; max-height: 420px; overflow-y: auto; padding: 6px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E7E9F0; box-shadow: 0 16px 40px rgba(15,23,42,.16), 0 2px 6px rgba(15,23,42,.06)">
+                <sc-for list="{{m.items}}" as="it" hint-placeholder-count="6">
+                  <sc-if value="{{it.isHead}}" hint-placeholder-val="{{ false }}">
+                    <div style="padding: 10px 10px 4px; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #94A3B8">{{it.label}}</div>
+                  </sc-if>
+                  <sc-if value="{{it.isOpt}}" hint-placeholder-val="{{ true }}">
+                    <button type="button" role="option" aria-selected="{{it.onStr}}" onClick="{{it.pick}}" style="width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: 9px; background: {{it.bg}}; color: {{it.ink}}; font-size: 14px; font-weight: {{it.weight}}; display: flex; align-items: center; gap: 10px; text-align: left">
+                      <span style="width: 8px; height: 8px; border-radius: 99px; flex: none; background: {{it.dot}}"></span>
+                      <span style="flex: 1">{{it.label}}</span>
+                      <span style="min-width: 24px; height: 22px; padding: 0 7px; box-sizing: border-box; border-radius: 99px; background: {{it.countBg}}; color: {{it.countInk}}; font-size: 12px; font-weight: 600; display: grid; place-items: center">{{it.count}}</span>
+                    </button>
+                  </sc-if>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{hasActive}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 14px">
+          <span style="font-size: 13px; color: #64748B">{{shown}} of 10 members ·</span>
+          <sc-for list="{{chips}}" as="c" hint-placeholder-count="1">
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px 0 12px; border-radius: 99px; background: #F1EEFF; color: #3D27B8; font-size: 13px; font-weight: 600">{{c.label}}
+              <button type="button" aria-label="Remove {{c.label}}" onClick="{{c.clear}}" style="width: 20px; height: 20px; border: 0; border-radius: 99px; background: rgba(91,61,245,.12); color: #3D27B8; display: grid; place-items: center; padding: 0">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+              </button>
+            </span>
+          </sc-for>
+          <button type="button" onClick="{{resetAll}}" style="height: 28px; padding: 0 6px; border: 0; background: none; color: #64748B; font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px">Clear all</button>
+        </div>
+      </sc-if>
+
+      <div style="overflow-x: auto; border-top: 1px solid #EEF0F5">
+        <table style="width: 100%; min-width: 860px; border-collapse: collapse; font-size: 14px">
+          <thead>
+            <tr style="text-align: left; color: #64748B; font-size: 12px">
+              <th scope="col" style="width: 44px; padding: 12px 0 12px 18px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Select</span></th>
+              <th scope="col" style="padding: 12px; font-weight: 600">Member</th>
+              <th scope="col" style="padding: 12px; font-weight: 600">Plan</th>
+              <th scope="col" style="padding: 12px; font-weight: 600">Last visit</th>
+              <th scope="col" style="padding: 12px; font-weight: 600">Status</th>
+              <th scope="col" style="padding: 12px; font-weight: 600; text-align: right">Balance</th>
+              <th scope="col" style="padding: 12px 18px 12px 12px; font-weight: 600; text-align: right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+              <tr style="border-top: 1px solid #F0F2F6; background: {{r.rowBg}}; box-shadow: {{r.rowEdge}}">
+                <td style="padding: 12px 0 12px 18px"><input type="checkbox" aria-label="Select {{r.name}}" checked="{{r.checked}}" onChange="{{r.toggle}}"></td>
+                <td style="padding: 12px">
+                  <span style="display: flex; align-items: center; gap: 10px">
+                    <span style="width: 34px; height: 34px; border-radius: 99px; background: {{r.avBg}}; color: {{r.avInk}}; display: grid; place-items: center; font-size: 12px; font-weight: 700">{{r.initials}}</span>
+                    <span style="display: flex; flex-direction: column"><b style="font-weight: 600">{{r.name}}</b><span style="font-size: 12px; color: #64748B">{{r.phone}}</span></span>
+                  </span>
+                </td>
+                <td style="padding: 12px"><span style="display: flex; flex-direction: column"><span style="font-weight: 500">{{r.plan}}</span><span style="font-size: 12px; color: #64748B">{{r.batch}}</span></span></td>
+                <td style="padding: 12px; color: {{r.visitInk}}; font-weight: 500">{{r.visitText}}</td>
+                <td style="padding: 12px">
+                  <span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; background: {{r.pillBg}}; color: {{r.pillInk}}; font-size: 12.5px; font-weight: 600; white-space: nowrap"><span style="width: 6px; height: 6px; border-radius: 99px; background: currentColor"></span>{{r.statusText}}</span>
+                  <span style="display: block; margin-top: 3px; font-size: 12px; color: #64748B">{{r.statusSub}}</span>
+                </td>
+                <td style="padding: 12px; text-align: right; font-weight: 700; color: {{r.balInk}}; font-variant-numeric: tabular-nums">{{r.balText}}</td>
+                <td style="padding: 12px 18px 12px 12px">
+                  <span style="display: flex; justify-content: flex-end; gap: 6px">
+                    <sc-if value="{{r.owes}}" hint-placeholder-val="{{ true }}">
+                      <button type="button" style="height: 34px; padding: 0 12px; border: 1px solid #D5F0E2; border-radius: 9px; background: #F0FBF5; color: #066B3F; font-size: 13px; font-weight: 600">Remind</button>
+                      <button type="button" style="height: 34px; padding: 0 12px; border: 0; border-radius: 9px; background: #5B3DF5; color: #FFFFFF; font-size: 13px; font-weight: 600">Got paid</button>
+                    </sc-if>
+                    <button type="button" aria-label="Open {{r.name}}" style="width: 34px; height: 34px; border: 1px solid #E7E9F0; border-radius: 9px; background: #FFFFFF; color: #475569; display: grid; place-items: center; padding: 0">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                    </button>
+                  </span>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 48px 16px; text-align: center">
+            <b style="display: block; font-size: 15px; font-weight: 600">No members here</b>
+            <button type="button" onClick="{{resetAll}}" style="margin-top: 10px; height: 36px; padding: 0 14px; border: 1px solid #E7E9F0; border-radius: 10px; background: #FFFFFF; font-weight: 600; color: #0F172A">Show all members</button>
+          </div>
+        </sc-if>
+      </div>
+      <div style="padding: 12px 18px; border-top: 1px solid #EEF0F5; font-size: 13px; color: #64748B">Showing {{shown}} of 10 members</div>
+    </section>
+  </main>
+
+  <sc-if value="{{hasSel}}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 18px; border-radius: 99px; background: #0F172A; color: #FFFFFF; box-shadow: 0 12px 32px rgba(15,23,42,.3); font-size: 14px; white-space: nowrap">
+      <b style="font-weight: 600">{{selCount}} selected</b><span style="color: #94A3B8">{{selDue}}</span>
+      <button type="button" style="height: 36px; padding: 0 14px; border: 0; border-radius: 99px; background: #22C55E; color: #052E16; font-weight: 700; font-size: 13px">Remind on WhatsApp</button>
+      <button type="button" aria-label="Clear selection" onClick="{{clearSel}}" style="width: 36px; height: 36px; border: 0; border-radius: 99px; background: rgba(255,255,255,.12); color: #FFFFFF; display: grid; place-items: center; padding: 0">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: 'status', status: 'all', plan: 'all', batch: 'all', sort: 'late', sel: {} };
+  }
+  renderVals() {
+    // renew: days until the plan ends (negative = ended); late: days the oldest fee is unpaid
+    const rows0 = [
+      { id: 1, name: 'Rohit Kumar', phone: '98111 20457', plan: 'Monthly', batch: 'Evening 6–8', bal: 3000, late: 41, renew: -41, away: 12, joined: 120 },
+      { id: 2, name: 'Neha Singh', phone: '99870 44120', plan: 'Quarterly', batch: 'Ladies 10–12', bal: 4000, late: 19, renew: -19, away: 9, joined: 200 },
+      { id: 3, name: 'Sajjad Alam', phone: '70027 29745', plan: 'Monthly', batch: 'Morning 6–8', bal: 1500, late: 4, renew: -4, away: 2, joined: 35 },
+      { id: 4, name: 'Aman Gupta', phone: '70027 11745', plan: 'Monthly', batch: 'Evening 6–8', bal: 1500, late: 0, renew: 0, away: 0, joined: 60 },
+      { id: 5, name: 'Pooja Rao', phone: '88850 11234', plan: 'Monthly', batch: 'Ladies 10–12', bal: 0, late: 0, renew: 2, away: 11, joined: 88 },
+      { id: 6, name: 'Divya Menon', phone: '91234 88901', plan: 'Monthly', batch: 'Evening 6–8', bal: 0, late: 0, renew: 6, away: 4, joined: 24 },
+      { id: 7, name: 'Farhan Ali', phone: '90040 77812', plan: 'Monthly', batch: 'Evening 6–8', bal: 0, late: 0, renew: 21, away: 35, joined: 9 },
+      { id: 8, name: 'Vikram Shah', phone: '97690 33421', plan: 'Quarterly', batch: 'Morning 6–8', bal: 0, late: 0, renew: 52, away: 1, joined: 40 },
+      { id: 9, name: 'Meena Joshi', phone: '93210 45678', plan: 'Quarterly', batch: 'Ladies 10–12', bal: 0, late: 0, renew: 80, away: 3, joined: 10 },
+      { id: 10, name: 'Karan Mehta', phone: '98200 66510', plan: 'Monthly', batch: 'Morning 6–8', bal: 0, late: 0, renew: 18, away: null, joined: 5 },
+      { id: 11, name: 'Ritu Sharma', phone: '99100 22334', plan: 'Monthly', batch: 'Morning 6–8', bal: 0, late: 0, renew: 30, away: null, joined: 60, paused: true },
+      { id: 12, name: 'Arjun Das', phone: '98450 76543', plan: 'Monthly', batch: 'Evening 6–8', bal: 0, late: 0, renew: -60, away: 70, joined: 300, left: true },
+    ];
+    const live = (r) => !r.left && !r.paused;
+    // the status dropdown: grouped like a gym owner thinks about it
+    const STATUS = [
+      ['all', 'All members', '#94A3B8', (r) => !r.left],
+      ['h', 'Payment'],
+      ['expired', 'Expired', '#DC2626', (r) => live(r) && r.late > 0],
+      ['due', 'Due members', '#EA580C', (r) => live(r) && r.bal > 0],
+      ['h', 'Expiring'],
+      ['today', 'Expiring today', '#D97706', (r) => live(r) && r.renew === 0],
+      ['e3', 'Expiring in 1–3 days', '#D97706', (r) => live(r) && r.renew >= 1 && r.renew <= 3],
+      ['e7', 'Expiring in 4–7 days', '#CA8A04', (r) => live(r) && r.renew >= 4 && r.renew <= 7],
+      ['e30', 'Expiring in 8–30 days', '#65A30D', (r) => live(r) && r.renew >= 8 && r.renew <= 30],
+      ['h', 'Attendance'],
+      ['away7', 'Not coming 7+ days', '#7C3AED', (r) => live(r) && r.away !== null && r.away >= 7],
+      ['away30', 'Not coming 30+ days', '#7C3AED', (r) => live(r) && r.away !== null && r.away >= 30],
+      ['never', 'Never came', '#7C3AED', (r) => live(r) && r.away === null],
+      ['h', 'Others'],
+      ['clear', 'Paid up', '#16A34A', (r) => live(r) && r.bal <= 0],
+      ['paused', 'Paused', '#64748B', (r) => !r.left && r.paused],
+      ['left', 'Left', '#64748B', (r) => r.left],
+      ['new', 'Joined this month', '#2563EB', (r) => !r.left && r.joined <= 30],
+    ];
+    const PLANS = [['all', 'All plans', null, () => true], ['Monthly', 'Monthly · ₹1,500', null, (r) => r.plan === 'Monthly'], ['Quarterly', 'Quarterly · ₹4,000', null, (r) => r.plan === 'Quarterly']];
+    const BATCHES = [['all', 'All batches', null, () => true], ['Morning 6–8', 'Morning 6–8', null, (r) => r.batch === 'Morning 6–8'], ['Evening 6–8', 'Evening 6–8', null, (r) => r.batch === 'Evening 6–8'], ['Ladies 10–12', 'Ladies 10–12', null, (r) => r.batch === 'Ladies 10–12']];
+    const SORTS = [['late', 'Most late first'], ['owed', 'Most owed first'], ['renew', 'Expiring soonest'], ['new', 'Newest joined']];
+    const st = this.state;
+    const fn = (list, v) => (list.find((x) => x[0] === v) || [])[3] || (() => true);
+    const passAll = (r, skip) => (skip === 'status' || fn(STATUS, st.status)(r)) && (skip === 'plan' || fn(PLANS, st.plan)(r)) && (skip === 'batch' || fn(BATCHES, st.batch)(r));
+    const sortFns = { late: (a, b) => b.late - a.late || b.bal - a.bal || a.renew - b.renew, owed: (a, b) => b.bal - a.bal, renew: (a, b) => a.renew - b.renew, new: (a, b) => a.joined - b.joined };
+    const list = rows0.filter((r) => passAll(r)).sort(sortFns[st.sort]);
+
+    const close = () => this.setState({ open: null });
+    const optItems = (key, defs, withCounts) => defs.map((d) => {
+      if (d[0] === 'h') return { isHead: true, isOpt: false, label: d[1] };
+      const on = st[key] === d[0];
+      const count = withCounts ? String(rows0.filter((r) => passAll(r, key) && d[3](r)).length) : '';
+      return {
+        isHead: false, isOpt: true, label: d[1], count, onStr: on ? 'true' : 'false',
+        dot: d[2] || 'transparent',
+        bg: on ? '#F1EEFF' : 'transparent', ink: on ? '#3D27B8' : '#0F172A', weight: on ? '600' : '500',
+        countBg: withCounts ? (on ? '#5B3DF5' : '#F1F3F7') : 'transparent', countInk: on ? '#FFFFFF' : '#475569',
+        pick: () => this.setState({ [key]: d[0], open: null }),
+      };
+    });
+    const sortItems = SORTS.map(([id, label]) => {
+      const on = st.sort === id;
+      return { isHead: false, isOpt: true, label, count: on ? '✓' : '', onStr: on ? 'true' : 'false', dot: 'transparent', bg: on ? '#F1EEFF' : 'transparent', ink: on ? '#3D27B8' : '#0F172A', weight: on ? '600' : '500', countBg: 'transparent', countInk: '#5B3DF5', pick: () => this.setState({ sort: id, open: null }) };
+    });
+    const label = (defs, v) => (defs.find((x) => x[0] === v) || [])[1];
+    const mkMenu = (key, prefix, value, items, set, extra) => {
+      const open = st.open === key;
+      return {
+        label: prefix || value, prefix, value, items, open, openStr: open ? 'true' : 'false',
+        toggle: () => this.setState({ open: open ? null : key }),
+        border: set || open ? '#5B3DF5' : '#E2E5EC', bg: set ? '#F7F5FF' : '#FFFFFF', ink: set ? '#3D27B8' : '#0F172A',
+        caret: open ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6', side: 'left', panelW: '280px', minW: '0', hasDot: false, dot: 'transparent', ...extra,
+      };
+    };
+    const statusDef = STATUS.find((x) => x[0] === st.status);
+    const menus = [
+      mkMenu('status', '', statusDef[1], optItems('status', STATUS, true), st.status !== 'all', { minW: '210px', panelW: '300px', hasDot: st.status !== 'all', dot: statusDef[2] }),
+      mkMenu('plan', '', label(PLANS, st.plan), optItems('plan', PLANS, true), st.plan !== 'all'),
+      mkMenu('batch', '', label(BATCHES, st.batch), optItems('batch', BATCHES, true), st.batch !== 'all'),
+      mkMenu('sort', 'Sort:', label(SORTS, st.sort), sortItems, false, { side: 'right', panelW: '220px' }),
+    ];
+
+    const chips = [
+      st.status !== 'all' && { label: statusDef[1], clear: () => this.setState({ status: 'all' }) },
+      st.plan !== 'all' && { label: label(PLANS, st.plan), clear: () => this.setState({ plan: 'all' }) },
+      st.batch !== 'all' && { label: label(BATCHES, st.batch), clear: () => this.setState({ batch: 'all' }) },
+    ].filter(Boolean);
+
+    const fmt = (n) => '₹' + Math.abs(n).toLocaleString('en-IN');
+    const tones = ['#F1EEFF:#3D27B8', '#E8F6FF:#0B5E8A', '#FFF3E6:#9A4A06', '#ECFDF3:#066B3F', '#FCEEF6:#9D1C5E'];
+    const rows = list.map((r) => {
+      const [avBg, avInk] = tones[r.id % tones.length].split(':');
+      let s;
+      if (r.left) s = ['Left', 'stopped coming', '#F1F3F7', '#475569'];
+      else if (r.paused) s = ['Paused', 'no fees while paused', '#F1F3F7', '#475569'];
+      else if (r.late > 0) s = ['Expired ' + r.late + ' days ago', 'fee not paid', '#FEF1F0', '#B42318'];
+      else if (r.bal > 0) s = ['Due today', 'fee of today', '#FFF1E6', '#9A3412'];
+      else if (r.renew <= 7) s = [r.renew === 0 ? 'Expires today' : 'Expires in ' + r.renew + ' days', 'paid up till then', '#FFF6E5', '#92400E'];
+      else s = ['Active', 'expires in ' + r.renew + ' days', '#ECFDF3', '#066B3F'];
+      const checked = !!st.sel[r.id];
+      return {
+        ...r, avBg, avInk, statusText: s[0], statusSub: s[1], pillBg: s[2], pillInk: s[3], checked,
+        initials: r.name.split(' ').map((p) => p[0]).join(''),
+        owes: r.bal > 0,
+        balText: r.bal > 0 ? fmt(r.bal) : '—',
+        balInk: r.bal > 0 ? '#B42318' : '#94A3B8',
+        visitText: r.away === null ? 'Never came' : r.away === 0 ? 'Today' : r.away === 1 ? 'Yesterday' : r.away + ' days ago',
+        visitInk: r.away === null || r.away >= 7 ? '#B45309' : '#334155',
+        rowBg: checked ? '#F7F5FF' : '#FFFFFF',
+        rowEdge: checked ? 'inset 3px 0 0 #5B3DF5' : 'none',
+        toggle: () => this.setState({ sel: { ...st.sel, [r.id]: !st.sel[r.id] } }),
+      };
+    });
+    const chosen = rows0.filter((r) => st.sel[r.id]);
+    const due = chosen.reduce((s, r) => s + Math.max(0, r.bal), 0);
+    return {
+      menus, chips, rows, shown: String(rows.length), empty: rows.length === 0, hasActive: chips.length > 0,
+      resetAll: () => this.setState({ status: 'all', plan: 'all', batch: 'all', open: null }),
+      hasSel: chosen.length > 0, selCount: String(chosen.length), selDue: due ? fmt(due) + ' due' : '',
+      clearSel: () => this.setState({ sel: {} }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Staff – mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; box-sizing: border-box; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <header style="display: flex; align-items: flex-end; justify-content: space-between">
+      <div>
+        <p style="margin: 0; font-size: 12.5px; color: #64748B; font-weight: 500">3 people · 3 outlets</p>
+        <h1 style="margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Staff</h1>
+      </div>
+      <button type="button" onClick="{{openAdd}}" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ Add</button>
+    </header>
+
+    <sc-for list="{{people}}" as="p" hint-placeholder-count="3">
+      <article style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 40px; height: 40px; border-radius: 99px; background: {{p.avBg}}; color: {{p.avInk}}; display: grid; place-items: center; font-weight: 700; font-size: 14px">{{p.short}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 15px; font-weight: 600">{{p.name}}</b><span style="font-size: 12px; color: #64748B">{{p.phone}}</span></span>
+          <span style="height: 24px; padding: 0 9px; border-radius: 99px; background: {{p.lvBg}}; color: {{p.lvInk}}; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">{{p.level}}</span>
+        </div>
+        <dl style="display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 0; padding-top: 10px; border-top: 1px solid #EEF0F5">
+          <div><dt style="font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #94A3B8">Outlets</dt><dd style="margin: 2px 0 0; font-size: 13px; font-weight: 500">{{p.outlets}}</dd></div>
+          <div style="text-align: right"><dt style="font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #94A3B8">Added</dt><dd style="margin: 2px 0 0; font-size: 13px; font-weight: 500">{{p.added}}</dd></div>
+        </dl>
+        <sc-if value="{{p.pending}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 12.5px; color: #92400E">Not signed in yet · <u>Send invite again</u></p></sc-if>
+        <div style="display: flex; gap: 8px">
+          <button type="button" onClick="{{p.edit}}" style="flex: 1; height: 42px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">Change access</button>
+          <button type="button" style="height: 42px; padding: 0 14px; border: 1px solid #FBD5D1; border-radius: 10px; background: #FFFFFF; color: #B42318; font-weight: 600; font-size: 14px">Remove</button>
+        </div>
+      </article>
+    </sc-for>
+    <p style="margin: 2px 4px 0; font-size: 12px; color: #64748B">Only you can change the UPI ID, manage staff and delete an outlet.</p>
+  </div>
+
+  <!-- bottom sheet -->
+  <sc-if value="{{adding}}" hint-placeholder-val="{{ true }}">
+    <button type="button" aria-label="Close" onClick="{{closeAdd}}" style="position: absolute; inset: 0; border: 0; padding: 0; background: rgba(15,23,42,.36); cursor: default"></button>
+    <section role="dialog" aria-modal="true" aria-labelledby="ms-title" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 92%; overflow-y: auto; box-sizing: border-box; background: #FFFFFF; border-radius: 20px 20px 0 0; padding: 10px 16px 18px; display: flex; flex-direction: column; gap: 14px">
+      <span style="align-self: center; width: 40px; height: 4px; border-radius: 99px; background: #E2E5EC"></span>
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h2 id="ms-title" style="margin: 0; font-size: 17px; font-weight: 700">Add staff</h2>
+        <button type="button" aria-label="Close" onClick="{{closeAdd}}" style="width: 34px; height: 34px; border: 0; border-radius: 10px; background: #F4F6FA; padding: 0">✕</button>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #334155">Mobile number
+        <span style="display: flex; height: 46px; border: 1.5px solid #5B3DF5; border-radius: 10px; overflow: hidden"><span style="padding: 0 10px; display: grid; place-items: center; background: #F4F6FA; color: #475569; font-weight: 500">+91</span><span style="flex: 1; padding: 0 10px; display: flex; align-items: center; font-size: 15px; font-weight: 400">98480 22134</span></span>
+      </label>
+      <fieldset style="border: 0; margin: 0; padding: 0">
+        <legend style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; padding: 0">Which outlets?</legend>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <span style="height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; font-size: 13px; display: inline-flex; align-items: center">All outlets</span>
+          <span style="height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; font-size: 13px; display: inline-flex; align-items: center">KK Fitness</span>
+          <span style="height: 34px; padding: 0 12px; border: 1.5px solid #5B3DF5; border-radius: 99px; background: #F1EEFF; color: #3D27B8; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center">✓ Yousufguda</span>
+          <span style="height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; font-size: 13px; display: inline-flex; align-items: center">Ladies Hostel</span>
+        </div>
+      </fieldset>
+      <fieldset style="border: 0; margin: 0; padding: 0">
+        <legend style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; padding: 0">What can they do?</legend>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <sc-for list="{{levels}}" as="l" hint-placeholder-count="4">
+            <button type="button" role="radio" aria-checked="{{l.on}}" onClick="{{l.pick}}" style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: {{l.border}}; border-radius: 12px; background: {{l.bg}}; text-align: left; color: #0F172A"><b style="font-size: 14px; font-weight: 600">{{l.name}}</b><span style="font-size: 12px; color: #64748B; line-height: 1.35">{{l.short}}</span></button>
+          </sc-for>
+        </div>
+      </fieldset>
+      <p style="margin: 0; padding: 10px 12px; border-radius: 10px; background: #F4F6FA; font-size: 13px; color: #334155">{{summary}}</p>
+      <button type="button" onClick="{{closeAdd}}" style="height: 48px; border: 0; border-radius: 12px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 15px">Add and send invite</button>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { adding: true, level: 1 }; }
+  renderVals() {
+    const LV = [
+      { name: 'See only', short: 'Look up, change nothing', verb: 'look up members and payments', bg: '#F1F3F7', ink: '#475569' },
+      { name: 'Add', short: 'Add members, record payments', verb: 'add members and record payments', bg: '#EEF4FF', ink: '#1D4ED8' },
+      { name: 'Add & edit', short: 'Also fix members and payments', verb: 'add and edit members and payments', bg: '#FFF6E5', ink: '#92400E' },
+      { name: 'Full', short: 'Also delete. Managers only', verb: 'add, edit and delete members and payments', bg: '#FEF1F0', ink: '#B42318' },
+    ];
+    const staff = [
+      { name: 'Imran Khan', short: 'IK', phone: '+91 98480 22134', outlets: 'KK Fitness – Yousufguda', level: 1, added: '12 Oct', tone: '#E8F6FF:#0B5E8A' },
+      { name: 'Priya Nair', short: 'PN', phone: '+91 99592 10077', outlets: 'All outlets', level: 3, added: '2 Sep', tone: '#FCEEF6:#9D1C5E' },
+      { name: 'Ramesh', short: 'R', phone: '+91 70321 55890', outlets: 'KK Ladies Hostel', level: 0, added: 'Today', tone: '#FFF1E6:#9A3412', pending: true },
+    ];
+    const st = this.state;
+    return {
+      adding: st.adding,
+      openAdd: () => this.setState({ adding: true }),
+      closeAdd: () => this.setState({ adding: false }),
+      people: staff.map((s) => {
+        const [avBg, avInk] = s.tone.split(':');
+        return { ...s, avBg, avInk, level: LV[s.level].name, lvBg: LV[s.level].bg, lvInk: LV[s.level].ink, pending: !!s.pending, edit: () => this.setState({ adding: true, level: s.level }) };
+      }),
+      levels: LV.map((l, i) => {
+        const on = i === st.level;
+        return { ...l, on, border: on ? '1.5px solid #5B3DF5' : '1px solid #E7E9F0', bg: on ? '#FBFAFF' : '#FFFFFF', pick: () => this.setState({ level: i }) };
+      }),
+      summary: 'They can ' + LV[st.level].verb + ' in Yousufguda.',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Members – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4A2EE6}a:hover{color:#3D27B8}
+button,input,select{font:inherit}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: {{c.bg}}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{c.text}}; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: {{c.surface}}; border-right: 1px solid {{c.border}}; padding: 20px 14px; display: flex; flex-direction: column; gap: 18px">
+    <button type="button" aria-label="Switch business" style="display: flex; align-items: center; gap: 10px; border: 1px solid {{c.border}}; background: {{c.surface2}}; border-radius: 12px; padding: 10px; text-align: left; color: {{c.text}}">
+      <span style="width: 36px; height: 36px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex: none">KK</span>
+      <span style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+        <span style="font-weight: 700; font-size: 14px">KK Fitness</span>
+        <span style="font-size: 12px; color: {{c.muted}}">Gym · 24 members</span>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"></path></svg>
+    </button>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border-radius: 10px; color: {{c.text2}}; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"></path></svg>Collect</a>
+      <a href="MembersWeb.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border-radius: 10px; background: {{c.accentSoft}}; color: {{c.accentInk}}; font-weight: 700; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.5A6.5 6.5 0 0 1 21.5 20"></path></svg>Members</a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border-radius: 10px; color: {{c.text2}}; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Attendance</a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border-radius: 10px; color: {{c.text2}}; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Money</a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border-radius: 10px; color: {{c.text2}}; font-weight: 600; font-size: 14px; text-decoration: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Plans &amp; settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 16px">
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div>
+        <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.01em">Members</h1>
+        <p style="margin: 2px 0 0; font-size: 14px; color: {{c.muted}}">24 active · ₹9,500 to collect · 2 renewing this week</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button type="button" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid {{c.borderStrong}}; background: {{c.surface}}; color: {{c.text}}; font-weight: 700; font-size: 14px">Import</button>
+        <button type="button" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid {{c.borderStrong}}; background: {{c.surface}}; color: {{c.text}}; font-weight: 700; font-size: 14px">Export</button>
+        <button type="button" style="height: 42px; padding: 0 16px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add member</button>
+      </div>
+    </div>
+
+      <div role="tablist" aria-label="Show members" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: {{c.border}}; border: 1px solid {{c.border}}; border-radius: 16px; overflow: hidden">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+          <sc-if value="{{t.sel}}" hint-placeholder-val="{{ false }}">
+            <button type="button" role="tab" aria-selected="true" onClick="{{t.pick}}" style="text-align: left; padding: 16px 18px 15px; border: 0; background: {{c.surface}}; box-shadow: inset 0 -3px 0 {{accent}}; color: {{c.text}}; display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 13px; font-weight: 700; color: {{c.text}}">{{t.label}}</span>
+              <span style="font-size: 28px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; color: {{t.bigColor}}">{{t.big}}</span>
+              <span style="font-size: 12px; color: {{c.muted}}">{{t.small}}</span>
+            </button>
+          </sc-if>
+          <sc-if value="{{t.unsel}}" hint-placeholder-val="{{ true }}">
+            <button type="button" role="tab" aria-selected="false" onClick="{{t.pick}}" style="text-align: left; padding: 16px 18px 15px; border: 0; background: {{c.surface2}}; color: {{c.text}}; display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 13px; font-weight: 600; color: {{c.muted}}">{{t.label}}</span>
+              <span style="font-size: 28px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; color: {{t.bigColor}}">{{t.big}}</span>
+              <span style="font-size: 12px; color: {{c.muted}}">{{t.small}}</span>
+            </button>
+          </sc-if>
+        </sc-for>
+      </div>
+
+    <section aria-label="Member list" style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid {{c.border}}">
+        <label style="flex: 1 1 240px; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid {{c.borderStrong}}; border-radius: 10px; color: {{c.muted}}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search members</span>
+          <input type="search" placeholder="Search name or phone" style="border: 0; outline: 0; flex: 1; font-size: 14px; color: {{c.text}}; background: transparent">
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 4px 0 12px; border: 1px solid {{c.borderStrong}}; border-radius: 10px; font-size: 13px; color: {{c.muted}}; font-weight: 600">Plan
+          <select style="height: 36px; border: 0; padding: 0 6px; font-size: 14px; font-weight: 700; color: {{c.text}}; background: transparent"><option>All</option><option>Monthly</option><option>Quarterly</option></select>
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 4px 0 12px; border: 1px solid {{c.borderStrong}}; border-radius: 10px; font-size: 13px; color: {{c.muted}}; font-weight: 600">Batch
+          <select value="{{batch}}" onChange="{{setBatch}}" style="height: 36px; border: 0; padding: 0 6px; font-size: 14px; font-weight: 700; color: {{c.text}}; background: transparent"><option value="">All</option><option>Morning 6–8</option><option>Evening 6–8</option><option>Ladies 10–12</option></select>
+        </label>
+        <sc-if value="{{batch}}" hint-placeholder-val="{{ false }}">
+          <button type="button" onClick="{{clearBatch}}" aria-label="Remove batch filter" style="height: 32px; padding: 0 10px; border-radius: 99px; border: 0; background: {{c.accentSoft}}; color: {{c.accentInk}}; font-weight: 700; font-size: 13px">{{batch}} ×</button>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{hasSelection}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; background: {{c.sel}}; color: {{c.selText}}">
+          <span style="font-size: 14px; font-weight: 700">{{selCount}} selected · {{selTotal}} due</span>
+          <span style="display: flex; gap: 8px">
+            <button type="button" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 0; background: #22C55E; color: #052E16; font-weight: 800; font-size: 13px">Remind all on WhatsApp</button>
+            <button type="button" onClick="{{clearSel}}" style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid {{c.muted}}; background: transparent; color: {{c.selText}}; font-weight: 700; font-size: 13px">Clear</button>
+          </span>
+        </div>
+      </sc-if>
+
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 880px; border-collapse: collapse; font-size: 14px">
+          <thead>
+            <tr style="background: {{c.surface2}}; text-align: left; font-size: 12px; color: {{c.muted}}">
+              <th scope="col" style="width: 44px; padding: 8px 0 8px 16px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Select</span></th>
+              <sc-for list="{{cols}}" as="h" hint-placeholder-count="5">
+                <th scope="col" aria-sort="{{h.aria}}" style="padding: 4px 8px; text-align: {{h.align}}">
+                  <button type="button" onClick="{{h.pick}}" style="height: 32px; padding: 0 6px; border: 0; border-radius: 6px; background: transparent; color: {{h.color}}; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em">{{h.label}} {{h.arrow}}</button>
+                </th>
+              </sc-for>
+              <th scope="col" style="padding: 8px 16px 8px 12px; text-align: right; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+              <tr style="border-top: 1px solid {{c.border}}">
+                <td style="padding: {{pad}} 0 {{pad}} 16px"><input type="checkbox" aria-label="Select {{r.name}}" checked="{{r.checked}}" onChange="{{r.toggle}}" style="width: 18px; height: 18px; accent-color: {{accent}}"></td>
+                <td style="padding: {{pad}} 14px">
+                  <a href="Member.dc.html" style="display: flex; align-items: center; gap: 10px; color: {{c.text}}; text-decoration: none">
+                    <span style="width: 34px; height: 34px; border-radius: 99px; background: {{c.accentSoft}}; color: {{c.accentInk}}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex: none">{{r.initials}}</span>
+                    <span style="display: flex; flex-direction: column">
+                      <span style="font-weight: 700">{{r.name}}</span>
+                      <span style="font-size: 12px; color: {{c.muted}}">{{r.phone}}</span>
+                    </span>
+                  </a>
+                </td>
+                <td style="padding: {{pad}} 14px"><span style="display: flex; flex-direction: column"><span style="font-weight: 600">{{r.plan}}</span><span style="font-size: 12px; color: {{c.muted}}">{{r.batch}}</span></span></td>
+                <td style="padding: {{pad}} 14px"><span style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: {{r.visitColor}}"><span style="width: 7px; height: 7px; border-radius: 99px; background: {{r.visitColor}}"></span>{{r.visitText}}</span></td>
+                <td style="padding: {{pad}} 14px"><span style="display: flex; flex-direction: column"><span style="font-weight: 600; color: {{r.renewColor}}">{{r.renewRel}}</span><span style="font-size: 12px; color: {{c.muted}}">{{r.renewDate}}</span></span></td>
+                <td style="padding: {{pad}} 14px; text-align: right"><span style="display: flex; flex-direction: column; align-items: flex-end"><span style="font-weight: 800; color: {{r.balColor}}">{{r.balance}}</span><span style="font-size: 12px; color: {{c.muted}}">Last paid {{r.lastPaid}}</span></span></td>
+                <td style="padding: {{pad}} 16px {{pad}} 12px">
+                  <span style="display: flex; justify-content: flex-end; gap: 6px">
+                    <sc-if value="{{r.owes}}" hint-placeholder-val="{{ true }}">
+                      <button type="button" aria-label="Remind {{r.name}} on WhatsApp" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid {{c.greenBorder}}; background: {{c.greenSoft}}; color: {{c.green}}; display: flex; align-items: center; justify-content: center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-13.3 7.9L3 21l1.1-4.6A9 9 0 1 1 21 12Z"></path></svg>
+                      </button>
+                      <a href="RecordPayment.dc.html" style="height: 36px; padding: 0 12px; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-weight: 700; font-size: 13px; display: flex; align-items: center; text-decoration: none">Got paid</a>
+                    </sc-if>
+                    <sc-if value="{{r.away}}" hint-placeholder-val="{{ false }}">
+                      <button type="button" style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid {{c.borderStrong}}; background: {{c.surface}}; color: {{c.text}}; font-weight: 700; font-size: 13px">Check in on them</button>
+                    </sc-if>
+                    <a href="Member.dc.html" aria-label="Open {{r.name}}" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid {{c.borderStrong}}; color: {{c.text}}; display: flex; align-items: center; justify-content: center">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                    </a>
+                  </span>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 40px 16px; text-align: center; color: {{c.muted}}; font-size: 14px">No one here with these filters. <button type="button" onClick="{{clearBatch}}" style="border: 0; background: none; color: {{c.accentInk}}; font-weight: 700; padding: 0">Clear filters</button></div>
+        </sc-if>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid {{c.border}}; font-size: 13px; color: {{c.muted}}">
+        <span>Showing {{shown}} of 24</span>
+        <a href="#" style="font-weight: 700; text-decoration: none; color: {{c.accentInk}}">Show members who left (4)</a>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B3DF5","options":["#5B3DF5","#0F766E","#C2410C","#1D4ED8"]},"dark":{"editor":"boolean","default":false},"compact":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":980}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'owes', sel: {}, batch: '', sort: 'balance', dir: -1 }; }
+  renderVals() {
+    const accent = this.props.accent ?? '#5B3DF5';
+    const dark = this.props.dark ?? false;
+    const c = dark ? {
+      bg: '#0B0F17', surface: '#131A26', surface2: '#182131', border: '#232D3D', borderStrong: '#2C3748',
+      text: '#F1F5F9', text2: '#CBD5E1', muted: '#94A3B8', accentSoft: '#272150', accentInk: '#C9BFFF',
+      red: '#F87171', amber: '#FBBF24', green: '#34D399', greenSoft: '#0F2A20', greenBorder: '#1E4D3A', sel: '#F1F5F9', selText: '#0B0F17',
+    } : {
+      bg: '#F6F6F9', surface: '#FFFFFF', surface2: '#FAFAFC', border: '#E8E8EF', borderStrong: '#E4E4EC',
+      text: '#0F172A', text2: '#3A4252', muted: '#5B6475', accentSoft: '#F1EEFF', accentInk: '#3D27B8',
+      red: '#B42318', amber: '#B45309', green: '#066B3F', greenSoft: '#F0FBF5', greenBorder: '#CDEFDD', sel: '#0F172A', selText: '#FFFFFF',
+    };
+    const all = [
+      { id: 1, g: 'owes', name: 'Rohit Kumar', phone: '98111 20457', plan: 'Monthly ₹1,500', batch: 'Morning 6–8', renewRel: '12 days late', renewDate: '24 Oct', days: -12, lastPaid: '24 Sep', bal: 3000, visit: 1 },
+      { id: 2, g: 'owes', name: 'Neha Singh', phone: '99870 44120', plan: 'Quarterly ₹4,000', batch: 'Ladies 10–12', renewRel: '5 days late', renewDate: '31 Oct', days: -5, lastPaid: '31 Jul', bal: 4000, visit: 9 },
+      { id: 3, g: 'owes', name: 'Aman Gupta', phone: '70027 29745', plan: 'Monthly ₹1,500', batch: 'Evening 6–8', renewRel: 'Part paid', renewDate: '1 Nov', days: -4, lastPaid: '1 Nov', bal: 1000, visit: 0 },
+      { id: 4, g: 'owes', name: 'Farhan Ali', phone: '90040 77812', plan: 'Monthly ₹1,500', batch: 'Evening 6–8', renewRel: '2 days late', renewDate: '3 Nov', days: -2, lastPaid: '3 Oct', bal: 1500, visit: 2 },
+      { id: 5, g: 'soon', name: 'Sajjad Alam', phone: '70027 29745', plan: 'Monthly ₹1,500', batch: 'Morning 6–8', renewRel: 'in 3 days', renewDate: '8 Nov', days: 3, lastPaid: '8 Oct', bal: 0, visit: 0 },
+      { id: 6, g: 'soon', name: 'Pooja Rao', phone: '88850 11234', plan: 'Monthly ₹1,500', batch: 'Ladies 10–12', renewRel: 'in 6 days', renewDate: '11 Nov', days: 6, lastPaid: '11 Oct', bal: 0, visit: 11 },
+      { id: 7, g: 'paid', name: 'Vikram Shah', phone: '97690 33421', plan: 'Quarterly ₹4,000', batch: 'Morning 6–8', renewRel: 'in 52 days', renewDate: '27 Dec', days: 52, lastPaid: '27 Sep', bal: 0, visit: 14 },
+      { id: 8, g: 'paid', name: 'Divya Menon', phone: '91234 88901', plan: 'Monthly ₹1,500', batch: 'Evening 6–8', renewRel: 'in 21 days', renewDate: '26 Nov', days: 21, lastPaid: '26 Oct', bal: 0, visit: 1 },
+      { id: 9, g: 'paused', name: 'Karan Mehta', phone: '98200 66510', plan: 'Monthly ₹1,500', batch: 'Evening 6–8', renewRel: 'Paused', renewDate: 'Back 20 Nov', days: 30, lastPaid: '20 Oct', bal: 0, visit: 16 },
+    ];
+    const fmt = (n) => '₹' + n.toLocaleString('en-IN');
+    const { tab, sel, batch, sort, dir } = this.state;
+    const inTab = (r) => tab === 'all' ? r.g !== 'paused'
+      : tab === 'away' ? r.visit >= 7 && r.g !== 'paused'
+      : tab === 'paid' ? (r.g === 'paid' || r.g === 'soon')
+      : r.g === tab;
+    const keyOf = { name: (r) => r.name, balance: (r) => r.bal, renews: (r) => r.days, visit: (r) => r.visit };
+    const list = all.filter(inTab).filter((r) => !batch || r.batch === batch)
+      .sort((a, b) => { const x = keyOf[sort](a), y = keyOf[sort](b); return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+    const visitText = (d) => d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d + ' days ago';
+    const rows = list.map((r) => ({
+      ...r,
+      initials: r.name.split(' ').map((p) => p[0]).join(''),
+      owes: r.bal > 0,
+      away: r.bal === 0 && r.visit >= 7 && r.g !== 'paused',
+      balance: r.bal > 0 ? fmt(r.bal) : 'Paid up',
+      balColor: r.bal > 0 ? c.red : c.green,
+      renewColor: r.g === 'owes' ? c.red : r.g === 'soon' ? c.amber : c.text,
+      visitText: visitText(r.visit),
+      visitColor: r.visit >= 7 ? c.amber : c.text2,
+      checked: !!sel[r.id],
+      toggle: () => this.setState({ sel: { ...sel, [r.id]: !sel[r.id] } }),
+    }));
+    const colDefs = [['name', 'Member', 'left'], ['plan', 'Plan & batch', 'left'], ['visit', 'Last visit', 'left'], ['renews', 'Renews', 'left'], ['balance', 'Balance', 'right']];
+    const cols = colDefs.map(([id, label, align]) => {
+      const sortable = !!keyOf[id];
+      const on = sort === id;
+      return {
+        label, align,
+        arrow: on ? (dir > 0 ? '↑' : '↓') : '',
+        aria: on ? (dir > 0 ? 'ascending' : 'descending') : 'none',
+        color: on ? c.text : c.muted,
+        pick: () => { if (sortable) this.setState({ sort: id, dir: on ? -dir : (id === 'name' || id === 'renews' ? 1 : -1) }); },
+      };
+    });
+    const chosen = all.filter((r) => sel[r.id]);
+    const defs = [
+      ['owes', 'Owe money', 4, 'red', '₹9,500', 'to collect from 4 members', c.red, '₹9,500', '4 members'],
+      ['soon', 'Renew this week', 2, 'amber', '₹3,000', 'coming in over the next 7 days', c.amber, '₹3,000', '2 members, next 7 days'],
+      ['away', 'Not visiting', 3, 'amber', '3 members', 'haven’t come in for 7 days or more', c.amber, '3', 'away 7+ days'],
+      ['paid', 'Paid up', 20, 'green', '', '', c.text, '20', 'nothing due'],
+      ['paused', 'Paused', 1, 'none', '', '', c.text, '1', 'days added back'],
+      ['all', 'All active', 24, 'none', '', '', c.text, '24', 'members'],
+    ];
+    const tabs = defs.map(([id, label, count, tone, , , bigColor, big, small]) => ({
+      label, count, big, small, bigColor, sel: id === tab, unsel: id !== tab,
+      pick: () => this.setState({ tab: id }),
+    }));
+    return {
+      c, accent, pad: (this.props.compact ?? false) ? '7px' : '12px',
+      tabs, cols, rows, shown: rows.length, empty: rows.length === 0, batch,
+      setBatch: (e) => this.setState({ batch: e.target.value }),
+      clearBatch: () => this.setState({ batch: '' }),
+      hasSelection: chosen.length > 0,
+      selCount: chosen.length,
+      selTotal: fmt(chosen.reduce((s, r) => s + r.bal, 0)),
+      clearSel: () => this.setState({ sel: {} }),
+    };
+  }
+}
+</script>
+</body>
+</html>

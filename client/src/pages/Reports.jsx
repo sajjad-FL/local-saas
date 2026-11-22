@@ -1,8 +1,9 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { api, download } from "../api.js";
+import { api, download, rupees, can, ADD } from "../api.js";
+import { words } from "../wording.js";
 import { useBiz } from "../App.jsx";
 import {
   Rise, CountUp, Avatar, DownloadIcon, RupeeIcon, UsersIcon,
@@ -11,7 +12,7 @@ import {
   ArrowRightIcon, ChevronDownIcon, PlusIcon,
 } from "../ui.jsx";
 import { formatINR, formatRupees, getMonthlyDelta, getPlanPillClass } from "../data/gymData.js";
-import { MemberProfileSheet, CollectPaymentModal, ReminderModal } from "./Members.jsx";
+import { CollectPaymentModal, ReminderModal, PickMember } from "./Members.jsx";
 import MoneyReport from "./MoneyReport.jsx";
 
 export default function Reports() {
@@ -19,9 +20,11 @@ export default function Reports() {
   const [addingExpense, setAddingExpense] = useState(false);
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const navigate = useNavigate();
+  const openMember = (id) => navigate(`/members/${id}`);
   const [collectModal, setCollectModal] = useState(null);
   const [reminderModal, setReminderModal] = useState(null);
+  const [picking, setPicking] = useState(false); // "Record payment": choose who paid
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = ['breakdown', 'expenses', 'members'].includes(searchParams.get('view')) ? searchParams.get('view') : 'breakdown';
   const setTab = (v) => setSearchParams((p) => { p.set('view', v); return p; }, { replace: true });
@@ -73,26 +76,55 @@ export default function Reports() {
 
   return (
     <>
-      {/* Top Header */}
-      <div className="page-header">
-        <div className="page-title-wrap">
-          <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Money in, money out, and who still owes, for any period.</p>
-        </div>
-        <div className="reports-actions">
-          <button type="button" className="btn" onClick={() => setAddingExpense(true)}>
-            <PlusIcon size={15} /> Add expense
-          </button>
-          <DownloadMenu biz={biz} />
-        </div>
-      </div>
+      {/* Profit & loss for any period; the header shows that period's numbers, like Collect */}
+      <MoneyReport
+        biz={biz}
+        adding={addingExpense}
+        setAdding={setAddingExpense}
+        tab={tab}
+        setTab={setTab}
+        whoCount={memberPaymentBreakdown.length}
+        header={(r, range) => (
+          <div className="page-header home-header db-head">
+            <div className="page-title-wrap">
+              <p className="db-date">
+                {range.valid ? `${range.label}${range.isCurrent ? ' so far' : ''} · ${rupees(r.received)} in${r.pending ? ` · ${rupees(r.pending)} still to collect` : ''}` : 'Money in, money out, and who still owes'}
+              </p>
+              <h1 className="db-hello">Money</h1>
+            </div>
+            <nav className="db-quick" aria-label="Quick actions">
+              {can(biz, ADD) && (
+                <button type="button" className="db-quick-btn pri q-expense" onClick={() => setAddingExpense(true)}>
+                  <span className="db-quick-icon"><RupeeIcon size={15} /></span>
+                  <span className="db-quick-long">Add expense</span><span className="db-quick-short">Expense</span>
+                </button>
+              )}
+              {can(biz, ADD) && (
+                <button type="button" className="db-quick-btn q-pay" onClick={() => setPicking(true)}>
+                  <span className="db-quick-icon"><PlusIcon size={15} /></span>
+                  <span className="db-quick-long">Record payment</span><span className="db-quick-short">Payment</span>
+                </button>
+              )}
+              <DownloadMenu biz={biz} />
+            </nav>
+          </div>
+        )}
+      />
 
-      {/* Profit & loss for any period, with expenses */}
-      <MoneyReport biz={biz} adding={addingExpense} setAdding={setAddingExpense} tab={tab} setTab={setTab} />
+      <AnimatePresence>
+        {picking && (
+          <PickMember
+            members={(data.membersTable || []).filter((m) => m.status === 'active')}
+            word={words(biz.type).member}
+            onClose={() => setPicking(false)}
+            onPick={(m) => { setPicking(false); setCollectModal({ member: m, balance: m.balance > 0 ? m.balance : m.planAmount }); }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Section 2: Member Payment Breakdown */}
       {showGrid && (
-      <div className="analytics-card" id="member-breakdown">
+      <div className="analytics-card mr-box mr-who" id="member-breakdown">
         <div className="card-header-row">
           <div>
             <h3 className="analytics-card-title">Who paid each month</h3>
@@ -145,7 +177,7 @@ export default function Reports() {
                       <div
                         className="table-member-cell"
                         style={{ cursor: "pointer" }}
-                        onClick={() => setSelectedMemberId(m._id)}>
+                        onClick={() => openMember(m._id)}>
                         <span className="hide-sm"><Avatar name={m.name} /></span>
                         <div>
                           <div className="table-member-name">{m.name}</div>
@@ -223,7 +255,7 @@ export default function Reports() {
                             alignItems: "center",
                             gap: 4,
                           }}
-                          onClick={() => setSelectedMemberId(m._id)}>
+                          onClick={() => openMember(m._id)}>
                           <span>View profile</span>
                           <ArrowRightIcon size={12} />
                         </button>
@@ -284,18 +316,6 @@ export default function Reports() {
       </div>
       )}
 
-      {/* Slide-over Profile Sheet */}
-      <AnimatePresence>
-        {selectedMemberId && (
-          <MemberProfileSheet
-            biz={biz}
-            memberId={selectedMemberId}
-            plans={plans || []}
-            onClose={() => setSelectedMemberId(null)}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Collect Payment Modal */}
       {collectModal && (
         <CollectPaymentModal
@@ -306,6 +326,7 @@ export default function Reports() {
           onSuccess={() => {
             qc.invalidateQueries({ queryKey: ["dashboard", biz._id] });
             qc.invalidateQueries({ queryKey: ["members", biz._id] });
+            qc.invalidateQueries({ queryKey: ["report", biz._id] });
             setCollectModal(null);
           }}
         />
@@ -343,8 +364,9 @@ function DownloadMenu({ biz }) {
   ];
   return (
     <div className="dl-menu" ref={ref}>
-      <button type="button" className="btn-secondary" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <DownloadIcon size={15} /> Download <ChevronDownIcon size={14} />
+      <button type="button" className="db-quick-btn q-download" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="db-quick-icon"><DownloadIcon size={15} /></span>
+        <span className="db-quick-long">Download <ChevronDownIcon size={14} /></span><span className="db-quick-short">Download</span>
       </button>
       {open && (
         <div className="dl-menu-list" role="menu">
