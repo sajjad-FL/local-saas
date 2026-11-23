@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { api, can, ADD } from '../api.js';
 import { useBiz } from '../App.jsx';
 import { words } from '../wording.js';
-import { PlusIcon, RupeeIcon, UserPlusIcon } from '../ui.jsx';
+import { PlusIcon, RupeeIcon, UserPlusIcon, TagIcon } from '../ui.jsx';
+import SellModal from '../SellModal.jsx';
 import DashboardHome from './DashboardHome.jsx';
 import { AddExpense } from './MoneyReport.jsx';
 import { CollectPaymentModal, PickMember } from './Members.jsx';
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const w = words(biz.type);
   const [addingExpense, setAddingExpense] = useState(false);
+  const [selling, setSelling] = useState(false);
   const [picking, setPicking] = useState(false); // "Record payment": choose who paid
   const [paying, setPaying] = useState(null); // then the payment form for them
 
@@ -31,13 +33,15 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = (me?.name || '').trim().split(/\s+/)[0];
 
-  // the four things done most, one tap each (big tiles on phones)
+  const { data: catalogue } = useQuery({ queryKey: ['catalogue', biz._id], queryFn: () => api(`/businesses/${biz._id}/catalogue`) });
+  // the things done most, one tap each (big tiles on phones)
   const actions = [
     { key: 'pay', label: 'Record payment', short: 'Payment', icon: RupeeIcon, primary: true, onClick: () => setPicking(true) },
+    catalogue?.length > 0 && { key: 'sell', label: 'Sell', short: 'Sell', icon: TagIcon, onClick: () => setSelling(true) },
     { key: 'member', label: `Add ${w.member}`, short: w.member[0].toUpperCase() + w.member.slice(1), icon: PlusIcon, onClick: () => navigate('/members?add=1') },
     { key: 'enquiry', label: 'Add enquiry', short: 'Enquiry', icon: UserPlusIcon, onClick: () => navigate('/enquiries?add=1') },
     { key: 'expense', label: 'Add expense', short: 'Expense', icon: RupeeIcon, onClick: () => setAddingExpense(true) },
-  ].filter(() => can(biz, ADD)); // see-only staff get no add buttons
+  ].filter(Boolean).filter(() => can(biz, ADD)); // see-only staff get no add buttons
 
   return (
     <>
@@ -46,7 +50,7 @@ export default function Dashboard() {
           <p className="db-date">{today}</p>
           <h1 className="db-hello">{greeting}{firstName ? `, ${firstName}` : ''}</h1>
         </div>
-        <nav className="db-quick" aria-label="Quick actions">
+        <nav className={`db-quick ${actions.length === 5 ? 'five' : ''}`} aria-label="Quick actions">
           {actions.map((a) => (
             <button key={a.key} type="button" className={`db-quick-btn ${a.primary ? 'pri' : ''} q-${a.key}`} onClick={a.onClick}>
               <span className="db-quick-icon"><a.icon size={15} /></span>
@@ -57,6 +61,9 @@ export default function Dashboard() {
         </nav>
       </div>
 
+      <AnimatePresence>
+        {selling && <SellModal key="sell" biz={biz} onClose={() => setSelling(false)} />}
+      </AnimatePresence>
       <AnimatePresence>
         {addingExpense && (
           <AddExpense

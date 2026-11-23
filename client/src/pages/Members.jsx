@@ -1779,7 +1779,7 @@ export function Menu({ label, prefix, valueLabel, dot, active, options, value, o
 }
 
 // "Who paid?" Search, then tap a name. Members who owe come first.
-export function PickMember({ members, word, onClose, onPick }) {
+export function PickMember({ members, word, onClose, onPick, title = 'Who paid?' }) {
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
   const list = members
@@ -1799,7 +1799,7 @@ export function PickMember({ members, word, onClose, onPick }) {
         aria-labelledby="db-pick-title"
         onClick={(e) => e.stopPropagation()}>
         <div className="form-header" style={{ marginBottom: 12 }}>
-          <div className="form-title"><RupeeIcon size={18} style={{ color: 'var(--primary)' }} /><span id="db-pick-title">Who paid?</span></div>
+          <div className="form-title"><RupeeIcon size={18} style={{ color: 'var(--primary)' }} /><span id="db-pick-title">{title}</span></div>
           <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}><XIcon size={14} /></button>
         </div>
         <label className="mx-search db-pick-search">

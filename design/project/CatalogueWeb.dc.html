@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Catalogue – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 960px; position: relative; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="border: 1px solid #E7E9F0; border-radius: 12px; display: flex; align-items: center; gap: 10px; padding: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Setup</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">3 plans · 2 PT packs · 2 services · 3 products · 2 outlets · 3 staff</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Setup</h1>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" onClick="{{openSell}}" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 14px">₹ Sell something</button>
+        <button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ {{addLabel}}</button>
+      </div>
+    </div>
+
+    <div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid #E7E9F0">
+      <span style="height: 42px; padding: 0 14px; border-bottom: 2px solid #5B3DF5; margin-bottom: -1px; color: #0F172A; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px">Plans &amp; catalogue <span style="height: 20px; min-width: 20px; padding: 0 6px; border-radius: 99px; background: #5B3DF5; color: #FFFFFF; font-size: 11.5px; display: inline-grid; place-items: center">10</span></span>
+      <span style="height: 42px; padding: 0 14px; color: #64748B; font-weight: 500; font-size: 14px; display: inline-flex; align-items: center; gap: 8px">Outlets <span style="height: 20px; min-width: 20px; padding: 0 6px; border-radius: 99px; background: #F1F3F7; font-size: 11.5px; display: inline-grid; place-items: center">2</span></span>
+      <span style="height: 42px; padding: 0 14px; color: #64748B; font-weight: 500; font-size: 14px; display: inline-flex; align-items: center; gap: 8px">Staff <span style="height: 20px; min-width: 20px; padding: 0 6px; border-radius: 99px; background: #F1F3F7; font-size: 11.5px; display: inline-grid; place-items: center">3</span></span>
+    </div>
+
+    <!-- what you sell, in four kinds; each explains itself -->
+    <div role="radiogroup" aria-label="Kind" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+      <sc-for list="{{kinds}}" as="k" hint-placeholder-count="4">
+        <button type="button" role="radio" aria-checked="{{k.on}}" onClick="{{k.pick}}" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: {{k.border}}; border-radius: 14px; background: {{k.bg}}; text-align: left; color: #0F172A">
+          <span style="width: 36px; height: 36px; flex: none; border-radius: 10px; background: {{k.iconBg}}; color: {{k.iconInk}}; display: grid; place-items: center; font-weight: 700">{{k.icon}}</span>
+          <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px">{{k.label}} <span style="color: #94A3B8; font-weight: 500">· {{k.count}}</span></b><span style="font-size: 12px; color: #64748B">{{k.hint}}</span></span>
+        </button>
+      </sc-for>
+    </div>
+
+    <section style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px">
+      <sc-for list="{{items}}" as="i" hint-placeholder-count="3">
+        <article style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; justify-content: space-between; gap: 8px"><span style="display: flex; flex-direction: column"><b style="font-size: 16px">{{i.name}}</b><span style="font-size: 12.5px; color: #64748B">{{i.detail}}</span></span><button type="button" aria-label="Edit" style="width: 32px; height: 32px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; color: #475569">✎</button></div>
+          <b style="font-size: 24px">{{i.price}}<span style="font-size: 13px; font-weight: 500; color: #64748B"> {{i.per}}</span></b>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #EEF0F5; font-size: 12.5px; color: #64748B"><span>{{i.stat}}</span>
+            <sc-if value="{{i.low}}" hint-placeholder-val="{{ false }}"><span style="height: 22px; padding: 0 8px; border-radius: 99px; background: #FFF6E5; color: #92400E; font-weight: 600; display: inline-flex; align-items: center">Only 2 left</span></sc-if>
+            <sc-if value="{{i.sellable}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{openSell}}" style="border: 0; background: none; color: #4A2EE6; font-weight: 600; padding: 0">Sell ›</button></sc-if>
+          </div>
+        </article>
+      </sc-for>
+      <button type="button" style="min-height: 150px; border: 2px dashed #D9D2FE; border-radius: 16px; background: #FBFAFF; color: #3D27B8; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px">+ {{addLabel}}<span style="font-size: 12.5px; font-weight: 500; color: #64748B">{{addHint}}</span></button>
+    </section>
+  </main>
+
+  <!-- Sell: pick who, pick items, paid now or add to their dues -->
+  <sc-if value="{{selling}}" hint-placeholder-val="{{ true }}">
+    <button type="button" aria-label="Close" onClick="{{closeSell}}" style="position: absolute; inset: 0; border: 0; padding: 0; background: rgba(15,23,42,.36); cursor: default"></button>
+    <section role="dialog" aria-modal="true" aria-labelledby="sell-title" style="position: absolute; left: 50%; top: 40px; transform: translateX(-50%); width: 560px; background: #FFFFFF; border-radius: 18px; box-shadow: 0 24px 60px rgba(15,23,42,.25); padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; justify-content: space-between; align-items: center"><h2 id="sell-title" style="margin: 0; font-size: 18px; font-weight: 700">Sell to a member</h2><button type="button" aria-label="Close" onClick="{{closeSell}}" style="width: 34px; height: 34px; border: 0; border-radius: 10px; background: #F4F6FA">✕</button></div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid #5B3DF5; border-radius: 12px"><span style="width: 34px; height: 34px; border-radius: 99px; background: #E8F6FF; color: #0B5E8A; display: grid; place-items: center; font-weight: 700; font-size: 13px">RK</span><span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Rohit Kumar</b><span style="font-size: 12px; color: #64748B">98111 20457 · already owes ₹3,000</span></span><span style="color: #4A2EE6; font-weight: 600; font-size: 13px">Change</span></div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap">
+        <span style="height: 32px; padding: 0 12px; border-radius: 99px; background: #F1EEFF; color: #3D27B8; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center">Products</span>
+        <span style="height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid #E2E5EC; font-size: 13px; display: inline-flex; align-items: center">PT</span>
+        <span style="height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid #E2E5EC; font-size: 13px; display: inline-flex; align-items: center">Services</span>
+      </div>
+      <div style="display: flex; flex-direction: column; border: 1px solid #E7E9F0; border-radius: 12px; overflow: hidden">
+        <sc-for list="{{cart}}" as="c" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: {{c.line}}; background: {{c.bg}}">
+            <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">{{c.name}}</b><span style="font-size: 12px; color: #64748B">{{c.price}}</span></span>
+            <span style="display: inline-flex; align-items: center; border: 1px solid #E2E5EC; border-radius: 9px; overflow: hidden"><button type="button" onClick="{{c.minus}}" style="width: 32px; height: 32px; border: 0; background: #FFFFFF">−</button><b style="width: 28px; text-align: center; font-size: 14px">{{c.qty}}</b><button type="button" onClick="{{c.plus}}" style="width: 32px; height: 32px; border: 0; background: #FFFFFF">+</button></span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 14px; color: #64748B">Total</span><b style="font-size: 24px">{{total}}</b></div>
+      <fieldset style="border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <legend style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; padding: 0">How is it paid?</legend>
+        <sc-for list="{{payWays}}" as="p" hint-placeholder-count="2">
+          <button type="button" role="radio" aria-checked="{{p.on}}" onClick="{{p.pick}}" style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: {{p.border}}; border-radius: 12px; background: {{p.bg}}; text-align: left; color: #0F172A"><b style="font-size: 14px">{{p.label}}</b><span style="font-size: 12px; color: #64748B">{{p.hint}}</span></button>
+        </sc-for>
+      </fieldset>
+      <sc-if value="{{paidNow}}" hint-placeholder-val="{{ true }}"><div style="display: flex; gap: 6px"><span style="height: 34px; padding: 0 14px; border-radius: 99px; background: #F1EEFF; color: #3D27B8; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center">Cash</span><span style="height: 34px; padding: 0 14px; border-radius: 99px; border: 1px solid #E2E5EC; font-size: 13px; display: inline-flex; align-items: center">UPI</span><span style="height: 34px; padding: 0 14px; border-radius: 99px; border: 1px solid #E2E5EC; font-size: 13px; display: inline-flex; align-items: center">Card</span></div></sc-if>
+      <button type="button" onClick="{{closeSell}}" style="height: 46px; border: 0; border-radius: 12px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 15px">{{sellLabel}}</button>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { kind: 3, selling: true, qty: [1, 1, 0], paid: 0 }; }
+  renderVals() {
+    const st = this.state;
+    const K = [
+      { label: 'Memberships', icon: '₹', iconBg: '#ECFDF3', iconInk: '#066B3F', hint: 'Billed every cycle', count: 3, add: 'Add plan', addHint: 'Monthly, quarterly, yearly…' },
+      { label: 'Personal training', icon: '☻', iconBg: '#EEF4FF', iconInk: '#1D4ED8', hint: 'Session packs, charged once', count: 2, add: 'Add PT pack', addHint: 'e.g. 12 sessions ₹6,000' },
+      { label: 'Services', icon: '✦', iconBg: '#FCEEF6', iconInk: '#9D1C5E', hint: 'Diet plan, locker, towel', count: 2, add: 'Add service', addHint: 'e.g. Diet plan ₹1,500' },
+      { label: 'Products', icon: '▣', iconBg: '#FFF6E5', iconInk: '#92400E', hint: 'Supplements, merch', count: 3, add: 'Add product', addHint: 'e.g. Whey 1 kg ₹2,800' },
+    ];
+    const ITEMS = [
+      [
+        { name: 'Basic', detail: 'every month', price: '₹1,500', per: '/ month', stat: '14 members on it', sellable: false },
+        { name: '3 month', detail: 'every 3 months', price: '₹4,500', per: '/ 3 months', stat: '7 members on it', sellable: false },
+        { name: 'Yearly', detail: 'every year', price: '₹14,000', per: '/ year', stat: '3 members on it', sellable: false },
+      ],
+      [
+        { name: '12 sessions', detail: 'use within 45 days', price: '₹6,000', per: 'once', stat: 'Sold 4 this month', sellable: true },
+        { name: '24 sessions', detail: 'use within 90 days', price: '₹11,000', per: 'once', stat: 'Sold 1 this month', sellable: true },
+      ],
+      [
+        { name: 'Diet plan', detail: 'one-time consultation', price: '₹1,500', per: 'once', stat: 'Sold 6 this month', sellable: true },
+        { name: 'Locker', detail: 'per month', price: '₹300', per: 'once', stat: 'Sold 9 this month', sellable: true },
+      ],
+      [
+        { name: 'Whey protein 1 kg', detail: '6 in stock', price: '₹2,800', per: 'each', stat: 'Sold 5 this month', sellable: true },
+        { name: 'Shaker bottle', detail: '2 in stock', price: '₹350', per: 'each', stat: 'Sold 8 this month', sellable: true, low: true },
+        { name: 'Gym T-shirt', detail: 'no stock tracking', price: '₹600', per: 'each', stat: 'Sold 3 this month', sellable: true },
+      ],
+    ];
+    const CART = [['Whey protein 1 kg', 2800], ['Shaker bottle', 350], ['Diet plan', 1500]];
+    const total = CART.reduce((n, [, p], i) => n + p * st.qty[i], 0);
+    const fmt = (n) => '₹' + n.toLocaleString('en-IN');
+    const k = K[st.kind];
+    return {
+      addLabel: k.add, addHint: k.addHint,
+      selling: st.selling,
+      openSell: () => this.setState({ selling: true }),
+      closeSell: () => this.setState({ selling: false }),
+      kinds: K.map((x, i) => ({ ...x, count: String(x.count), on: i === st.kind, border: i === st.kind ? '1.5px solid #5B3DF5' : '1px solid #E7E9F0', bg: i === st.kind ? '#FBFAFF' : '#FFFFFF', pick: () => this.setState({ kind: i }) })),
+      items: ITEMS[st.kind].map((x) => ({ ...x, low: !!x.low, openSell: () => this.setState({ selling: true }) })),
+      cart: CART.map(([name, price], i) => ({ name, price: fmt(price), qty: String(st.qty[i]), line: i ? '1px solid #EEF0F5' : '0', bg: st.qty[i] ? '#FFFFFF' : '#FAFBFC',
+        minus: () => { const q = [...st.qty]; q[i] = Math.max(0, q[i] - 1); this.setState({ qty: q }); },
+        plus: () => { const q = [...st.qty]; q[i] += 1; this.setState({ qty: q }); } })),
+      total: fmt(total),
+      paidNow: st.paid === 0,
+      payWays: [['Paid now', 'Records the payment too'], ['Add to their dues', 'They pay later with their fees']].map(([label, hint], i) => ({ label, hint, on: i === st.paid, border: i === st.paid ? '1.5px solid #5B3DF5' : '1px solid #E7E9F0', bg: i === st.paid ? '#FBFAFF' : '#FFFFFF', pick: () => this.setState({ paid: i }) })),
+      sellLabel: st.paid === 0 ? `Sell and record ${fmt(total)} in cash` : `Add ${fmt(total)} to Rohit's dues`,
+    };
+  }
+}
+</script>
+</body>
+</html>

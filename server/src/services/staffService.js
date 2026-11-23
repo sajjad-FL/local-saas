@@ -62,7 +62,7 @@ export function levelNeeded(method, path) {
   if (method === 'PATCH') return /\/enquiries\//.test(p) ? 1 : 2; // following up an enquiry is daily work
   // POST / PUT
   if (/\/members\/[^/]+\/(move|pause|resume)$/.test(p)) return 2;
-  if (/\/(groups|plans|rooms)(\/[^/]+\/floors)?$/.test(p)) return 2; // setup
+  if (/\/(groups|plans|rooms|catalogue)(\/[^/]+\/floors)?$/.test(p)) return 2; // setup
   if (/\/checkin-link$/.test(p)) return 2;
   if (/\/members\/[^/]+\/share$/.test(p)) return 0;
   return 1;

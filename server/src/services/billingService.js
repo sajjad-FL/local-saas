@@ -92,7 +92,7 @@ export async function createDues(sub, member, amount, periods) {
 // On the same day a due is listed before the payment that clears it.
 export function ledger(dues, payments) {
   const rows = [
-    ...dues.map((d) => ({ kind: 'due', id: String(d._id), date: d.dueDate, amount: d.amount, periodEnd: d.periodEnd })),
+    ...dues.map((d) => ({ kind: 'due', id: String(d._id), date: d.dueDate, amount: d.amount, periodEnd: d.periodEnd, label: d.kind === 'sale' ? d.label : undefined })),
     ...payments.map((p) => ({ kind: 'payment', id: String(p._id), date: p.date, amount: p.amount, mode: p.mode })),
   ].sort((a, b) => new Date(a.date) - new Date(b.date) || (a.kind === 'due' ? -1 : 1));
   let balance = 0;

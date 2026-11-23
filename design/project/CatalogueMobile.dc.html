@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Catalogue – mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; box-sizing: border-box; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <!-- on Collect: a new quick tile "Sell" next to Payment -->
+    <header><p style="margin: 0; font-size: 12.5px; color: #64748B; font-weight: 500">Good morning, Sajjad</p><h1 style="margin: 2px 0 0; font-size: 22px; font-weight: 700">Collect</h1></header>
+    <nav style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+        <button type="button" onClick="{{t.tap}}" style="height: 68px; border: {{t.border}}; border-radius: 14px; background: #FFFFFF; font-weight: 600; font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #0F172A"><span style="width: 30px; height: 30px; border-radius: 10px; background: {{t.bg}}; color: {{t.ink}}; display: grid; place-items: center">{{t.icon}}</span>{{t.label}}</button>
+      </sc-for>
+    </nav>
+    <div style="padding: 14px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px; color: #64748B; font-size: 13px">… rest of Collect …</div>
+  </div>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <button type="button" aria-label="Close" onClick="{{close}}" style="position: absolute; inset: 0; border: 0; padding: 0; background: rgba(15,23,42,.36); cursor: default"></button>
+    <section role="dialog" aria-modal="true" aria-labelledby="ms-sell" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 88%; overflow-y: auto; box-sizing: border-box; background: #FFFFFF; border-radius: 20px 20px 0 0; padding: 10px 16px 18px; display: flex; flex-direction: column; gap: 12px">
+      <span style="align-self: center; width: 40px; height: 4px; border-radius: 99px; background: #E2E5EC"></span>
+      <h2 id="ms-sell" style="margin: 0; font-size: 17px; font-weight: 700">Sell to Rohit Kumar</h2>
+      <div style="display: flex; gap: 6px; overflow-x: auto"><span style="flex: none; height: 32px; padding: 0 12px; border-radius: 99px; background: #F1EEFF; color: #3D27B8; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center">Products</span><span style="flex: none; height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid #E2E5EC; font-size: 13px; display: inline-flex; align-items: center">PT packs</span><span style="flex: none; height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid #E2E5EC; font-size: 13px; display: inline-flex; align-items: center">Services</span></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <sc-for list="{{items}}" as="i" hint-placeholder-count="4">
+          <button type="button" onClick="{{i.tap}}" style="position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px; border: {{i.border}}; border-radius: 12px; background: {{i.bg}}; text-align: left; color: #0F172A"><b style="font-size: 13.5px">{{i.name}}</b><span style="font-size: 12.5px; color: #64748B">{{i.price}}</span>
+            <sc-if value="{{i.picked}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 8px; right: 8px; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: #5B3DF5; color: #FFFFFF; font-size: 12px; font-weight: 700; display: grid; place-items: center">{{i.qty}}</span></sc-if>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px; background: #F4F6FA; border-radius: 10px"><span style="height: 38px; border-radius: 8px; background: #FFFFFF; font-weight: 600; font-size: 13px; display: grid; place-items: center">Paid now</span><span style="height: 38px; color: #475569; font-size: 13px; display: grid; place-items: center">Add to dues</span></div>
+      <button type="button" onClick="{{close}}" style="height: 50px; border: 0; border-radius: 12px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 15px">Sell · {{total}}</button>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { open: true, qty: [1, 1, 0, 0] }; }
+  renderVals() {
+    const st = this.state;
+    const I = [['Whey 1 kg', 2800], ['Shaker', 350], ['Gym T-shirt', 600], ['Energy bar', 80]];
+    const total = I.reduce((n, [, p], i) => n + p * st.qty[i], 0);
+    return {
+      open: st.open, close: () => this.setState({ open: false }),
+      tiles: [
+        { label: 'Payment', icon: '₹', bg: '#5B3DF5', ink: '#FFFFFF', border: '1px solid #E2E5EC', tap: () => {} },
+        { label: 'Sell', icon: '▣', bg: '#FFF6E5', ink: '#92400E', border: '1.5px solid #5B3DF5', tap: () => this.setState({ open: true }) },
+        { label: 'Member', icon: '+', bg: '#F1EEFF', ink: '#3D27B8', border: '1px solid #E2E5EC', tap: () => {} },
+        { label: 'Expense', icon: '−', bg: '#FEF1F0', ink: '#B42318', border: '1px solid #E2E5EC', tap: () => {} },
+      ],
+      items: I.map(([name, price], i) => ({ name, price: '₹' + price.toLocaleString('en-IN'), qty: String(st.qty[i]), picked: st.qty[i] > 0, border: st.qty[i] ? '1.5px solid #5B3DF5' : '1px solid #E7E9F0', bg: st.qty[i] ? '#FBFAFF' : '#FFFFFF', tap: () => { const q = [...st.qty]; q[i] += 1; this.setState({ qty: q }); } })),
+      total: '₹' + total.toLocaleString('en-IN'),
+    };
+  }
+}
+</script>
+</body>
+</html>

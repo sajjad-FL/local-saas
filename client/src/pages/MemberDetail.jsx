@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, waLink, rupees, remindMsg, can, ADD, EDIT, DELETE } from '../api.js';
 import { useBiz } from '../App.jsx';
 import { confirmAction } from '../confirm.jsx';
+import { AnimatePresence } from 'framer-motion';
+import SellModal from '../SellModal.jsx';
 import {
   Avatar, Field, Rise, WhatsAppIcon, PauseIcon, PlayIcon,
   RupeeIcon, CalendarIcon, CheckIcon, CreditCardIcon, UsersIcon,
@@ -25,6 +27,8 @@ export default function MemberDetail() {
   const tab = params.get('tab') || 'overview';
   const setTab = (t) => setParams((p) => { if (t === 'overview') p.delete('tab'); else p.set('tab', t); return p; }, { replace: true });
 
+  const [selling, setSelling] = useState(false);
+  const { data: catalogue } = useQuery({ queryKey: ['catalogue', biz._id], queryFn: () => api(`/businesses/${biz._id}/catalogue`) });
   const { data, isLoading, isError } = useQuery({
     queryKey: ['member', id],
     queryFn: () => api(`/members/${id}`),
@@ -152,7 +156,7 @@ export default function MemberDetail() {
             {item.kind === 'payment' ? <RupeeIcon size={15} /> : <CreditCardIcon size={15} />}
           </span>
           <span className="md-ledger-what">
-            <b>{item.kind === 'payment' ? 'Payment received' : 'Fee due'}</b>
+            <b>{item.kind === 'payment' ? 'Payment received' : item.label || 'Fee due'}</b>
             <span>{fmtDate(item.when)}{item.mode ? ` · ${item.mode === 'upi' ? 'UPI' : item.mode[0].toUpperCase() + item.mode.slice(1)}` : ''}</span>
           </span>
           <span className="md-ledger-amt">
@@ -214,6 +218,11 @@ export default function MemberDetail() {
           {isActive && canAdd && (
             <button type="button" className="btn md-primary" onClick={openPayments}>
               <CheckIcon size={15} /> Record payment
+            </button>
+          )}
+          {isActive && canAdd && catalogue?.length > 0 && (
+            <button type="button" className="btn-secondary md-sell" onClick={() => setSelling(true)}>
+              <TagIcon size={15} /> Sell
             </button>
           )}
           {member.phone && balance > 0 && (
@@ -414,6 +423,9 @@ export default function MemberDetail() {
       </div>
 
       {/* Confirmation Modals */}
+      <AnimatePresence>
+        {selling && <SellModal biz={biz} member={{ ...member, balance }} onClose={() => setSelling(false)} />}
+      </AnimatePresence>
       <ConfirmDialog
         isOpen={confirmModal?.type === 'pause'}
         onClose={() => setConfirmModal(null)}

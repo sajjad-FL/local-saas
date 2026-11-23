@@ -12,6 +12,8 @@ const dueSchema = new Schema({
   periodEnd: Date,
   dueDate: Date,
   status: { type: String, enum: ['unpaid', 'partial', 'paid'], default: 'unpaid' },
+  kind: { type: String, enum: ['fee', 'sale'], default: 'fee' }, // sale = a one-off charge for catalogue items
+  label: String, // what a sale was for, e.g. "Whey protein ×2"
 });
 
 // one due per cycle: a rerun or overlapping cron can never bill the same period twice

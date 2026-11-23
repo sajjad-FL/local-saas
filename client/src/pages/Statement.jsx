@@ -91,7 +91,7 @@ export default function Statement() {
             {[...ledger].reverse().map((r) => (
               <tr key={r.id}>
                 <td>{fmt(r.date)}</td>
-                <td>{r.kind === 'due' ? `Fee · ${short(r.date)} – ${short(r.periodEnd)}` : `Paid${r.mode ? ` · ${r.mode.toUpperCase()}` : ''}`}</td>
+                <td>{r.kind === 'due' ? (r.label ? `Bought: ${r.label}` : `Fee · ${short(r.date)} – ${short(r.periodEnd)}`) : `Paid${r.mode ? ` · ${r.mode.toUpperCase()}` : ''}`}</td>
                 <td className={`num ${r.kind === 'payment' ? 'green-text' : ''}`}>{r.kind === 'payment' ? '−' : '+'}{rupees(r.amount)}</td>
                 <td className="num">{rupees(r.balance)}</td>
               </tr>

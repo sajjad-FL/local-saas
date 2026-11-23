@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attendance – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 940px; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="border: 1px solid #E7E9F0; border-radius: 12px; display: flex; align-items: center; gap: 10px; padding: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Setup</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">Sunday, 23 November · 14 of 24 in so far</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Attendance</h1>
+      </div>
+      <nav aria-label="Quick actions" style="display: flex; gap: 8px">
+        <button type="button" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(255,255,255,.18); display: grid; place-items: center">✓</span>Check someone in</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center">▦</span>Show QR at the door</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #F1F3F7; color: #475569; display: grid; place-items: center">↓</span>Import from machine</button>
+      </nav>
+    </div>
+
+    <!-- the week at a glance; tap a day to open it -->
+    <section aria-label="This week" style="display: flex; align-items: stretch; gap: 8px; padding: 10px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px">
+      <button type="button" aria-label="Earlier" style="width: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #475569">‹</button>
+      <sc-for list="{{week}}" as="d" hint-placeholder-count="7">
+        <button type="button" onClick="{{d.pick}}" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border: {{d.border}}; border-radius: 10px; background: {{d.bg}}; color: #0F172A">
+          <span style="font-size: 12px; color: {{d.labelInk}}; font-weight: {{d.weight}}">{{d.label}}</span>
+          <span style="width: 100%; height: 42px; display: flex; align-items: flex-end; justify-content: center"><i style="width: 22px; height: {{d.h}}; border-radius: 5px 5px 2px 2px; background: {{d.bar}}"></i></span>
+          <b style="font-size: 13px">{{d.count}}</b>
+        </button>
+      </sc-for>
+      <button type="button" aria-label="Later" style="width: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #CBD2DC">›</button>
+    </section>
+
+    <section aria-label="At a glance" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+        <button type="button" onClick="{{c.pick}}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid {{c.border}}; box-shadow: {{c.shadow}}; border-radius: 14px; text-align: left; color: #0F172A">
+          <span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: {{c.bg}}; color: {{c.ink}}; display: grid; place-items: center; font-weight: 700">{{c.icon}}</span>
+          <span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 12.5px; color: #64748B; font-weight: 500">{{c.label}}</span><b style="font-size: 22px; color: {{c.valueInk}}">{{c.value}}</b></span>
+          <span style="font-size: 12px; color: #94A3B8; text-align: right; max-width: 96px">{{c.note}}</span>
+        </button>
+      </sc-for>
+    </section>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start">
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; overflow: hidden">
+        <div role="tablist" style="display: flex; gap: 4px; padding: 10px 16px 0; border-bottom: 1px solid #E7E9F0">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+            <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="height: 40px; padding: 0 12px; border: 0; border-bottom: 2px solid {{t.line}}; margin-bottom: -1px; background: transparent; color: {{t.ink}}; font-size: 14px; font-weight: {{t.weight}}; display: inline-flex; align-items: center; gap: 7px"><i style="width: 7px; height: 7px; border-radius: 99px; background: {{t.dot}}"></i>{{t.label}}<span style="height: 20px; min-width: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: {{t.countBg}}; color: {{t.countInk}}; font-size: 11.5px; font-weight: 600; display: inline-grid; place-items: center">{{t.count}}</span></button>
+          </sc-for>
+          <span style="flex: 1"></span>
+          <button type="button" style="align-self: center; height: 32px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; font-weight: 600; font-size: 13px">Mark all present</button>
+        </div>
+        <div style="padding: 12px 16px"><span style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 10px; color: #94A3B8; font-size: 14px">⌕ Search a member</span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #EEF0F5; font-size: 14px">
+            <span style="width: 36px; height: 36px; border-radius: 99px; background: {{r.avBg}}; color: {{r.avInk}}; display: grid; place-items: center; font-weight: 700; font-size: 13px">{{r.short}}</span>
+            <span style="flex: 1; display: flex; flex-direction: column"><span style="display: flex; align-items: center; gap: 6px"><b style="font-weight: 600">{{r.name}}</b><sc-if value="{{r.owes}}" hint-placeholder-val="{{ false }}"><span style="height: 20px; padding: 0 7px; border-radius: 99px; background: #FEF1F0; color: #B42318; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center">owes {{r.due}}</span></sc-if></span><span style="font-size: 12.5px; color: #64748B">{{r.sub}}</span></span>
+            <span style="font-size: 12.5px; color: {{r.lastInk}}; text-align: right; min-width: 110px">{{r.last}}</span>
+            <button type="button" style="height: 36px; padding: 0 14px; border: {{r.btnBorder}}; border-radius: 9px; background: {{r.btnBg}}; color: {{r.btnInk}}; font-weight: 600; font-size: 13px; min-width: 96px">{{r.btn}}</button>
+          </div>
+        </sc-for>
+      </section>
+
+      <aside style="display: flex; flex-direction: column; gap: 16px">
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+          <b style="font-size: 15px">Check-in QR</b>
+          <span style="width: 150px; height: 150px; border-radius: 12px; border: 1px solid #E7E9F0; display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; padding: 10px; box-sizing: border-box">
+            <sc-for list="{{qr}}" as="q" hint-placeholder-count="81"><i style="background: {{q}}"></i></sc-for>
+          </span>
+          <span style="font-size: 12.5px; color: #64748B">Members scan this at the door and enter their number. 9 checked in by QR today.</span>
+          <span style="display: flex; gap: 8px; width: 100%"><button type="button" style="flex: 1; height: 36px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; font-weight: 600; font-size: 13px">Print poster</button><button type="button" style="flex: 1; height: 36px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; font-weight: 600; font-size: 13px">Reset</button></span>
+        </section>
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <b style="font-size: 15px">How they checked in today</b>
+          <sc-for list="{{methods}}" as="m" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 4px"><span style="display: flex; justify-content: space-between; font-size: 13px"><span>{{m.label}}</span><b>{{m.count}}</b></span><span style="height: 8px; border-radius: 99px; background: #F1F3F7; overflow: hidden"><i style="display: block; height: 100%; width: {{m.w}}; background: {{m.color}}; border-radius: 99px"></i></span></div>
+          </sc-for>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":940}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { day: 6, tab: 0 }; }
+  renderVals() {
+    const st = this.state;
+    const W = [['Mon 17', 16], ['Tue 18', 19], ['Wed 19', 15], ['Thu 20', 18], ['Fri 21', 12], ['Sat 22', 9], ['Today', 14]];
+    const pattern = '111111101100000101101110101101110101100000101111111101010100011010011101011111011';
+    const T = [['Not in yet', '#D97706', '10'], ['Checked in', '#16A34A', '14'], ['Not coming 7+ days', '#DC2626', '5']];
+    const not = [
+      { name: 'Rohit Kumar', short: 'RK', sub: 'Evening 6–8 · Monthly', last: 'Last came 2 days ago', lastInk: '#64748B', owes: true, due: '₹3,000', avBg: '#E8F6FF', avInk: '#0B5E8A' },
+      { name: 'Neha Singh', short: 'NS', sub: 'Morning 6–8 · Quarterly', last: 'Last came yesterday', lastInk: '#64748B', owes: false, due: '', avBg: '#FCEEF6', avInk: '#9D1C5E' },
+      { name: 'Karan Mehta', short: 'KM', sub: 'Morning 6–8 · Monthly', last: '12 days away', lastInk: '#B42318', owes: false, due: '', avBg: '#FFF1E6', avInk: '#9A3412' },
+      { name: 'Pooja Rao', short: 'PR', sub: 'Evening 6–8 · Monthly', last: 'Last came 3 days ago', lastInk: '#64748B', owes: true, due: '₹1,500', avBg: '#ECFDF3', avInk: '#066B3F' },
+    ].map((r) => ({ ...r, btn: 'Check in', btnBg: '#5B3DF5', btnInk: '#FFFFFF', btnBorder: '0' }));
+    const inn = [
+      { name: 'Aman Gupta', short: 'AG', sub: '6:12 AM · scanned QR', last: '', lastInk: '#64748B', owes: false, avBg: '#EEF4FF', avInk: '#1D4ED8' },
+      { name: 'Vikram Shah', short: 'VS', sub: '6:30 AM · fingerprint machine', last: '', lastInk: '#64748B', owes: false, avBg: '#F1EEFF', avInk: '#3D27B8' },
+      { name: 'Ritu Sharma', short: 'RS', sub: '7:05 AM · marked by Imran', last: '', lastInk: '#64748B', owes: true, due: '₹500', avBg: '#FCEEF6', avInk: '#9D1C5E' },
+    ].map((r) => ({ ...r, btn: 'Undo', btnBg: '#FFFFFF', btnInk: '#475569', btnBorder: '1px solid #E2E5EC' }));
+    const away = [
+      { name: 'Karan Mehta', short: 'KM', sub: 'Morning 6–8 · Monthly', last: '12 days away', lastInk: '#B42318', owes: false, avBg: '#FFF1E6', avInk: '#9A3412' },
+      { name: 'Sunil Rao', short: 'SR', sub: 'Never came since joining 9 Nov', last: '14 days', lastInk: '#B42318', owes: true, due: '₹1,500', avBg: '#E8F6FF', avInk: '#0B5E8A' },
+    ].map((r) => ({ ...r, btn: 'WhatsApp', btnBg: '#F0FBF5', btnInk: '#066B3F', btnBorder: '1px solid #CDEFDD' }));
+    return {
+      week: W.map(([label, count], i) => ({ label, count: String(count), h: (count / 19 * 100) + '%', bar: i === st.day ? '#5B3DF5' : '#C7BFFB', border: i === st.day ? '1.5px solid #5B3DF5' : '1px solid transparent', bg: i === st.day ? '#FBFAFF' : 'transparent', labelInk: i === st.day ? '#3D27B8' : '#64748B', weight: i === st.day ? '600' : '500', pick: () => this.setState({ day: i }) })),
+      cards: [
+        { icon: '✓', bg: '#ECFDF3', ink: '#066B3F', label: 'Checked in', value: '14 / 24', valueInk: '#066B3F', note: '58% of members', tab: 1 },
+        { icon: '…', bg: '#FFF6E5', ink: '#92400E', label: 'Not in yet', value: '10', valueInk: '#0F172A', note: '2 of them owe', tab: 0 },
+        { icon: '!', bg: '#FEF1F0', ink: '#B42318', label: 'Not coming', value: '5', valueInk: '#B42318', note: '7+ days away', tab: 2 },
+        { icon: '↗', bg: '#EEF4FF', ink: '#1D4ED8', label: 'Average day', value: '15', valueInk: '#0F172A', note: 'this week · busiest Tue', tab: -1 },
+      ].map((c) => ({ ...c, border: c.tab === st.tab ? '#5B3DF5' : '#E7E9F0', shadow: c.tab === st.tab ? '0 0 0 1px #5B3DF5' : 'none', pick: () => c.tab >= 0 && this.setState({ tab: c.tab }) })),
+      tabs: T.map(([label, dot, count], i) => ({ label, dot, count, on: i === st.tab, line: i === st.tab ? '#5B3DF5' : 'transparent', ink: i === st.tab ? '#3D27B8' : '#64748B', weight: i === st.tab ? '600' : '500', countBg: i === st.tab ? '#5B3DF5' : '#F1F3F7', countInk: i === st.tab ? '#FFFFFF' : '#64748B', pick: () => this.setState({ tab: i }) })),
+      rows: [not, inn, away][st.tab],
+      qr: pattern.split('').map((c) => (c === '1' ? '#0F172A' : '#FFFFFF')),
+      methods: [
+        { label: 'Scanned QR', count: 9, w: '64%', color: '#5B3DF5' },
+        { label: 'Fingerprint machine', count: 3, w: '22%', color: '#0EA5E9' },
+        { label: 'Marked by staff', count: 2, w: '14%', color: '#16A34A' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

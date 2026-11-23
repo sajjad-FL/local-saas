@@ -19,6 +19,7 @@ import { getDashboardData } from '../controllers/dashboardController.js';
 import { getReport } from '../controllers/reportController.js';
 import { getAttendanceDay, markAttendance, markAllPresent, checkinLink, importAttendance, getNotComing } from '../controllers/attendanceController.js';
 import { getExpenses, createExpense, deleteExpense } from '../controllers/expenseController.js';
+import { getCatalogue, createCatalogueItem, updateCatalogueItem, deleteCatalogueItem } from '../controllers/catalogueController.js';
 import { getEnquiries, createEnquiry, updateEnquiry, deleteEnquiry } from '../controllers/enquiryController.js';
 import { exportPaymentsCsv, exportBalancesCsv, exportDuesCsv, exportExpensesCsv, exportBackupJson } from '../controllers/exportController.js';
 
@@ -79,6 +80,12 @@ businessRoutes.get('/:bizId/report', getReport);
 businessRoutes.get('/:bizId/expenses', getExpenses);
 businessRoutes.post('/:bizId/expenses', createExpense);
 businessRoutes.delete('/:bizId/expenses/:expenseId', deleteExpense);
+
+// Catalogue: PT packs, services and products, charged once
+businessRoutes.get('/:bizId/catalogue', getCatalogue);
+businessRoutes.post('/:bizId/catalogue', createCatalogueItem);
+businessRoutes.patch('/:bizId/catalogue/:itemId', updateCatalogueItem);
+businessRoutes.delete('/:bizId/catalogue/:itemId', deleteCatalogueItem);
 
 // Enquiries: people who asked about joining
 businessRoutes.get('/:bizId/enquiries', getEnquiries);
