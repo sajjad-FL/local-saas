@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tenants v3 – mobile (simpler)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 16px 16px 104px; display: flex; flex-direction: column; gap: 12px">
+
+    <!-- 1. title, one main button, everything else in ⋯ -->
+    <header style="display: flex; align-items: center; gap: 8px">
+      <div style="flex: 1; min-width: 0">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em">Tenants</h1>
+        <p style="margin: 1px 0 0; font-size: 12.5px; color: #64748B; font-weight: 500">7 tenants · 12 of 14 beds filled</p>
+      </div>
+      <button type="button" aria-label="More" onClick="{{toggleMenu}}" style="width: 42px; height: 42px; border: 1px solid #E2E5EC; border-radius: 12px; background: #FFFFFF; color: #334155; font-size: 18px; font-weight: 800; padding: 0; line-height: 1">⋯</button>
+      <button type="button" style="height: 42px; padding: 0 16px; border: 0; border-radius: 12px; background: #5B3DF5; color: #FFFFFF; font-size: 14px; font-weight: 700">+ Tenant</button>
+    </header>
+
+    <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+      <div role="menu" style="position: absolute; top: 64px; right: 16px; z-index: 6; width: 224px; background: #FFFFFF; border: 1px solid #E2E5EC; border-radius: 16px; box-shadow: 0 14px 30px rgba(15,23,42,.16); padding: 6px">
+        <sc-for list="{{menu}}" as="m" hint-placeholder-count="4">
+          <button type="button" role="menuitem" onClick="{{m.pick}}" style="width: 100%; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: #0F172A; font-size: 14px; font-weight: 500; text-align: left">
+            <span style="width: 28px; height: 28px; border-radius: 8px; background: {{m.bg}}; color: {{m.ink}}; display: grid; place-items: center; font-size: 13px; font-weight: 700">{{m.icon}}</span>{{m.label}}
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- 2. the month at a glance: one slim card, no boxes -->
+    <section aria-label="This month" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 12px 14px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+        <span style="font-size: 12.5px; color: #64748B; font-weight: 600">November rent</span>
+        <span style="font-size: 12.5px; color: #64748B">{{pctText}}</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 2px">
+        <b style="font-size: 22px; font-weight: 800; color: #066B3F">{{collectedText}}</b>
+        <span style="font-size: 13px; color: #64748B">collected of ₹69,000</span>
+      </div>
+      <div style="height: 8px; border-radius: 99px; background: #F1F3F7; margin-top: 8px; overflow: hidden; display: flex">
+        <span style="width: {{paidPct}}; background: #16A34A; transition: width .3s"></span>
+        <span style="flex: 1; background: repeating-linear-gradient(45deg,#FDE2E0 0 6px,#FEF1F0 6px 12px)"></span>
+      </div>
+      <div style="display: flex; gap: 14px; margin-top: 8px; font-size: 12px; color: #64748B">
+        <span><i style="display: inline-block; width: 8px; height: 8px; border-radius: 99px; background: #16A34A; margin-right: 5px"></i>Paid</span>
+        <span><i style="display: inline-block; width: 8px; height: 8px; border-radius: 99px; background: #F4A29B; margin-right: 5px"></i>{{leftText}} still to collect</span>
+      </div>
+    </section>
+
+    <!-- 3. one segmented control: each tab says what's in it -->
+    <div role="tablist" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; background: #E9ECF3; border-radius: 14px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="height: 48px; border: 0; border-radius: 11px; background: {{t.bg}}; box-shadow: {{t.shadow}}; color: #0F172A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0">
+          <b style="font-size: 15px; font-weight: 800; color: {{t.numInk}}">{{t.count}}</b>
+          <span style="font-size: 11.5px; font-weight: 600; color: {{t.ink}}">{{t.label}}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <!-- search, plus floors as quick chips (a hostel thinks in floors) -->
+    <div style="display: flex; gap: 8px">
+      <label style="flex: 1; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px; background: #FFFFFF; border: 1px solid #E2E5EC; border-radius: 12px">
+        <span style="color: #94A3B8; font-size: 15px">⌕</span>
+        <input placeholder="Name, phone or room" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 14px; color: #0F172A">
+      </label>
+    </div>
+    <div style="display: flex; gap: 6px; overflow-x: auto; margin-top: -4px">
+      <sc-for list="{{floors}}" as="f" hint-placeholder-count="4">
+        <button type="button" onClick="{{f.pick}}" style="flex: none; height: 30px; padding: 0 12px; border: 1px solid {{f.border}}; border-radius: 99px; background: {{f.bg}}; color: {{f.ink}}; font-size: 12.5px; font-weight: 600">{{f.label}}</button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{selecting}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #F1EEFF; border-radius: 12px; font-size: 13px; color: #3D27B8; font-weight: 600">
+        <span>Tap tenants to pick them · {{selCount}} picked</span>
+        <button type="button" onClick="{{toggleSelect}}" style="border: 0; background: transparent; color: #3D27B8; font-weight: 800; font-size: 13px">Done</button>
+      </div>
+    </sc-if>
+
+    <!-- 4. the list, grouped by what to do first -->
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 4px 2px 0; font-size: 12px; font-weight: 700; letter-spacing: .03em; color: {{g.ink}}">{{g.title}}</h2>
+        <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+          <article onClick="{{r.tap}}" style="background: #FFFFFF; border: 1px solid {{r.border}}; border-radius: 16px; padding: 12px; cursor: pointer">
+            <div style="display: flex; align-items: center; gap: 10px">
+              <sc-if value="{{selecting}}" hint-placeholder-val="{{ false }}">
+                <span style="width: 22px; height: 22px; flex: none; border-radius: 7px; border: 1.5px solid {{r.boxBorder}}; background: {{r.boxBg}}; color: #FFFFFF; display: grid; place-items: center; font-size: 12px; font-weight: 800">{{r.tick}}</span>
+              </sc-if>
+              <!-- the room is the first thing an owner looks for -->
+              <span style="width: 44px; height: 44px; flex: none; border-radius: 12px; background: {{r.roomBg}}; color: {{r.roomInk}}; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05">
+                <span style="font-size: 9.5px; font-weight: 700; letter-spacing: .04em; opacity: .8">ROOM</span>
+                <b style="font-size: 16px; font-weight: 800">{{r.roomNo}}</b>
+              </span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+                <b style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</b>
+                <span style="font-size: 12.5px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.where}}</span>
+                <span style="font-size: 11.5px; color: {{r.lastInk}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.last}}</span>
+              </span>
+              <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px">
+                <b style="font-size: 16px; font-weight: 800; color: {{r.amtInk}}">{{r.amount}}</b>
+                <span style="height: 20px; padding: 0 8px; border-radius: 99px; background: {{r.chipBg}}; color: {{r.chipInk}}; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center">{{r.chip}}</span>
+              </span>
+            </div>
+            <sc-if value="{{r.showActions}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; gap: 8px; margin-top: 10px">
+                <button type="button" aria-label="WhatsApp {{r.name}}" style="width: 42px; height: 42px; flex: none; border: 1px solid #D5F0E2; border-radius: 12px; background: #F0FBF5; color: #066B3F; padding: 0; font-size: 16px">✆</button>
+                <button type="button" onClick="{{r.act}}" style="flex: 1; height: 42px; border: {{r.ctaBorder}}; border-radius: 12px; background: {{r.ctaBg}}; color: {{r.ctaInk}}; font-size: 14px; font-weight: 700">{{r.cta}}</button>
+              </div>
+            </sc-if>
+          </article>
+        </sc-for>
+      </section>
+    </sc-for>
+
+    <sc-if value="{{showFree}}" hint-placeholder-val="{{ false }}">
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 4px 2px 0; font-size: 12px; font-weight: 700; letter-spacing: .03em; color: #64748B">FREE BEDS · {{freeCount}}</h2>
+        <sc-for list="{{free}}" as="b" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px dashed #D3D8E2; border-radius: 16px; background: #FAFBFD">
+            <span style="width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1.5px dashed #C7CEDB; color: #64748B; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05"><span style="font-size: 9.5px; font-weight: 700; letter-spacing: .04em">ROOM</span><b style="font-size: 16px; font-weight: 800">{{b.room}}</b></span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 700; color: #334155">{{b.bed}}</b><span style="font-size: 12px; color: #64748B">{{b.where}}</span></span>
+            <button type="button" style="height: 36px; padding: 0 12px; border: 1px solid #D9D2FE; border-radius: 10px; background: #F1EEFF; color: #3D27B8; font-size: 13px; font-weight: 700">+ Fill bed</button>
+          </div>
+        </sc-for>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+      <div style="text-align: center; padding: 28px 16px; background: #FFFFFF; border: 1px dashed #D8DCE6; border-radius: 16px">
+        <b style="display: block; font-size: 15px">{{emptyTitle}}</b>
+        <span style="display: block; margin-top: 4px; font-size: 13px; color: #64748B">{{emptyText}}</span>
+      </div>
+    </sc-if>
+
+    <p style="margin: 0; text-align: center; font-size: 12px; color: #94A3B8">Tap a tenant to open · long-press to pick several</p>
+  </div>
+
+  <!-- 5. one bar at the bottom: remind everyone in this tab, or the ones you picked -->
+  <sc-if value="{{showBar}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; z-index: 4; left: 12px; right: 12px; bottom: 14px; display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; background: #FFFFFF; border: 1px solid #E2E5EC; border-radius: 18px; box-shadow: 0 12px 28px rgba(15,23,42,.14)">
+      <span style="flex: 1; min-width: 0; font-size: 13px"><b style="font-weight: 800">{{barTitle}}</b><span style="display: block; color: #64748B; font-size: 12px">{{barSub}}</span></span>
+      <button type="button" style="height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: #16A34A; color: #FFFFFF; font-size: 14px; font-weight: 700">✆ {{barCta}}</button>
+    </div>
+  </sc-if>
+
+  <!-- 6. collect: a bottom sheet, three taps -->
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; z-index: 8; background: rgba(15,23,42,.45); display: flex; flex-direction: column; justify-content: flex-end">
+      <div onClick="{{closeSheet}}" style="flex: 1"></div>
+      <div role="dialog" aria-label="Collect rent" style="background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 10px 16px 18px">
+        <div style="width: 40px; height: 4px; border-radius: 99px; background: #D8DCE6; margin: 0 auto 12px"></div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #FEF1F0; color: #B42318; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05"><span style="font-size: 9.5px; font-weight: 700">ROOM</span><b style="font-size: 16px; font-weight: 800">{{sRoom}}</b></span>
+          <span style="flex: 1"><b style="display: block; font-size: 16px; font-weight: 800">Collect from {{sName}}</b><span style="font-size: 12.5px; color: #B42318; font-weight: 600">Owes {{sOwes}} · {{sLate}}</span></span>
+          <button type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 34px; height: 34px; border: 0; border-radius: 99px; background: #F1F3F7; color: #334155; font-size: 15px">✕</button>
+        </div>
+        <p style="margin: 16px 0 6px; font-size: 12px; font-weight: 700; color: #64748B; letter-spacing: .03em">HOW MUCH</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <sc-for list="{{amounts}}" as="a" hint-placeholder-count="2">
+            <button type="button" onClick="{{a.pick}}" style="height: 56px; border: 1.5px solid {{a.border}}; border-radius: 14px; background: {{a.bg}}; color: #0F172A; display: flex; flex-direction: column; align-items: center; justify-content: center"><b style="font-size: 17px; font-weight: 800">{{a.value}}</b><span style="font-size: 11.5px; color: #64748B">{{a.label}}</span></button>
+          </sc-for>
+        </div>
+        <p style="margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: #64748B; letter-spacing: .03em">PAID BY</p>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px">
+          <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+            <button type="button" onClick="{{m.pick}}" style="height: 42px; border: 1.5px solid {{m.border}}; border-radius: 12px; background: {{m.bg}}; color: {{m.ink}}; font-size: 14px; font-weight: 700">{{m.label}}</button>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{save}}" style="width: 100%; height: 52px; margin-top: 16px; border: 0; border-radius: 14px; background: #5B3DF5; color: #FFFFFF; font-size: 15.5px; font-weight: 800">Save {{sAmount}} · {{sMode}}</button>
+        <p style="margin: 8px 0 0; text-align: center; font-size: 12px; color: #94A3B8">{{sAfter}}</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- 7. after saving: say what happened, offer the receipt -->
+  <sc-if value="{{toastOn}}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position: absolute; z-index: 7; left: 12px; right: 12px; top: 14px; display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; background: #0F172A; color: #FFFFFF; border-radius: 16px; box-shadow: 0 12px 28px rgba(15,23,42,.25)">
+      <span style="width: 28px; height: 28px; flex: none; border-radius: 99px; background: #16A34A; display: grid; place-items: center; font-weight: 800">✓</span>
+      <span style="flex: 1; min-width: 0; font-size: 13px"><b style="font-weight: 700">{{toastText}}</b><span style="display: block; color: #94A3B8; font-size: 12px">{{toastSub}}</span></span>
+      <button type="button" onClick="{{closeToast}}" style="height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: #22C55E; color: #052E16; font-size: 13px; font-weight: 800">✆ Receipt</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'owe', floor: 'all', menuOpen: false, selecting: false, picked: {}, paid: {}, sheet: null, toast: null }; }
+  renderVals() {
+    const base = [
+      { id: 1, name: 'Sajjad Test', room: '08', floor: '2', bed: 'Bed A · Double sharing', g: 'owe', late: 8, bal: 10000 },
+      { id: 2, name: 'Test User', room: '08', floor: '2', bed: 'Bed B · Double sharing', g: 'owe', late: 8, bal: 10000 },
+      { id: 3, name: 'Arjun Mehta', room: '03', floor: '1', bed: 'Single room', g: 'owe', late: 5, bal: 9000 },
+      { id: 4, name: 'Ravi Kumar', room: '11', floor: '3', bed: 'Bed C · Triple sharing', g: 'owe', late: 2, bal: 9000 },
+      { id: 5, name: 'Meena Iyer', room: '05', floor: '1', bed: 'Bed A · Double sharing', g: 'soon', inDays: 3, rent: 9000 },
+      { id: 6, name: 'Anil Joshi', room: '05', floor: '1', bed: 'Bed B · Double sharing', g: 'paid', renew: 21 },
+      { id: 7, name: 'Farah Khan', room: '12', floor: '3', bed: 'Single room', g: 'paid', renew: 26 },
+    ];
+    const st = this.state;
+    const rs = (n) => '₹' + n.toLocaleString('en-IN');
+    const LAST = { 1: 'Last paid 1 Oct · UPI', 2: 'Last paid 3 Oct · Cash', 3: 'Last paid 6 Oct · UPI', 4: 'Last paid 9 Oct · Cash', 5: 'Last paid 24 Oct · UPI', 6: 'Paid 2 Nov · UPI', 7: 'Paid 5 Nov · Bank' };
+    // what you save in the sheet changes the list: paid in full moves to Paid, part payment lowers what they owe
+    const people = base.map((p) => {
+      const got = st.paid[p.id];
+      if (!got || p.g !== 'owe') return p;
+      const left = p.bal - got.amt;
+      return left > 0 ? { ...p, bal: left, part: got } : { ...p, g: 'paid', renew: 30, justPaid: got };
+    });
+    const FULL = 69000;
+    const owedNow = people.filter((p) => p.g === 'owe').reduce((s, p) => s + p.bal, 0);
+    const collected = FULL - owedNow;
+    const TABS = [
+      ['owe', 'Owe', (p) => p.g === 'owe', '#B42318'],
+      ['soon', 'Due soon', (p) => p.g === 'soon', '#B45309'],
+      ['paid', 'Paid', (p) => p.g === 'paid', '#066B3F'],
+      ['all', 'All', () => true, '#0F172A'],
+    ];
+    const tab = TABS.find((t) => t[0] === st.tab);
+    const inFloor = (p) => st.floor === 'all' || p.floor === st.floor;
+    const toRow = (p) => {
+      const on = !!st.picked[p.id];
+      const r = {
+        ...p, roomNo: p.room, where: 'Floor ' + p.floor + ' · ' + p.bed,
+        last: p.justPaid ? 'Paid just now · ' + p.justPaid.mode : p.part ? 'Paid ' + rs(p.part.amt) + ' just now · ' + p.part.mode : LAST[p.id],
+        lastInk: p.justPaid || p.part ? '#066B3F' : '#94A3B8',
+        act: () => {},
+        border: on ? '#5B3DF5' : '#E7E9F0',
+        boxBorder: on ? '#5B3DF5' : '#CBD5E1', boxBg: on ? '#5B3DF5' : '#FFFFFF', tick: on ? '✓' : '',
+        tap: () => { if (st.selecting) this.setState({ picked: { ...st.picked, [p.id]: !on } }); },
+        showActions: false, ctaBorder: '0', ctaBg: '#5B3DF5', ctaInk: '#FFFFFF', cta: '',
+      };
+      if (p.g === 'owe') {
+        const bad = p.late >= 7;
+        Object.assign(r, {
+          amount: rs(p.bal), amtInk: '#B42318', chip: p.late + ' days late',
+          chipBg: bad ? '#FEE4E2' : '#FFF1E0', chipInk: bad ? '#B42318' : '#B45309',
+          roomBg: '#FEF1F0', roomInk: '#B42318', showActions: !st.selecting, cta: 'Collect ' + rs(p.bal),
+          act: () => this.setState({ sheet: { id: p.id, amt: p.bal, mode: 'UPI' }, toast: null }),
+        });
+      } else if (p.g === 'soon') {
+        Object.assign(r, {
+          amount: rs(p.rent), amtInk: '#0F172A', chip: 'due in ' + p.inDays + ' days', chipBg: '#FFF6E5', chipInk: '#92400E',
+          roomBg: '#FFF6E5', roomInk: '#92400E', showActions: !st.selecting,
+          cta: 'Send a reminder', ctaBg: '#FFFFFF', ctaInk: '#0F172A', ctaBorder: '1px solid #E2E5EC',
+        });
+      } else {
+        Object.assign(r, {
+          amount: 'Paid', amtInk: '#066B3F', chip: 'next in ' + p.renew + ' days', chipBg: '#ECFDF3', chipInk: '#066B3F',
+          roomBg: '#F1F3F7', roomInk: '#334155',
+        });
+      }
+      return r;
+    };
+    const list = people.filter(tab[2]).filter(inFloor);
+    let groups;
+    if (st.tab === 'owe') {
+      groups = [
+        { title: 'OVER A WEEK LATE', ink: '#B42318', rows: list.filter((p) => p.late >= 7).map(toRow) },
+        { title: 'LATE THIS WEEK', ink: '#B45309', rows: list.filter((p) => p.late < 7).map(toRow) },
+      ];
+    } else if (st.tab === 'all') {
+      groups = [
+        { title: 'OWE', ink: '#B42318', rows: list.filter((p) => p.g === 'owe').map(toRow) },
+        { title: 'DUE SOON', ink: '#B45309', rows: list.filter((p) => p.g === 'soon').map(toRow) },
+        { title: 'PAID', ink: '#066B3F', rows: list.filter((p) => p.g === 'paid').map(toRow) },
+      ];
+    } else {
+      groups = [{ title: st.tab === 'soon' ? 'RENT DUE THIS WEEK' : 'ALL PAID FOR NOVEMBER', ink: st.tab === 'soon' ? '#B45309' : '#066B3F', rows: list.map(toRow) }];
+    }
+    groups = groups.filter((g) => g.rows.length);
+    const selCount = Object.values(st.picked).filter(Boolean).length;
+    const owing = list.filter((p) => p.g === 'owe');
+    const soon = list.filter((p) => p.g === 'soon');
+    const EMPTY = {
+      owe: ['Nobody owes rent', 'Everyone on this floor is paid up.'],
+      soon: ['No rent due this week', 'You will see tenants here a week before their rent is due.'],
+      paid: ['Nobody has paid yet', 'Payments you record show up here.'],
+      all: ['No tenants here', 'Add a tenant to a bed on this floor.'],
+    };
+    let barTitle = '', barSub = '', barCta = '', showBar = false;
+    if (st.selecting) { showBar = selCount > 0; barTitle = selCount + ' picked'; barSub = 'Each gets a WhatsApp reminder'; barCta = 'Remind ' + selCount; }
+    else if (st.tab === 'soon') { showBar = soon.length > 0; barTitle = soon.length + ' due this week'; barSub = 'A friendly heads-up before the date'; barCta = 'Remind all'; }
+    else if (st.tab !== 'paid') { showBar = owing.length > 0; barTitle = owing.length + ' owe ' + rs(owing.reduce((s, p) => s + p.bal, 0)); barSub = 'One by one on WhatsApp, with your UPI'; barCta = 'Remind all'; }
+    const sp = st.sheet && people.find((p) => p.id === st.sheet.id);
+    const sh = st.sheet || { amt: 0, mode: 'UPI' };
+    const FREE = [
+      { room: '03', bed: 'Bed B · Double sharing', floor: '1', where: 'Floor 1 · free since 2 Nov · ₹9,000 a month' },
+      { room: '11', bed: 'Bed A · Triple sharing', floor: '3', where: 'Floor 3 · free since 18 Oct · ₹7,500 a month' },
+    ].filter(inFloor);
+    const FLOORS = [['all', 'All floors'], ['1', '1st floor'], ['2', '2nd floor'], ['3', '3rd floor']];
+    return {
+      groups, empty: groups.length === 0, emptyTitle: EMPTY[st.tab][0], emptyText: EMPTY[st.tab][1],
+      pctText: Math.round((collected / FULL) * 100) + '% in',
+      collectedText: rs(collected), leftText: rs(owedNow), paidPct: Math.round((collected / FULL) * 100) + '%',
+      showFree: st.tab === 'all' && FREE.length > 0 && !st.selecting, free: FREE, freeCount: String(FREE.length),
+      sheetOpen: !!sp,
+      sName: sp ? sp.name.split(' ')[0] : '', sRoom: sp ? sp.room : '', sOwes: sp ? rs(sp.bal) : '', sLate: sp ? sp.late + ' days late' : '',
+      sAmount: rs(sh.amt), sMode: sh.mode,
+      sAfter: sp && sh.amt < sp.bal ? rs(sp.bal - sh.amt) + ' will still be due' : 'Clears what they owe',
+      amounts: sp ? [[sp.bal, 'Full rent'], [Math.round(sp.bal / 2), 'Half now']].map(([v, l]) => ({
+        value: rs(v), label: l, border: sh.amt === v ? '#5B3DF5' : '#E2E5EC', bg: sh.amt === v ? '#F1EEFF' : '#FFFFFF',
+        pick: () => this.setState({ sheet: { ...sh, amt: v } }),
+      })) : [],
+      modes: ['UPI', 'Cash', 'Bank'].map((m) => ({
+        label: m, border: sh.mode === m ? '#5B3DF5' : '#E2E5EC', bg: sh.mode === m ? '#F1EEFF' : '#FFFFFF', ink: sh.mode === m ? '#3D27B8' : '#0F172A',
+        pick: () => this.setState({ sheet: { ...sh, mode: m } }),
+      })),
+      closeSheet: () => this.setState({ sheet: null }),
+      save: () => {
+        const prev = st.paid[sh.id];
+        const amt = sh.amt + (prev ? prev.amt : 0);
+        this.setState({ paid: { ...st.paid, [sh.id]: { amt, mode: sh.mode } }, sheet: null, toast: { name: sp.name, amt: sh.amt, mode: sh.mode, left: sp.bal - sh.amt } });
+      },
+      toastOn: !!st.toast,
+      toastText: st.toast ? rs(st.toast.amt) + ' from ' + st.toast.name : '',
+      toastSub: st.toast ? (st.toast.left > 0 ? rs(st.toast.left) + ' still due · ' + st.toast.mode : 'Paid in full · ' + st.toast.mode) : '',
+      closeToast: () => this.setState({ toast: null }),
+      menuOpen: st.menuOpen, selecting: st.selecting, selCount: String(selCount),
+      toggleMenu: () => this.setState({ menuOpen: !st.menuOpen }),
+      toggleSelect: () => this.setState({ selecting: !st.selecting, picked: {}, menuOpen: false }),
+      menu: [
+        { icon: '₹', label: 'Record a payment', bg: '#F1EEFF', ink: '#3D27B8', pick: () => this.setState({ menuOpen: false }) },
+        { icon: '☑', label: 'Pick several tenants', bg: '#EEF4FF', ink: '#1D4ED8', pick: () => this.setState({ selecting: true, picked: {}, menuOpen: false }) },
+        { icon: '⌂', label: 'Rooms and beds', bg: '#ECFDF3', ink: '#066B3F', pick: () => this.setState({ menuOpen: false }) },
+        { icon: '↓', label: 'Download the list', bg: '#F1F3F7', ink: '#334155', pick: () => this.setState({ menuOpen: false }) },
+      ],
+      tabs: TABS.map(([id, label, fn, ink]) => {
+        const on = id === st.tab;
+        const n = people.filter(fn).filter(inFloor).length;
+        return {
+          label, count: String(n), on: String(on),
+          bg: on ? '#FFFFFF' : 'transparent', shadow: on ? '0 1px 3px rgba(15,23,42,.12)' : 'none',
+          ink: on ? '#0F172A' : '#64748B', numInk: n ? ink : '#94A3B8',
+          pick: () => this.setState({ tab: id, picked: {} }),
+        };
+      }),
+      floors: FLOORS.map(([id, label]) => {
+        const on = id === st.floor;
+        return { label, bg: on ? '#0F172A' : '#FFFFFF', ink: on ? '#FFFFFF' : '#334155', border: on ? '#0F172A' : '#E2E5EC', pick: () => this.setState({ floor: id, picked: {} }) };
+      }),
+      showBar, barTitle, barSub, barCta,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,1 +1,538 @@
-{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-05T12:00:00Z"},"title":"Local SaaS UX","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"1 · Home: who to collect from","is_interactive":true},"Member.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"2 · Member ledger"},"RecordPayment.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"3 · Record payment","is_interactive":true},"Statement.dc.html":{"x":1410,"y":0,"w":390,"h":844,"title":"4 · Member's statement link"},"MembersWeb.dc.html":{"x":0,"y":1300,"w":1440,"h":980,"title":"Members · web","expand":"fill","is_interactive":true},"MembersMobile.dc.html":{"x":1520,"y":1300,"w":390,"h":844,"title":"Members · mobile","is_interactive":true},"FiltersWeb.dc.html":{"x":0,"y":2700,"w":1440,"h":900,"title":"Filters · web (status dropdown)","expand":"fill","is_interactive":true},"FiltersMobile.dc.html":{"x":1520,"y":2700,"w":390,"h":844,"title":"Filters · mobile (sheet)","is_interactive":true},"DashboardWeb.dc.html":{"x":0,"y":3720,"w":1440,"h":900,"title":"Dashboard · web","expand":"fill","is_interactive":true},"DashboardMobile.dc.html":{"x":1520,"y":3720,"w":390,"h":844,"title":"Dashboard · mobile","is_interactive":true},"DashboardV2Web.dc.html":{"x":0,"y":4740,"w":1440,"h":1000,"title":"Dashboard v2 · web","expand":"fill","is_interactive":true},"DashboardV2Mobile.dc.html":{"x":1520,"y":4740,"w":390,"h":844,"title":"Dashboard v2 · mobile","is_interactive":true},"MembersV2Web.dc.html":{"x":0,"y":5860,"w":1440,"h":940,"title":"Members v2 · web (Collect style)","expand":"fill","is_interactive":true},"MembersV2Mobile.dc.html":{"x":1520,"y":5860,"w":390,"h":844,"title":"Members v2 · mobile","is_interactive":true},"OutletsWeb.dc.html":{"x":0,"y":6980,"w":1440,"h":900,"title":"Outlets · web","expand":"fill","is_interactive":true},"OutletsMobile.dc.html":{"x":1520,"y":6980,"w":390,"h":844,"title":"Outlets · mobile","is_interactive":true},"StaffWeb.dc.html":{"x":0,"y":8200,"w":1440,"h":900,"title":"Staff · web","expand":"fill","is_interactive":true},"StaffMobile.dc.html":{"x":1520,"y":8200,"w":390,"h":844,"title":"Staff · mobile","is_interactive":true},"MoneyWeb.dc.html":{"x":0,"y":9420,"w":1440,"h":1000,"title":"Money · web (Collect style)","expand":"fill","is_interactive":true},"MoneyMobile.dc.html":{"x":1520,"y":9420,"w":390,"h":844,"title":"Money · mobile","is_interactive":true},"SetupWeb.dc.html":{"x":0,"y":10700,"w":1440,"h":940,"title":"Setup · web (plans + outlets + staff)","expand":"fill","is_interactive":true},"SetupMobile.dc.html":{"x":1520,"y":10700,"w":390,"h":844,"title":"Setup · mobile","is_interactive":true},"SettingsWeb.dc.html":{"x":0,"y":11920,"w":1440,"h":1180,"title":"Settings v2 · web","expand":"fill","is_interactive":true},"SettingsMobile.dc.html":{"x":1520,"y":11920,"w":390,"h":844,"title":"Settings v2 · mobile","is_interactive":true},"EnquiriesWeb.dc.html":{"x":0,"y":13380,"w":1440,"h":940,"title":"Enquiries v2 · web","expand":"fill","is_interactive":true},"EnquiriesMobile.dc.html":{"x":1520,"y":13380,"w":390,"h":844,"title":"Enquiries v2 · mobile","is_interactive":true},"AttendanceWeb.dc.html":{"x":0,"y":14600,"w":1440,"h":940,"title":"Attendance v2 · web","expand":"fill","is_interactive":true},"AttendanceMobile.dc.html":{"x":1520,"y":14600,"w":390,"h":844,"title":"Attendance v2 · mobile","is_interactive":true},"CatalogueWeb.dc.html":{"x":0,"y":15820,"w":1440,"h":960,"title":"Catalogue · Setup tab + Sell","expand":"fill","is_interactive":true},"CatalogueMobile.dc.html":{"x":1520,"y":15820,"w":390,"h":844,"title":"Catalogue · Sell from Collect","is_interactive":true},"SalesWeb.dc.html":{"x":0,"y":17040,"w":1440,"h":1040,"title":"Sales · totals, by item, history","expand":"fill","is_interactive":true},"SalesMobile.dc.html":{"x":1520,"y":17040,"w":390,"h":844,"title":"Sales · mobile"}},"order":["Main.dc.html","Member.dc.html","RecordPayment.dc.html","Statement.dc.html","MembersWeb.dc.html","MembersMobile.dc.html","FiltersWeb.dc.html","FiltersMobile.dc.html","DashboardWeb.dc.html","DashboardMobile.dc.html","DashboardV2Web.dc.html","DashboardV2Mobile.dc.html","MembersV2Web.dc.html","MembersV2Mobile.dc.html","OutletsWeb.dc.html","OutletsMobile.dc.html","StaffWeb.dc.html","StaffMobile.dc.html","MoneyWeb.dc.html","MoneyMobile.dc.html","SetupWeb.dc.html","SetupMobile.dc.html","SettingsWeb.dc.html","SettingsMobile.dc.html","EnquiriesWeb.dc.html","EnquiriesMobile.dc.html","AttendanceWeb.dc.html","AttendanceMobile.dc.html","CatalogueWeb.dc.html","CatalogueMobile.dc.html","SalesWeb.dc.html","SalesMobile.dc.html"],"notes":{"outlets":{"x":0,"y":6720,"text":"Outlets: every branch at a glance, add one, switch between them","kind":"title1","maxW":1910},"members2":{"x":0,"y":5600,"text":"Members v2: same look as Collect — icon cards, status tabs, action rows","kind":"title1","maxW":1910},"members":{"x":0,"y":1040,"text":"Members directory: web and mobile","kind":"title1","maxW":1910},"flow":{"x":0,"y":-260,"text":"Owner flow: see who owes → open → record payment → member gets a link","kind":"title1","maxW":1800},"dashboard2":{"x":0,"y":4480,"text":"Dashboard v2: today at a glance, month trend, follow-ups with a done tick, suggestions","kind":"title1","maxW":1910},"dashboard":{"x":0,"y":3460,"text":"Dashboard: the month in one card, then who to follow up today","kind":"title1","maxW":1910},"filters":{"x":0,"y":2440,"text":"Filters: search · status dropdown · plan · batch · sort","kind":"title1","maxW":1910},"staff":{"x":0,"y":7940,"text":"Staff: pick their outlets and what they can do, in plain words","kind":"title1","maxW":1910},"money":{"x":0,"y":9160,"text":"Money: same look as Collect — icon cards with trend, quiet period bar, tabs, chart + table","kind":"title1","maxW":1910},"setup":{"x":0,"y":10440,"text":"Setup: plans, outlets and staff in one place — one sidebar item, three tabs","kind":"title1","maxW":1910},"settings":{"x":0,"y":11660,"text":"Settings v2: health at a glance, the UPI card members see, a live reminder preview, everything on one page","kind":"title1","maxW":1910},"enquiries":{"x":0,"y":13120,"text":"Enquiries v2: who to call today first, the month as a funnel, one-tap WhatsApp / call / joined","kind":"title1","maxW":1910},"attendance":{"x":0,"y":14340,"text":"Attendance v2: the week at a glance, who is not in yet, who stopped coming, QR always visible","kind":"title1","maxW":1910},"catalogue":{"x":0,"y":15560,"text":"Catalogue: memberships, PT packs, services and products in Setup — and Sell from Collect or a member","kind":"title1","maxW":1910},"sales":{"x":0,"y":16780,"text":"Sales: what you sold, what it earned, what it cost, and who still owes for it","kind":"title1","maxW":1910}},"designSystems":[]}
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "AttendanceMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Attendance v2 · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 14600
+    },
+    "AttendanceWeb.dc.html": {
+      "expand": "fill",
+      "h": 940,
+      "is_interactive": true,
+      "title": "Attendance v2 · web",
+      "w": 1440,
+      "x": 0,
+      "y": 14600
+    },
+    "CatalogueMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Catalogue · Sell from Collect",
+      "w": 390,
+      "x": 1520,
+      "y": 15820
+    },
+    "CatalogueWeb.dc.html": {
+      "expand": "fill",
+      "h": 960,
+      "is_interactive": true,
+      "title": "Catalogue · Setup tab + Sell",
+      "w": 1440,
+      "x": 0,
+      "y": 15820
+    },
+    "DashboardMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Dashboard · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 3720
+    },
+    "DashboardV2Mobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Dashboard v2 · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 4740
+    },
+    "DashboardV2Web.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "is_interactive": true,
+      "title": "Dashboard v2 · web",
+      "w": 1440,
+      "x": 0,
+      "y": 4740
+    },
+    "DashboardWeb.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Dashboard · web",
+      "w": 1440,
+      "x": 0,
+      "y": 3720
+    },
+    "EnquiriesMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Enquiries v2 · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 13380
+    },
+    "EnquiriesWeb.dc.html": {
+      "expand": "fill",
+      "h": 940,
+      "is_interactive": true,
+      "title": "Enquiries v2 · web",
+      "w": 1440,
+      "x": 0,
+      "y": 13380
+    },
+    "FiltersMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Filters · mobile (sheet)",
+      "w": 390,
+      "x": 1520,
+      "y": 2700
+    },
+    "FiltersWeb.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Filters · web (status dropdown)",
+      "w": 1440,
+      "x": 0,
+      "y": 2700
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "1 · Home: who to collect from",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "Member.dc.html": {
+      "h": 844,
+      "title": "2 · Member ledger",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "MembersMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Members · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 1300
+    },
+    "MembersV2Mobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Members v2 · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 5860
+    },
+    "MembersV2Web.dc.html": {
+      "expand": "fill",
+      "h": 940,
+      "is_interactive": true,
+      "title": "Members v2 · web (Collect style)",
+      "w": 1440,
+      "x": 0,
+      "y": 5860
+    },
+    "MembersWeb.dc.html": {
+      "expand": "fill",
+      "h": 980,
+      "is_interactive": true,
+      "title": "Members · web",
+      "w": 1440,
+      "x": 0,
+      "y": 1300
+    },
+    "MoneyMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Money · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 9420
+    },
+    "MoneyWeb.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "is_interactive": true,
+      "title": "Money · web (Collect style)",
+      "w": 1440,
+      "x": 0,
+      "y": 9420
+    },
+    "OutletsMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Outlets · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 6980
+    },
+    "OutletsWeb.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Outlets · web",
+      "w": 1440,
+      "x": 0,
+      "y": 6980
+    },
+    "RecordPayment.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "3 · Record payment",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "SalesMobile.dc.html": {
+      "h": 844,
+      "title": "Sales · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 17040
+    },
+    "SalesWeb.dc.html": {
+      "expand": "fill",
+      "h": 1040,
+      "is_interactive": true,
+      "title": "Sales · totals, by item, history",
+      "w": 1440,
+      "x": 0,
+      "y": 17040
+    },
+    "SettingsMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Settings v2 · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 11920
+    },
+    "SettingsWeb.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "is_interactive": true,
+      "title": "Settings v2 · web",
+      "w": 1440,
+      "x": 0,
+      "y": 11920
+    },
+    "SetupMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Setup · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 10700
+    },
+    "SetupWeb.dc.html": {
+      "expand": "fill",
+      "h": 940,
+      "is_interactive": true,
+      "title": "Setup · web (plans + outlets + staff)",
+      "w": 1440,
+      "x": 0,
+      "y": 10700
+    },
+    "StaffMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Staff · mobile",
+      "w": 390,
+      "x": 1520,
+      "y": 8200
+    },
+    "StaffWeb.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Staff · web",
+      "w": 1440,
+      "x": 0,
+      "y": 8200
+    },
+    "Statement.dc.html": {
+      "h": 844,
+      "title": "4 · Member's statement link",
+      "w": 390,
+      "x": 1410,
+      "y": 0
+    },
+    "TenantsMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Tenants v3 · mobile (simpler)",
+      "w": 390,
+      "x": 0,
+      "y": 18600
+    },
+    "HomeV3Mobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Home v3 · mobile (simpler)",
+      "w": 390,
+      "x": 0,
+      "y": 19800
+    },
+    "RoomsV3Web.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Rooms v3 · web (compact, improved)",
+      "w": 1440,
+      "x": 0,
+      "y": 21000
+    },
+    "RoomsV3Mobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Rooms v3 · mobile (compact)",
+      "w": 390,
+      "x": 1520,
+      "y": 21000
+    },
+    "MoneyV3Mobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Money v3 · mobile (compact)",
+      "w": 390,
+      "x": 0,
+      "y": 22200
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-05T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "outlets",
+    "members2",
+    "members",
+    "flow",
+    "dashboard2",
+    "dashboard",
+    "filters",
+    "staff",
+    "money",
+    "setup",
+    "settings",
+    "enquiries",
+    "attendance",
+    "catalogue",
+    "sales",
+    "tenants3",
+    "home3",
+    "rooms3",
+    "money3"
+  ],
+  "notes": {
+    "attendance": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Attendance v2: the week at a glance, who is not in yet, who stopped coming, QR always visible",
+      "w": 240,
+      "x": 0,
+      "y": 14340
+    },
+    "catalogue": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Catalogue: memberships, PT packs, services and products in Setup — and Sell from Collect or a member",
+      "w": 240,
+      "x": 0,
+      "y": 15560
+    },
+    "dashboard": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Dashboard: the month in one card, then who to follow up today",
+      "w": 240,
+      "x": 0,
+      "y": 3460
+    },
+    "dashboard2": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Dashboard v2: today at a glance, month trend, follow-ups with a done tick, suggestions",
+      "w": 240,
+      "x": 0,
+      "y": 4480
+    },
+    "enquiries": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Enquiries v2: who to call today first, the month as a funnel, one-tap WhatsApp / call / joined",
+      "w": 240,
+      "x": 0,
+      "y": 13120
+    },
+    "filters": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Filters: search · status dropdown · plan · batch · sort",
+      "w": 240,
+      "x": 0,
+      "y": 2440
+    },
+    "flow": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "Owner flow: see who owes → open → record payment → member gets a link",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "members": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Members directory: web and mobile",
+      "w": 240,
+      "x": 0,
+      "y": 1040
+    },
+    "members2": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Members v2: same look as Collect — icon cards, status tabs, action rows",
+      "w": 240,
+      "x": 0,
+      "y": 5600
+    },
+    "money": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Money: same look as Collect — icon cards with trend, quiet period bar, tabs, chart + table",
+      "w": 240,
+      "x": 0,
+      "y": 9160
+    },
+    "outlets": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Outlets: every branch at a glance, add one, switch between them",
+      "w": 240,
+      "x": 0,
+      "y": 6720
+    },
+    "sales": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Sales: what you sold, what it earned, what it cost, and who still owes for it",
+      "w": 240,
+      "x": 0,
+      "y": 16780
+    },
+    "settings": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Settings v2: health at a glance, the UPI card members see, a live reminder preview, everything on one page",
+      "w": 240,
+      "x": 0,
+      "y": 11660
+    },
+    "setup": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Setup: plans, outlets and staff in one place — one sidebar item, three tabs",
+      "w": 240,
+      "x": 0,
+      "y": 10440
+    },
+    "staff": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Staff: pick their outlets and what they can do, in plain words",
+      "w": 240,
+      "x": 0,
+      "y": 7940
+    },
+    "tenants3": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Tenants v3: one button up top, money in the tabs, short rows, select only when needed, one Remind bar",
+      "w": 240,
+      "x": 0,
+      "y": 18340
+    },
+    "home3": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Home v3: what to collect and one button to start, one list for today, + Add for everything else",
+      "w": 240,
+      "x": 0,
+      "y": 19540
+    },
+    "rooms3": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Rooms v3: your Compact view kept, plus money on each room, a colour key, filters that highlight, and a pop-up when you tap a bed",
+      "w": 240,
+      "x": 0,
+      "y": 20740
+    },
+    "money3": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Money v3 (phone): one button up top, the period in one row, a slim number strip, search + filter, one line per member",
+      "w": 240,
+      "x": 0,
+      "y": 21940
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Member.dc.html",
+    "RecordPayment.dc.html",
+    "Statement.dc.html",
+    "MembersWeb.dc.html",
+    "MembersMobile.dc.html",
+    "FiltersWeb.dc.html",
+    "FiltersMobile.dc.html",
+    "DashboardWeb.dc.html",
+    "DashboardMobile.dc.html",
+    "DashboardV2Web.dc.html",
+    "DashboardV2Mobile.dc.html",
+    "MembersV2Web.dc.html",
+    "MembersV2Mobile.dc.html",
+    "OutletsWeb.dc.html",
+    "OutletsMobile.dc.html",
+    "StaffWeb.dc.html",
+    "StaffMobile.dc.html",
+    "MoneyWeb.dc.html",
+    "MoneyMobile.dc.html",
+    "SetupWeb.dc.html",
+    "SetupMobile.dc.html",
+    "SettingsWeb.dc.html",
+    "SettingsMobile.dc.html",
+    "EnquiriesWeb.dc.html",
+    "EnquiriesMobile.dc.html",
+    "AttendanceWeb.dc.html",
+    "AttendanceMobile.dc.html",
+    "CatalogueWeb.dc.html",
+    "CatalogueMobile.dc.html",
+    "SalesWeb.dc.html",
+    "SalesMobile.dc.html",
+    "TenantsMobile.dc.html",
+    "HomeV3Mobile.dc.html",
+    "RoomsV3Web.dc.html",
+    "RoomsV3Mobile.dc.html",
+    "MoneyV3Mobile.dc.html"
+  ],
+  "pages": [],
+  "title": "Local SaaS UX"
+}

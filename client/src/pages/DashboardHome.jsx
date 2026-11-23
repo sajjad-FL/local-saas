@@ -241,7 +241,7 @@ export default function DashboardHome({ biz, data, onAddMember }) {
   return (
     <div className="db">
       {/* today at a glance */}
-      <section className="db-today" aria-label="Today">
+      <section className="db-today db-today-row" style={{ '--n': todayCards.length }} aria-label="Today">
         {todayCards.map((c) => (
           <Link key={c.key} to={c.to} className="db-today-card">
             <span className={`db-today-icon ${c.tone}`}><c.icon size={17} /></span>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rooms v3 – mobile (compact)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<!-- the same Compact look as the web board, laid out for a phone -->
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F1F4F9; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 16px 16px 28px; display: flex; flex-direction: column; gap: 12px">
+
+    <!-- title + one button -->
+    <header style="display: flex; align-items: center; gap: 10px">
+      <div style="flex: 1; min-width: 0">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700">Rooms</h1>
+        <p style="margin: 2px 0 0; font-size: 12.5px; color: #64748B">5 of 20 beds filled · tap a bed</p>
+      </div>
+      <button type="button" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-size: 14px; font-weight: 600">+ Tenant</button>
+    </header>
+
+    <!-- the four counts become a 2x2 grid that filters -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+      <sc-for list="{{shows}}" as="s" hint-placeholder-count="4">
+        <button type="button" onClick="{{s.pick}}" style="height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1.5px solid {{s.border}}; border-radius: 12px; background: #FFFFFF; color: #0F172A; text-align: left">
+          <i style="width: 9px; height: 9px; border-radius: 3px; background: {{s.dot}}"></i>
+          <span style="flex: 1; font-size: 13.5px; font-weight: 500">{{s.label}}</span>
+          <b style="font-size: 18px; font-weight: 800; color: {{s.numInk}}">{{s.count}}</b>
+        </button>
+      </sc-for>
+    </div>
+
+    <!-- search + floor chips -->
+    <label style="height: 42px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 12px; background: #FFFFFF; display: flex; align-items: center; gap: 8px; color: #94A3B8; font-size: 14px">⌕ <input placeholder="Room or tenant" style="flex: 1; min-width: 0; border: 0; outline: 0; font-size: 15px; background: transparent"></label>
+    <div style="display: flex; gap: 6px; overflow-x: auto; margin-top: -2px">
+      <sc-for list="{{floorChips}}" as="c" hint-placeholder-count="3">
+        <button type="button" onClick="{{c.pick}}" style="flex: none; height: 32px; padding: 0 12px; border: 1px solid {{c.border}}; border-radius: 99px; background: {{c.bg}}; color: {{c.ink}}; font-size: 13px; font-weight: 600">{{c.label}}</button>
+      </sc-for>
+    </div>
+
+    <!-- colour key -->
+    <div style="display: flex; gap: 14px; font-size: 12px; color: #475569">
+      <span><i style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #EF4444; vertical-align: -2px; margin-right: 5px"></i>Overdue</span>
+      <span><i style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #3B82F6; vertical-align: -2px; margin-right: 5px"></i>Paid up</span>
+      <span><i style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid #34C38F; box-sizing: border-box; vertical-align: -2px; margin-right: 5px"></i>Free</span>
+    </div>
+
+    <sc-for list="{{floors}}" as="f" hint-placeholder-count="2">
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px">
+          <b style="font-size: 15px; font-weight: 700; margin-right: 2px">{{f.name}}</b>
+          <span style="height: 22px; padding: 0 8px; border-radius: 99px; background: #ECFDF3; color: #067647; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">{{f.free}} free</span>
+          <sc-if value="{{f.hasDue}}" hint-placeholder-val="{{ true }}"><span style="height: 22px; padding: 0 8px; border-radius: 99px; background: #FDECEA; color: #DC2626; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">{{f.dueText}}</span></sc-if>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+          <sc-for list="{{f.rooms}}" as="r" hint-placeholder-count="4">
+            <article style="background: #FFFFFF; border: 1px solid #E6E9EF; border-left: 3px solid {{r.edge}}; border-radius: 14px; padding: 12px; opacity: {{r.opacity}}">
+              <div style="display: flex; align-items: center"><b style="font-size: 17px; font-weight: 700">{{r.no}}</b><span style="flex: 1"></span><span style="font-size: 11.5px; color: #94A3B8">{{r.size}}</span></div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px">
+                <sc-for list="{{r.beds}}" as="d" hint-placeholder-count="2">
+                  <button type="button" onClick="{{d.pick}}" aria-label="{{d.title}}" style="width: 34px; height: 34px; border-radius: 8px; border: {{d.border}}; background: {{d.bg}}; color: {{d.ink}}; font-size: 12.5px; font-weight: 700; padding: 0">{{d.label}}</button>
+                </sc-for>
+              </div>
+              <p style="margin: 8px 0 0; font-size: 13px; font-weight: 600; color: {{r.lineInk}}">{{r.line}}</p>
+              <sc-if value="{{r.hasSub}}" hint-placeholder-val="{{ true }}"><p style="margin: 1px 0 0; font-size: 12px; color: #64748B">{{r.sub}}</p></sc-if>
+              <div style="height: 4px; border-radius: 99px; background: #EEF0F4; margin-top: 8px; overflow: hidden"><span style="display: block; height: 100%; width: {{r.fill}}; background: {{r.edge}}"></span></div>
+            </article>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+  </div>
+
+  <!-- tap a bed: a bottom sheet with what you can do -->
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; z-index: 8; background: rgba(15,23,42,.45); display: flex; flex-direction: column; justify-content: flex-end">
+      <div onClick="{{close}}" style="flex: 1"></div>
+      <div role="dialog" aria-label="Bed" style="background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 10px 16px 22px">
+        <div style="width: 40px; height: 4px; border-radius: 99px; background: #D8DCE6; margin: 0 auto 14px"></div>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: {{pBg}}; color: {{pInk}}; border: {{pBorder}}; display: grid; place-items: center; font-weight: 800; font-size: 16px; box-sizing: border-box">{{pBadge}}</span>
+          <span style="flex: 1; min-width: 0"><b style="display: block; font-size: 17px; font-weight: 700">{{pTitle}}</b><span style="font-size: 13px; color: #64748B">{{pWhere}}</span></span>
+          <button type="button" aria-label="Close" onClick="{{close}}" style="width: 34px; height: 34px; border: 0; border-radius: 99px; background: #F1F3F7; color: #475569">✕</button>
+        </div>
+        <p style="margin: 14px 0 0; padding: 12px; border-radius: 12px; background: {{pBoxBg}}; font-size: 15px; font-weight: 600; color: {{pLineInk}}">{{pLine}}</p>
+        <button type="button" style="width: 100%; height: 50px; margin-top: 14px; border: 0; border-radius: 14px; background: #5B3DF5; color: #FFFFFF; font-size: 15px; font-weight: 700">{{pMain}}</button>
+        <sc-if value="{{pTaken}}" hint-placeholder-val="{{ true }}">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px">
+            <button type="button" style="height: 44px; border: 1px solid #CDEFD9; border-radius: 12px; background: #F0FBF5; color: #066B3F; font-size: 14px; font-weight: 600">✆ Remind</button>
+            <button type="button" style="height: 44px; border: 1px solid #E2E5EC; border-radius: 12px; background: #FFFFFF; color: #0F172A; font-size: 14px; font-weight: 600">Move bed</button>
+            <button type="button" style="height: 44px; border: 1px solid #E2E5EC; border-radius: 12px; background: #FFFFFF; color: #0F172A; font-size: 14px; font-weight: 600">Open</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { show: 'all', floor: 'all', sel: null }; }
+  renderVals() {
+    const st = this.state;
+    const rs = (n) => '₹' + n.toLocaleString('en-IN');
+    const T = (who, due, amt) => ({ who, due, amt });
+    const FLOORS = [
+      { id: 'f1', name: 'First floor', rooms: [
+        { no: '01', rent: 8000, beds: [T('jknjn', true, 8000), null, null, null, null, null] },
+        { no: '02', rent: 9000, beds: [null, null] },
+        { no: '03', rent: 9000, beds: [null, null] },
+        { no: '04', rent: 10000, beds: [T('test0122', true, 10000), T('kjhkj', false, 10000)] },
+      ] },
+      { id: 'f2', name: '2nd floor', rooms: [
+        { no: '05', rent: 10000, beds: [null, null] },
+        { no: '06', rent: 9000, beds: [null, null] },
+        { no: '07', rent: 10000, beds: [null, null] },
+        { no: '08', rent: 10000, beds: [T('test user 01', true, 10000), T('sajjad test 02', true, 10000)] },
+      ] },
+    ];
+    const SHOW = {
+      all: ['All beds', '#475569', () => true, 20],
+      free: ['Available', '#34C38F', (b) => !b, 15],
+      taken: ['Occupied', '#3B82F6', (b) => !!b, 5],
+      due: ['Overdue', '#EF4444', (b) => b && b.due, 4],
+    };
+    const show = SHOW[st.show];
+    const ini = (n) => n.trim()[0].toUpperCase();
+    let pop = null;
+    const floors = FLOORS.filter((f) => st.floor === 'all' || st.floor === f.id).map((f) => {
+      let free = 0, due = 0;
+      const rooms = f.rooms.map((r) => {
+        const n = r.beds.length, occ = r.beds.filter(Boolean).length;
+        const owed = r.beds.filter((b) => b && b.due);
+        const owedSum = owed.reduce((s, b) => s + b.amt, 0);
+        free += n - occ; due += owed.length;
+        const edge = owed.length ? '#EF4444' : occ === n ? '#3B82F6' : '#34C38F';
+        let line, lineInk, sub = '';
+        if (owed.length) { line = rs(owedSum) + ' due'; lineInk = '#DC2626'; sub = occ === n ? 'Full' : (n - occ) + ' free'; }
+        else if (occ === n) { line = 'Full · all paid'; lineInk = '#2563EB'; }
+        else { line = (n - occ) + ' free'; lineInk = '#16A34A'; sub = rs(r.rent) + ' a bed'; }
+        return {
+          no: r.no, size: n + ' beds', edge, line, lineInk, sub, hasSub: !!sub,
+          fill: Math.round((occ / n) * 100) + '%', opacity: r.beds.some((b) => show[2](b)) ? '1' : '0.45',
+          beds: r.beds.map((b, i) => {
+            if (st.sel && st.sel.room === r.no && st.sel.bed === i + 1) pop = { b, bed: i + 1, room: r.no, rent: r.rent, floor: f.name };
+            const pick = () => this.setState({ sel: { room: r.no, bed: i + 1 } });
+            const dim = !show[2](b);
+            if (!b) return { label: '', bg: dim ? '#F8FAFC' : '#FFFFFF', border: '1.5px solid ' + (dim ? '#E2E8F0' : '#34C38F'), ink: '#16A34A', title: 'Room ' + r.no + ' bed ' + (i + 1) + ', free', pick };
+            return { label: ini(b.who), bg: dim ? '#E2E8F0' : b.due ? '#EF4444' : '#3B82F6', border: '0', ink: '#FFFFFF', title: b.who + (b.due ? ', owes ' + rs(b.amt) : ', paid up'), pick };
+          }),
+        };
+      });
+      return { name: f.name, free: String(free), hasDue: due > 0, dueText: due + ' overdue', rooms };
+    });
+    const p = pop;
+    return {
+      floors,
+      shows: Object.entries(SHOW).map(([id, [label, dot, , n]]) => {
+        const on = id === st.show;
+        return { label, dot, count: String(n), border: on ? dot : '#E6E9EF', numInk: id === 'due' ? '#DC2626' : '#0F172A', pick: () => this.setState({ show: on ? 'all' : id }) };
+      }),
+      floorChips: [['all', 'All floors'], ['f1', 'First floor'], ['f2', '2nd floor']].map(([id, label]) => {
+        const on = st.floor === id;
+        return { label, bg: on ? '#0F172A' : '#FFFFFF', ink: on ? '#FFFFFF' : '#334155', border: on ? '#0F172A' : '#E2E5EC', pick: () => this.setState({ floor: id }) };
+      }),
+      sheetOpen: !!p, close: () => this.setState({ sel: null }),
+      pBadge: p ? (p.b ? ini(p.b.who) : '+') : '', pBg: p && p.b ? (p.b.due ? '#EF4444' : '#3B82F6') : '#F0FDF4',
+      pInk: p && p.b ? '#FFFFFF' : '#16A34A', pBorder: p && p.b ? '0' : '1.5px solid #34C38F',
+      pTitle: p ? (p.b ? p.b.who : 'Bed ' + p.bed + ' is free') : '', pWhere: p ? 'Room ' + p.room + ' · Bed ' + p.bed + ' · ' + p.floor : '',
+      pLine: p ? (p.b ? (p.b.due ? 'Owes ' + rs(p.b.amt) + ' · 8 days late' : 'Paid up · ' + rs(p.b.amt) + ' a month') : 'Rent ' + rs(p.rent) + ' a month') : '',
+      pLineInk: p && p.b && p.b.due ? '#B42318' : p && p.b ? '#1D4ED8' : '#067647',
+      pBoxBg: p && p.b && p.b.due ? '#FEF3F2' : p && p.b ? '#EFF6FF' : '#F0FDF4',
+      pMain: p ? (p.b ? (p.b.due ? 'Collect ' + rs(p.b.amt) : 'See payments') : 'Add a tenant here') : '', pTaken: !!(p && p.b),
+    };
+  }
+}
+</script>
+</body>
+</html>

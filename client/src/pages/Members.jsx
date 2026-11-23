@@ -7,6 +7,7 @@ import { useBiz } from '../contexts.js';
 import { words } from '../wording.js';
 import BulkRemind, { owingMessage, renewalMessage } from '../BulkRemind.jsx';
 import FilterSheet, { FilterButton } from '../FilterSheet.jsx';
+import MembersPhone from './MembersPhone.jsx';
 import MoveRoom, { RoomHistory } from '../MoveRoom.jsx';
 import {
   formatINR,
@@ -393,7 +394,7 @@ export default function Members() {
   return (
     <>
       {/* header and quick actions, laid out like Collect */}
-      <div className="page-header home-header db-head">
+      <div className="page-header home-header db-head mx-desk">
         <div className="page-title-wrap">
           <p className="db-date">{subtitle}</p>
           <h1 className="db-hello">{title}</h1>
@@ -421,7 +422,7 @@ export default function Members() {
       </AnimatePresence>
 
       {members.length > 0 && (
-        <section className="db-today mx2-cards" aria-label="At a glance">
+        <section className="db-today mx2-cards mx-desk" aria-label="At a glance">
           {cards.map((c) => (
             <button key={c.id} type="button" className={`db-today-card mx2-card-btn ${filter === c.id ? 'on' : ''}`} aria-pressed={filter === c.id} onClick={() => pickTab(c.id)}>
               <span className={`db-today-icon ${c.tone}`}><c.icon size={17} /></span>
@@ -456,7 +457,7 @@ export default function Members() {
       )}
 
       {members.length > 0 && (
-        <section className="mx-list mx2" aria-label={`${W.member} list`}>
+        <section className="mx-list mx2 mx-desk" aria-label={`${W.member} list`}>
           {/* status tabs */}
           <div className="db-tabs mx2-tabs" role="tablist" aria-label={`Show ${W.member}s`}>
             {TABS.map((t) => (
@@ -501,13 +502,6 @@ export default function Members() {
                 options={SORT_OPTIONS.map(([value, label]) => ({ value, label }))} value={sortBy} onPick={setSortBy} align="right" />
             </div>
             <p className="mx2-hint">{tabHit ? tabHit.hint : STATUS_LABELS[filter]}</p>
-            <AnimatePresence>
-              {filtering && (
-                <FilterSheet groups={sheetGroups} count={filtered.length} noun={[W.member, `${W.member}s`]}
-                  onClear={clearSheet} onClose={() => setFiltering(false)} />
-              )}
-            </AnimatePresence>
-
             {activeChips.length > 0 && (
               <div className="mx-chips" aria-label="Active filters">
                 <span className="mx-chips-count">{filtered.length} shown ·</span>
@@ -663,13 +657,34 @@ export default function Members() {
 
       {/* selection: a floating bar, like the design */}
       {chosen.length > 0 && (
-        <div className="mx2-bulk" role="status">
+        <div className="mx2-bulk mx-desk" role="status">
           <b>{chosen.length} selected</b>
           {chosen.some((m) => m.balance > 0) && <span className="mx2-bulk-due">{rupees(chosen.reduce((s, m) => s + Math.max(0, m.balance), 0))} due</span>}
           <button type="button" className="mx2-bulk-go" onClick={remindChosen}><WhatsAppIcon size={14} /> Remind on WhatsApp</button>
           <button type="button" className="mx2-bulk-x" onClick={() => setSelected(new Set())} aria-label="Clear selection"><XIcon size={13} /></button>
         </div>
       )}
+
+      {/* phones: the simpler list (design: Tenants v3) */}
+      {members.length > 0 && (
+        <MembersPhone
+          biz={biz} W={W} title={title} members={members} rooms={rooms || []} groups={groups || []}
+          q={q} setQ={setQ} inTab={inTab} passes={passes} daysLate={daysLate} daysUntil={daysUntil}
+          statusOf={statusOf} lastPaidText={lastPaidText} roomOf={roomOf} groupOf={groupOf}
+          filtersOn={sheetGroups.filter((g) => g.value !== (g.def ?? 'all')).length} onFilters={() => setFiltering(true)}
+          onAdd={() => setAdding(true)} onPay={() => setPicking(true)}
+          onExport={() => download(`/businesses/${biz._id}/export/balances.csv`, `${biz.name}-${title.toLowerCase()}.csv`)}
+          onFillBed={(roomId) => { setAddToRoom(roomId); setAdding(true); }}
+          setBulk={setBulk}
+        />
+      )}
+
+      <AnimatePresence>
+        {filtering && (
+          <FilterSheet groups={sheetGroups} count={filtered.length} noun={[W.member, `${W.member}s`]}
+            onClear={clearSheet} onClose={() => setFiltering(false)} />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {bulk && <BulkRemind key={bulk.id} title={bulk.title} people={bulk.people} onClose={() => setBulk(null)} />}

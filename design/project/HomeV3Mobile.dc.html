@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home v3 – mobile (simpler)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<!-- calm by default: white page, one accent (purple), red only for money owed, no boxes inside boxes -->
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #FFFFFF; font-family: Inter, system-ui, sans-serif; color: #111827">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 20px 20px 110px">
+
+    <!-- 1. a quiet hello -->
+    <p style="margin: 0; font-size: 13px; color: #6B7280">Tuesday, 24 November</p>
+    <h1 style="margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em">Good morning, Sajjad</h1>
+
+    <!-- 2. the one number: what's left to collect, and the one thing to do about it -->
+    <section style="margin-top: 22px">
+      <p style="margin: 0; font-size: 13px; color: #6B7280">To collect</p>
+      <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 2px">
+        <b style="font-size: 36px; font-weight: 700; letter-spacing: -0.02em; color: #B42318">{{owedText}}</b>
+        <span style="font-size: 14px; color: #6B7280">from {{owedCount}}</span>
+      </div>
+      <div style="height: 4px; border-radius: 99px; background: #F1F2F4; margin-top: 14px; overflow: hidden"><span style="display: block; height: 100%; width: {{pct}}; background: #16A34A; transition: width .3s"></span></div>
+      <p style="margin: 6px 0 0; font-size: 12.5px; color: #6B7280"><span style="color: #15803D; font-weight: 600">{{inText}}</span> collected in November · {{pctText}}</p>
+      <button type="button" style="width: 100%; height: 50px; margin-top: 16px; border: 0; border-radius: 14px; background: #5B3DF5; color: #FFFFFF; font-size: 15px; font-weight: 600">Start collecting</button>
+      <button type="button" style="width: 100%; height: 40px; margin-top: 4px; border: 0; background: transparent; color: #5B3DF5; font-size: 14px; font-weight: 600">Remind everyone on WhatsApp</button>
+    </section>
+
+    <!-- 3. today, as one line of text -->
+    <p style="margin: 14px 0 0; padding: 12px 0; border-top: 1px solid #F1F2F4; border-bottom: 1px solid #F1F2F4; font-size: 13.5px; color: #374151">
+      Today · <b style="font-weight: 600">{{todayIn}}</b> received · <b style="font-weight: 600">1</b> new enquiry
+    </p>
+
+    <!-- 4. today's list: plain rows, the reason in words, one small action -->
+    <section style="margin-top: 22px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 600">Today</h2>
+        <span style="font-size: 13px; color: #6B7280">{{doneText}}</span>
+      </div>
+
+      <sc-for list="{{todo}}" as="r" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #F1F2F4">
+          <span style="width: 36px; height: 36px; flex: none; border-radius: 99px; background: #F3F4F6; color: #374151; display: grid; place-items: center; font-size: 12.5px; font-weight: 600">{{r.mark}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+            <span style="font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span>
+            <span style="font-size: 13px; color: {{r.whyInk}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.why}}</span>
+          </span>
+          <button type="button" onClick="{{r.go}}" style="height: 36px; padding: 0 14px; border: 1px solid #E5E7EB; border-radius: 99px; background: #FFFFFF; color: #111827; font-size: 13.5px; font-weight: 600; white-space: nowrap">{{r.btn}}</button>
+        </div>
+      </sc-for>
+
+      <sc-if value="{{allDone}}" hint-placeholder-val="{{ false }}">
+        <p style="margin: 0; padding: 24px 0; text-align: center; font-size: 14px; color: #15803D; font-weight: 500">You're all done for today.</p>
+      </sc-if>
+
+      <sc-if value="{{hasDone}}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{toggleDone}}" style="width: 100%; height: 44px; border: 0; background: transparent; color: #6B7280; font-size: 13.5px; text-align: left; padding: 0">{{doneToggle}}</button>
+      </sc-if>
+      <sc-if value="{{showDone}}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{done}}" as="d" hint-placeholder-count="2">
+          <p style="margin: 0; padding: 6px 0; font-size: 13.5px; color: #9CA3AF"><span style="color: #16A34A">✓</span>  {{d.name}} · {{d.what}}</p>
+        </sc-for>
+      </sc-if>
+    </section>
+
+    <!-- 5. everything else is one tap away, as plain links -->
+    <section style="margin-top: 18px; border-top: 1px solid #F1F2F4">
+      <sc-for list="{{links}}" as="l" hint-placeholder-count="3">
+        <button type="button" style="width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 0; border: 0; border-bottom: 1px solid #F1F2F4; background: transparent; text-align: left; color: #111827">
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+            <span style="font-size: 15px; font-weight: 500">{{l.title}}</span>
+            <span style="font-size: 13px; color: #6B7280">{{l.sub}}</span>
+          </span>
+          <span style="color: #9CA3AF; font-size: 18px">›</span>
+        </button>
+      </sc-for>
+    </section>
+  </div>
+
+  <!-- 6. one round + for adding anything -->
+  <button type="button" aria-label="Add" onClick="{{openAdd}}" style="position: absolute; right: 20px; bottom: 24px; z-index: 4; width: 56px; height: 56px; border: 0; border-radius: 99px; background: #111827; color: #FFFFFF; font-size: 26px; font-weight: 400; line-height: 1; box-shadow: 0 8px 20px rgba(17,24,39,.22)">+</button>
+
+  <sc-if value="{{addOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; z-index: 8; background: rgba(17,24,39,.4); display: flex; flex-direction: column; justify-content: flex-end">
+      <div onClick="{{closeAdd}}" style="flex: 1"></div>
+      <div role="dialog" aria-label="Add" style="background: #FFFFFF; border-radius: 20px 20px 0 0; padding: 10px 20px 24px">
+        <div style="width: 36px; height: 4px; border-radius: 99px; background: #E5E7EB; margin: 0 auto 16px"></div>
+        <sc-for list="{{addItems}}" as="a" hint-placeholder-count="4">
+          <button type="button" onClick="{{closeAdd}}" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 0; border: 0; border-bottom: 1px solid #F1F2F4; background: transparent; text-align: left; color: #111827">
+            <span style="width: 36px; height: 36px; border-radius: 99px; background: #F3F4F6; display: grid; place-items: center; font-size: 16px; color: #374151">{{a.icon}}</span>
+            <span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 500">{{a.label}}</span><span style="font-size: 13px; color: #6B7280">{{a.sub}}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { addOpen: false, showDone: false, done: { a: 'paid ₹10,000', b: 'reminded' } }; }
+  renderVals() {
+    const st = this.state;
+    const rs = (n) => '₹' + n.toLocaleString('en-IN');
+    const ITEMS = [
+      { id: 'a', name: 'Sajjad Test', room: '08', kind: 'rent', amt: 10000, late: 8 },
+      { id: 'b', name: 'test0122', room: '03', kind: 'rent', amt: 9000, late: 8 },
+      { id: 'c', name: 'Test User', room: '08', kind: 'rent', amt: 10000, late: 8 },
+      { id: 'd', name: 'jknjn', room: '11', kind: 'rent', amt: 9000, late: 3 },
+      { id: 'e', name: 'Meena Iyer', room: '05', kind: 'soon', amt: 9000, inDays: 2 },
+      { id: 'f', name: 'Aman Verma', kind: 'enquiry' },
+    ];
+    const paid = (i) => /paid/.test(st.done[i.id] || '');
+    const owing = ITEMS.filter((i) => i.kind === 'rent' && !paid(i));
+    const owedNow = owing.reduce((s, i) => s + i.amt, 0);
+    const collected = 10000 + ITEMS.filter((i) => paid(i) && i.id !== 'a').reduce((s, i) => s + i.amt, 0);
+    const expected = 48000;
+    const mark = (id, what) => this.setState({ done: { ...st.done, [id]: what } });
+    const todo = ITEMS.filter((i) => !st.done[i.id]).map((i) => {
+      if (i.kind === 'rent') return { mark: i.room, name: i.name, why: rs(i.amt) + ' · ' + i.late + ' days late', whyInk: '#B42318', btn: 'Collect', go: () => mark(i.id, 'paid ' + rs(i.amt)) };
+      if (i.kind === 'soon') return { mark: i.room, name: i.name, why: 'Rent due in ' + i.inDays + ' days', whyInk: '#6B7280', btn: 'Remind', go: () => mark(i.id, 'reminded') };
+      return { mark: 'AV', name: i.name, why: 'New enquiry · call back today', whyInk: '#6B7280', btn: 'Call', go: () => mark(i.id, 'called') };
+    });
+    const doneList = Object.entries(st.done).map(([id, what]) => ({ name: ITEMS.find((i) => i.id === id).name, what }));
+    const pct = Math.round((collected / expected) * 100);
+    return {
+      owedText: rs(owedNow), owedCount: owing.length + ' tenant' + (owing.length === 1 ? '' : 's'),
+      inText: rs(collected), pctText: pct + '% of ' + rs(expected), pct: pct + '%', todayIn: rs(collected),
+      todo, done: doneList, allDone: todo.length === 0, hasDone: doneList.length > 0,
+      doneText: doneList.length + ' of ' + ITEMS.length + ' done',
+      showDone: st.showDone && doneList.length > 0,
+      doneToggle: st.showDone ? 'Hide done' : 'Show ' + doneList.length + ' done',
+      toggleDone: () => this.setState({ showDone: !st.showDone }),
+      links: [
+        { title: '3 beds free', sub: 'Room 03 · Room 11 (2)' },
+        { title: 'November so far', sub: rs(collected) + ' in · ₹0 spent · ' + rs(collected) + ' profit' },
+        { title: 'All tenants', sub: '6 tenants · 6 of 9 beds filled' },
+      ],
+      addOpen: st.addOpen,
+      openAdd: () => this.setState({ addOpen: true }),
+      closeAdd: () => this.setState({ addOpen: false }),
+      addItems: [
+        { icon: '₹', label: 'Record a payment', sub: 'Someone paid rent' },
+        { icon: '+', label: 'Add a tenant', sub: 'Someone moved in' },
+        { icon: '☏', label: 'Add an enquiry', sub: 'Someone asked about a bed' },
+        { icon: '−', label: 'Add an expense', sub: 'Money you spent' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

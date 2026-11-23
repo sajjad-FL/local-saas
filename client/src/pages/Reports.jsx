@@ -14,12 +14,19 @@ import {
 import { formatINR, formatRupees, getMonthlyDelta, getPlanPillClass } from "../data/gymData.js";
 import { CollectPaymentModal, ReminderModal, PickMember } from "./Members.jsx";
 import MoneyReport from "./MoneyReport.jsx";
+import FilterSheet, { FilterButton } from "../FilterSheet.jsx";
 
 export default function Reports() {
   const biz = useBiz();
   const [addingExpense, setAddingExpense] = useState(false);
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  // Who paid on phones: quick chips, plus plan and sort in the filter sheet
+  const [whoShow, setWhoShow] = useState("all"); // 'all' | 'owe' | 'paid'
+  const [whoPlan, setWhoPlan] = useState("all");
+  const [whoSort, setWhoSort] = useState("owed"); // 'owed' | 'paid' | 'name'
+  const [whoFilters, setWhoFilters] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false); // phones: the ⋯ menu in the header
   const navigate = useNavigate();
   const openMember = (id) => navigate(`/members/${id}`);
   const [collectModal, setCollectModal] = useState(null);
@@ -69,10 +76,31 @@ export default function Reports() {
 
 
   const qLower = search.trim().toLowerCase();
-  const filteredBreakdown = memberPaymentBreakdown.filter((m) => {
+  // what each member still owes = their unpaid months (the server sends months, not a balance)
+  const withBalance = memberPaymentBreakdown.map((m) => ({
+    ...m,
+    balance: m.balance ?? (m.months || []).filter((x) => x.status === "due" || x.status === "overdue").reduce((s, x) => s + (x.amount || 0), 0),
+  }));
+  const monthName = Object.fromEntries(activeMonthsList.map((x) => [x.key, x.label]));
+  const searched = withBalance.filter((m) => {
     if (!qLower) return true;
     return m.name.toLowerCase().includes(qLower) || (m.phone || "").includes(qLower);
   });
+  const WHO_SHOW = { all: () => true, owe: (m) => m.balance > 0, paid: (m) => !(m.balance > 0) };
+  const filteredBreakdown = searched
+    .filter(WHO_SHOW[whoShow])
+    .filter((m) => whoPlan === "all" || m.planName === whoPlan)
+    .sort(whoSort === "owed" ? (a, b) => (b.balance || 0) - (a.balance || 0) || (b.totalPaid || 0) - (a.totalPaid || 0)
+      : whoSort === "paid" ? (a, b) => (b.totalPaid || 0) - (a.totalPaid || 0)
+      : (a, b) => a.name.localeCompare(b.name));
+  const whoPlans = [...new Set(withBalance.map((m) => m.planName).filter(Boolean))];
+  const whoFiltersOn = (whoPlan !== "all" ? 1 : 0) + (whoSort !== "owed" ? 1 : 0);
+  const shortMonth = (key) => String(monthName[key] || "").split(" ")[0];
+  const DL = [
+    ['payments.csv', 'All payments', `${biz.name}-payments.csv`],
+    ['dues.csv', 'Unpaid fees', `${biz.name}-unpaid-fees.csv`],
+    ['expenses.csv', 'Expenses', `${biz.name}-expenses.csv`],
+  ];
 
   return (
     <>
@@ -85,7 +113,35 @@ export default function Reports() {
         setTab={setTab}
         whoCount={memberPaymentBreakdown.length}
         header={(r, range) => (
-          <div className="page-header home-header db-head">
+          <>
+          {/* phones: one line, title + ⋯ + Payment (desktop keeps the tiles below) */}
+          <div className="mr-phone-head">
+            <h1>Money</h1>
+            <div className="mr-more">
+              <button type="button" className="mr-more-btn" aria-label="More" aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>⋯</button>
+              {moreOpen && (
+                <>
+                  <div className="mr-more-scrim" onClick={() => setMoreOpen(false)} aria-hidden="true" />
+                  <div className="mr-more-menu" role="menu">
+                    {can(biz, ADD) && (
+                      <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); setAddingExpense(true); }}>
+                        <span className="mr-more-icon exp"><RupeeIcon size={14} /></span>Add expense
+                      </button>
+                    )}
+                    {DL.map(([file, label, name]) => (
+                      <button key={file} type="button" role="menuitem" onClick={() => { setMoreOpen(false); download(`/businesses/${biz._id}/export/${file}`, name); }}>
+                        <span className="mr-more-icon"><DownloadIcon size={14} /></span>Download {label.toLowerCase()}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {can(biz, ADD) && (
+              <button type="button" className="btn mr-phone-pay" onClick={() => setPicking(true)}><PlusIcon size={14} /> Payment</button>
+            )}
+          </div>
+          <div className="page-header home-header db-head mr-desk-head">
             <div className="page-title-wrap">
               <p className="db-date">
                 {range.valid ? `${range.label}${range.isCurrent ? ' so far' : ''} · ${rupees(r.received)} in${r.pending ? ` · ${rupees(r.pending)} still to collect` : ''}` : 'Money in, money out, and who still owes'}
@@ -108,6 +164,7 @@ export default function Reports() {
               <DownloadMenu biz={biz} />
             </nav>
           </div>
+          </>
         )}
       />
 
@@ -136,17 +193,40 @@ export default function Reports() {
 
         {showGrid && (
         <>
-        <div className="card-header-row" style={{ marginBottom: 8 }}>
+        <div className="card-header-row who-search-row" style={{ marginBottom: 8 }}>
           <div className="search-input-wrap" style={{ width: 220, maxWidth: '100%' }}>
             <input
               type="search"
-              placeholder="Search member…"
+              placeholder="Search name"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ height: 32, fontSize: 11.5 }}
             />
           </div>
+          {/* phones: filter right after the search */}
+          <span className="who-filter-btn"><FilterButton on={whoFiltersOn} onClick={() => setWhoFilters(true)} /></span>
         </div>
+        <div className="who-chips" role="group" aria-label="Show">
+          {[['all', 'All'], ['owe', 'Owe'], ['paid', 'Paid up']].map(([k, label]) => (
+            <button key={k} type="button" aria-pressed={whoShow === k} className={whoShow === k ? 'on' : ''} onClick={() => setWhoShow(k)}>
+              {label} <span>{searched.filter(WHO_SHOW[k]).length}</span>
+            </button>
+          ))}
+        </div>
+        <AnimatePresence>
+          {whoFilters && (
+            <FilterSheet
+              count={filteredBreakdown.length}
+              noun={[words(biz.type).member, `${words(biz.type).member}s`]}
+              onClose={() => setWhoFilters(false)}
+              onClear={() => { setWhoPlan("all"); setWhoSort("owed"); }}
+              groups={[
+                whoPlans.length > 1 && { label: 'Plan', value: whoPlan, onPick: setWhoPlan, options: [{ value: 'all', label: 'All plans' }, ...whoPlans.map((p) => ({ value: p, label: p, count: withBalance.filter((m) => m.planName === p).length }))] },
+                { label: 'Sort', value: whoSort, onPick: setWhoSort, def: 'owed', options: [{ value: 'owed', label: 'Most owed first' }, { value: 'paid', label: 'Most paid first' }, { value: 'name', label: 'Name A–Z' }] },
+              ].filter(Boolean)}
+            />
+          )}
+        </AnimatePresence>
 
         <div className="analytics-table-wrap">
           <table className="analytics-table sticky-first-col">
@@ -170,8 +250,8 @@ export default function Reports() {
                 return (
                   <motion.tr
                     key={m._id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, delay: idx * 0.03 }}>
                     <td>
                       <div
@@ -311,6 +391,41 @@ export default function Reports() {
             </tbody>
           </table>
         </div>
+
+        {/* phones: one line per member: name + month tags, what they owe or paid, one button */}
+        <ul className="who-rows">
+          {filteredBreakdown.map((m) => {
+            const owes = (m.balance || 0) > 0;
+            return (
+              <li key={m._id} className="who-row">
+                <button type="button" className="who-row-main" onClick={() => openMember(m._id)}>
+                  <b>{m.name}</b>
+                  <span className="who-row-tags">
+                    {(m.months || []).filter((mon) => mon.status !== 'not_joined').map((mon) => {
+                      const st = mon.status === 'paid' || mon.status === 'due' || mon.status === 'overdue' ? mon.status : 'none';
+                      const word = { paid: 'paid', overdue: 'late', due: 'due', none: 'nothing' }[st];
+                      return (
+                        <span key={mon.key} className={`who-tag ${st}`} title={`${monthName[mon.key] || ''}: ${word}${st === 'none' ? '' : ` ${mon.label}`}`}>
+                          {st === 'paid' ? '✓ ' : ''}{shortMonth(mon.key)}
+                        </span>
+                      );
+                    })}
+                    {m.planName && <span className="who-row-plan">{m.planName}</span>}
+                  </span>
+                </button>
+                <span className="who-row-amt">
+                  <b className={owes ? 'red' : 'green'}>{formatINR(owes ? m.balance : m.totalPaid || 0)}</b>
+                  <span>{owes ? 'owes' : 'paid'}</span>
+                </span>
+                {owes && can(biz, ADD)
+                  ? <button type="button" className="btn who-row-btn" onClick={() => setCollectModal({ member: m, balance: m.balance })}>Collect</button>
+                  : <button type="button" className="btn-secondary who-row-btn" onClick={() => openMember(m._id)}>Open</button>}
+              </li>
+            );
+          })}
+          {!filteredBreakdown.length && <li className="who-empty">{search ? `No members match “${search}”.` : 'Nobody here.'}</li>}
+          <li className="who-key" aria-hidden="true"><span><i className="paid" />Paid</span><span><i className="overdue" />Late</span><span><i className="due" />Due</span></li>
+        </ul>
         </>
         )}
       </div>

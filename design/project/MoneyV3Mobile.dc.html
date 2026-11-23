@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Money v3 – mobile (compact)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F1F4F9; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 14px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+
+    <!-- 1. title + one main button; Expense and Download tucked in ⋯ (was 3 big tiles) -->
+    <header style="display: flex; align-items: center; gap: 8px">
+      <h1 style="flex: 1; margin: 0; font-size: 22px; font-weight: 700">Money</h1>
+      <button type="button" aria-label="More" onClick="{{toggleMenu}}" style="width: 36px; height: 36px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #334155; font-size: 17px; font-weight: 800; padding: 0">⋯</button>
+      <button type="button" style="height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-size: 13.5px; font-weight: 700">+ Payment</button>
+    </header>
+    <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+      <div role="menu" style="position: absolute; top: 56px; right: 108px; z-index: 6; width: 200px; background: #FFFFFF; border: 1px solid #E2E5EC; border-radius: 14px; box-shadow: 0 14px 30px rgba(15,23,42,.16); padding: 6px">
+        <button type="button" onClick="{{toggleMenu}}" style="width: 100%; height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: #0F172A; text-align: left"><span style="width: 26px; height: 26px; border-radius: 8px; background: #FFF1E6; color: #9A3412; display: grid; place-items: center; font-weight: 700">₹</span>Add expense</button>
+        <button type="button" onClick="{{toggleMenu}}" style="width: 100%; height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: #0F172A; text-align: left"><span style="width: 26px; height: 26px; border-radius: 8px; background: #F1F3F7; color: #334155; display: grid; place-items: center; font-weight: 700">↓</span>Download report</button>
+      </div>
+    </sc-if>
+
+    <!-- 2. period in ONE row: ‹ Nov 2026 › and the kind as a small switch (was 3 rows) -->
+    <div style="display: flex; align-items: center; gap: 6px">
+      <button type="button" aria-label="Earlier" onClick="{{prev}}" style="width: 34px; height: 34px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #334155; padding: 0">‹</button>
+      <span style="flex: 1; min-width: 0; text-align: center"><b style="display: block; font-size: 15px; font-weight: 700">{{periodLabel}}</b><span style="font-size: 11.5px; color: #64748B">{{periodSub}}</span></span>
+      <button type="button" aria-label="Later" onClick="{{next}}" style="width: 34px; height: 34px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: {{nextInk}}; padding: 0">›</button>
+      <div style="display: flex; padding: 3px; background: #E7EAF0; border-radius: 10px">
+        <sc-for list="{{kinds}}" as="k" hint-placeholder-count="4">
+          <button type="button" onClick="{{k.pick}}" style="height: 28px; padding: 0 9px; border: 0; border-radius: 7px; background: {{k.bg}}; box-shadow: {{k.shadow}}; color: {{k.ink}}; font-size: 12.5px; font-weight: 600">{{k.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- 3. the four numbers in one slim strip -->
+    <section style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #FFFFFF; border: 1px solid #E6E9EF; border-radius: 14px; overflow: hidden">
+      <sc-for list="{{kpis}}" as="x" hint-placeholder-count="4">
+        <span style="padding: 10px 8px; border-right: 1px solid #EEF1F5; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <span style="font-size: 11px; color: #64748B; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{x.label}}</span>
+          <b style="font-size: 14.5px; font-weight: 800; color: {{x.ink}}; white-space: nowrap">{{x.value}}</b>
+        </span>
+      </sc-for>
+    </section>
+
+    <!-- 4. tabs -->
+    <div role="tablist" style="display: flex; gap: 18px; border-bottom: 1px solid #E2E5EC; padding: 0 2px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button type="button" role="tab" onClick="{{t.pick}}" style="height: 38px; padding: 0; border: 0; border-bottom: 2px solid {{t.line}}; margin-bottom: -1px; background: transparent; color: {{t.ink}}; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px">{{t.label}}<sc-if value="{{t.hasCount}}" hint-placeholder-val="{{ false }}"><span style="min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 99px; background: {{t.countBg}}; color: {{t.countInk}}; font-size: 11px; display: inline-grid; place-items: center">{{t.count}}</span></sc-if></button>
+      </sc-for>
+    </div>
+
+    <!-- 5. Who paid: search, then a filter button right after it; quick chips under -->
+    <div style="display: flex; gap: 8px">
+      <label style="flex: 1; height: 40px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; display: flex; align-items: center; gap: 8px; color: #94A3B8; font-size: 14px">⌕ <input placeholder="Search name" style="flex: 1; min-width: 0; border: 0; outline: 0; font-size: 14.5px; background: transparent"></label>
+      <button type="button" aria-label="Filters" onClick="{{openFilter}}" style="position: relative; width: 40px; height: 40px; border: 1px solid {{filterBorder}}; border-radius: 10px; background: {{filterBg}}; color: {{filterInk}}; padding: 0; font-size: 16px">⚟<sc-if value="{{filterOn}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 99px; background: #5B3DF5; color: #FFFFFF; font-size: 10px; font-weight: 700; display: grid; place-items: center">1</span></sc-if></button>
+    </div>
+    <div style="display: flex; gap: 6px; margin-top: -4px">
+      <sc-for list="{{shows}}" as="s" hint-placeholder-count="3">
+        <button type="button" onClick="{{s.pick}}" style="height: 30px; padding: 0 11px; border: 1px solid {{s.border}}; border-radius: 99px; background: {{s.bg}}; color: {{s.ink}}; font-size: 12.5px; font-weight: 600">{{s.label}} <span style="opacity: .7">{{s.count}}</span></button>
+      </sc-for>
+    </div>
+
+    <!-- compact rows: name + months as dots, what they owe or paid, one button -->
+    <div style="background: #FFFFFF; border: 1px solid #E6E9EF; border-radius: 14px; padding: 0 12px">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F1F3F7">
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <b style="font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</b>
+            <span style="display: flex; align-items: center; gap: 4px">
+              <sc-for list="{{r.months}}" as="m" hint-placeholder-count="2">
+                <span title="{{m.title}}" style="height: 18px; padding: 0 6px; border-radius: 5px; background: {{m.bg}}; color: {{m.ink}}; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center">{{m.label}}</span>
+              </sc-for>
+              <span style="font-size: 11.5px; color: #94A3B8; margin-left: 4px">{{r.plan}}</span>
+            </span>
+          </span>
+          <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px">
+            <b style="font-size: 14.5px; font-weight: 800; color: {{r.amtInk}}">{{r.amount}}</b>
+            <span style="font-size: 11px; color: #64748B">{{r.amountSub}}</span>
+          </span>
+          <button type="button" style="height: 34px; min-width: 74px; padding: 0 10px; border: {{r.btnBorder}}; border-radius: 9px; background: {{r.btnBg}}; color: {{r.btnInk}}; font-size: 13px; font-weight: 700">{{r.btn}}</button>
+        </div>
+      </sc-for>
+      <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 20px 0; text-align: center; font-size: 13.5px; color: #64748B">Nobody here.</p></sc-if>
+      <p style="margin: 0; padding: 10px 0; font-size: 11.5px; color: #94A3B8; display: flex; gap: 12px">
+        <span><i style="display: inline-block; width: 9px; height: 9px; border-radius: 3px; background: #DCFCE7; margin-right: 4px"></i>Paid</span>
+        <span><i style="display: inline-block; width: 9px; height: 9px; border-radius: 3px; background: #FEE2E2; margin-right: 4px"></i>Late</span>
+        <span><i style="display: inline-block; width: 9px; height: 9px; border-radius: 3px; background: #FEF3C7; margin-right: 4px"></i>Due</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- filter sheet (full width): who to show, plan, sort -->
+  <sc-if value="{{filterOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; z-index: 8; background: rgba(15,23,42,.45); display: flex; flex-direction: column; justify-content: flex-end">
+      <div onClick="{{closeFilter}}" style="flex: 1"></div>
+      <div role="dialog" aria-label="Filters" style="background: #FFFFFF; border-radius: 20px 20px 0 0; padding: 10px 16px 20px">
+        <div style="width: 40px; height: 4px; border-radius: 99px; background: #D8DCE6; margin: 0 auto 12px"></div>
+        <b style="display: block; font-size: 16px; font-weight: 700; margin-bottom: 12px">Filters</b>
+        <p style="margin: 0 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: #64748B">PLAN</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px">
+          <sc-for list="{{plans}}" as="p" hint-placeholder-count="3">
+            <button type="button" onClick="{{p.pick}}" style="height: 34px; padding: 0 12px; border: 1.5px solid {{p.border}}; border-radius: 99px; background: {{p.bg}}; color: {{p.ink}}; font-size: 13px; font-weight: 600">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <p style="margin: 0 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: #64748B">SORT</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px">
+          <sc-for list="{{sorts}}" as="p" hint-placeholder-count="3">
+            <button type="button" onClick="{{p.pick}}" style="height: 34px; padding: 0 12px; border: 1.5px solid {{p.border}}; border-radius: 99px; background: {{p.bg}}; color: {{p.ink}}; font-size: 13px; font-weight: 600">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{closeFilter}}" style="width: 100%; height: 46px; border: 0; border-radius: 12px; background: #5B3DF5; color: #FFFFFF; font-size: 15px; font-weight: 700">Show {{shownCount}}</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { kind: 'Month', step: 0, tab: 'who', show: 'all', plan: 'all', sort: 'owed', menuOpen: false, filterOpen: false }; }
+  renderVals() {
+    const st = this.state;
+    const rs = (n) => '₹' + n.toLocaleString('en-IN');
+    const P = (s, a) => ({ s, a });
+    const PEOPLE = [
+      { name: 'jknjn', plan: '3 bed sharing', months: [P('paid', 8000), P('late', 8000)], paid: 8000 },
+      { name: 'kjhkj', plan: 'Double sharing', months: [P('paid', 10000), P('paid', 10000)], paid: 20000 },
+      { name: 'test0122', plan: 'Double sharing', months: [P('paid', 10000), P('late', 10000)], paid: 10000 },
+      { name: 'sajjad test 02', plan: 'Double sharing', months: [P('paid', 10000), P('late', 10000)], paid: 10000 },
+      { name: 'test user 01', plan: 'Double sharing', months: [P('none', 0), P('due', 10000)], paid: 0 },
+    ];
+    const owedOf = (p) => p.months.filter((m) => m.s === 'late' || m.s === 'due').reduce((s, m) => s + m.a, 0);
+    const SHOW = [['all', 'All', () => true], ['owe', 'Owe', (p) => owedOf(p) > 0], ['paid', 'Paid up', (p) => owedOf(p) === 0]];
+    const show = SHOW.find((x) => x[0] === st.show);
+    const MON = ['Oct', 'Nov'];
+    let list = PEOPLE.filter(show[2]).filter((p) => st.plan === 'all' || p.plan === st.plan);
+    if (st.sort === 'owed') list = [...list].sort((a, b) => owedOf(b) - owedOf(a));
+    if (st.sort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (st.sort === 'paid') list = [...list].sort((a, b) => b.paid - a.paid);
+    const tone = { paid: ['#DCFCE7', '#15803D'], late: ['#FEE2E2', '#B91C1C'], due: ['#FEF3C7', '#92400E'], none: ['#F1F3F7', '#94A3B8'] };
+    const rows = list.map((p) => {
+      const owed = owedOf(p);
+      return {
+        name: p.name, plan: p.plan,
+        months: p.months.map((m, i) => ({ label: (m.s === 'paid' ? '✓ ' : '') + MON[i], bg: tone[m.s][0], ink: tone[m.s][1], title: MON[i] + ': ' + (m.s === 'none' ? 'nothing' : m.s + ' ' + rs(m.a)) })),
+        amount: owed ? rs(owed) : rs(p.paid), amtInk: owed ? '#B42318' : '#067647', amountSub: owed ? 'owes' : 'paid',
+        btn: owed ? 'Collect' : 'Open', btnBg: owed ? '#5B3DF5' : '#FFFFFF', btnInk: owed ? '#FFFFFF' : '#0F172A', btnBorder: owed ? '0' : '1px solid #E2E5EC',
+      };
+    });
+    const months = ['Sep 2026', 'Oct 2026', 'Nov 2026'];
+    const label = st.kind === 'Month' ? months[2 + st.step] || 'Nov 2026' : st.kind === 'Quarter' ? 'Oct–Dec 2026' : st.kind === 'Year' ? 'FY 2026–27' : '1 Nov – 24 Nov';
+    const chip = (on) => ({ bg: on ? '#F1EEFF' : '#FFFFFF', border: on ? '#5B3DF5' : '#E2E5EC', ink: on ? '#3D27B8' : '#334155' });
+    const plans = ['all', '3 bed sharing', 'Double sharing'];
+    return {
+      menuOpen: st.menuOpen, toggleMenu: () => this.setState({ menuOpen: !st.menuOpen }),
+      periodLabel: label, periodSub: st.kind === 'Month' ? (st.step === 0 ? 'so far' : 'whole month') : st.kind.toLowerCase(),
+      prev: () => this.setState({ step: Math.max(-2, st.step - 1) }), next: () => this.setState({ step: Math.min(0, st.step + 1) }),
+      nextInk: st.step === 0 ? '#CBD5E1' : '#334155',
+      kinds: [['Month', 'M'], ['Quarter', 'Q'], ['Year', 'Y'], ['Custom', '…']].map(([k, l]) => ({ label: l, bg: st.kind === k ? '#FFFFFF' : 'transparent', shadow: st.kind === k ? '0 1px 2px rgba(15,23,42,.12)' : 'none', ink: st.kind === k ? '#0F172A' : '#64748B', pick: () => this.setState({ kind: k, step: 0 }) })),
+      kpis: [
+        { label: 'Received', value: '₹10,000', ink: '#067647' },
+        { label: 'Spent', value: '₹0', ink: '#0F172A' },
+        { label: 'Profit', value: '₹10,000', ink: '#0F172A' },
+        { label: 'To collect', value: '₹38,000', ink: '#B42318' },
+      ],
+      tabs: [['overview', 'Overview', 0], ['expenses', 'Expenses', 0], ['who', 'Who paid', 5]].map(([id, l, n]) => ({ label: l, hasCount: n > 0, count: String(n), line: st.tab === id ? '#5B3DF5' : 'transparent', ink: st.tab === id ? '#3D27B8' : '#64748B', countBg: st.tab === id ? '#5B3DF5' : '#E2E5EC', countInk: st.tab === id ? '#FFFFFF' : '#475569', pick: () => this.setState({ tab: id }) })),
+      shows: SHOW.map(([id, l, fn]) => ({ label: l, count: String(PEOPLE.filter(fn).length), ...chip(st.show === id), pick: () => this.setState({ show: id }) })),
+      rows, empty: rows.length === 0,
+      filterOn: st.plan !== 'all' || st.sort !== 'owed', filterBg: st.plan !== 'all' || st.sort !== 'owed' ? '#F1EEFF' : '#FFFFFF', filterBorder: st.plan !== 'all' || st.sort !== 'owed' ? '#5B3DF5' : '#E2E5EC', filterInk: '#334155',
+      filterOpen: st.filterOpen, openFilter: () => this.setState({ filterOpen: true }), closeFilter: () => this.setState({ filterOpen: false }),
+      plans: plans.map((p) => ({ label: p === 'all' ? 'All plans' : p, ...chip(st.plan === p), pick: () => this.setState({ plan: p }) })),
+      sorts: [['owed', 'Most owed first'], ['paid', 'Most paid first'], ['name', 'Name A–Z']].map(([id, l]) => ({ label: l, ...chip(st.sort === id), pick: () => this.setState({ sort: id }) })),
+      shownCount: rows.length + ' ' + (rows.length === 1 ? 'member' : 'members'),
+    };
+  }
+}
+</script>
+</body>
+</html>

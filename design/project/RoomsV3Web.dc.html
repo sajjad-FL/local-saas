@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rooms v3 – web (compact, improved)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<!-- the app's own Compact view, kept as it looks today, with a few things added (marked NEW) -->
+<div style="width: 1440px; height: 900px; box-sizing: border-box; display: flex; background: #F1F4F9; font-family: Inter, system-ui, sans-serif; color: #0F172A; overflow: hidden">
+
+  <aside style="width: 248px; flex: none; background: #FFFFFF; border-right: 1px solid #E6E9EF; padding: 18px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px">
+    <b style="font-size: 18px; font-weight: 800; padding: 0 8px 14px">Local<span style="color: #5B3DF5">SaaS</span></b>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="8">
+      <span style="height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; font-size: 14.5px; font-weight: {{n.weight}}; background: {{n.bg}}; color: {{n.ink}}">{{n.label}}</span>
+    </sc-for>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; overflow-y: auto; padding: 26px 30px 40px; box-sizing: border-box; position: relative">
+
+    <header style="display: flex; align-items: center; gap: 12px">
+      <div style="flex: 1">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700">Rooms</h1>
+        <p style="margin: 3px 0 0; font-size: 14px; color: #64748B">Click a bed to see who's there, or a free bed to fill it</p>
+      </div>
+      <button type="button" style="height: 42px; padding: 0 18px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-size: 14.5px; font-weight: 600">+ Add tenant</button>
+    </header>
+
+    <!-- same controls as today; Compact is now the default -->
+    <div style="display: flex; align-items: center; gap: 10px; margin-top: 18px">
+      <span style="width: 240px; height: 40px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: #334155">All buildings <span style="color: #94A3B8">▾</span></span>
+      <label style="flex: 1; height: 40px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; display: flex; align-items: center; gap: 8px; color: #94A3B8; font-size: 14px">⌕ <input placeholder="Room or tenant" style="flex: 1; border: 0; outline: 0; font-size: 14px; background: transparent"></label>
+      <div style="display: flex; padding: 3px; background: #E9ECF2; border-radius: 10px">
+        <span style="height: 34px; padding: 0 14px; border-radius: 8px; display: flex; align-items: center; font-size: 14px; color: #64748B">Cards</span>
+        <span style="height: 34px; padding: 0 14px; border-radius: 8px; display: flex; align-items: center; font-size: 14px; font-weight: 600; background: #FFFFFF; box-shadow: 0 1px 2px rgba(15,23,42,.12)">Compact</span>
+      </div>
+    </div>
+
+    <!-- the four count cards, now they also filter (NEW) -->
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px">
+      <sc-for list="{{shows}}" as="s" hint-placeholder-count="4">
+        <button type="button" onClick="{{s.pick}}" style="height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border: 1.5px solid {{s.border}}; border-radius: 12px; background: {{s.bg}}; color: #0F172A; text-align: left">
+          <i style="width: 10px; height: 10px; border-radius: 3px; background: {{s.dot}}"></i>
+          <span style="flex: 1; font-size: 14.5px; font-weight: 500">{{s.label}}</span>
+          <b style="font-size: 20px; font-weight: 800; color: {{s.numInk}}">{{s.count}}</b>
+        </button>
+      </sc-for>
+    </div>
+
+    <!-- legend (NEW): what each square means -->
+    <div style="display: flex; gap: 20px; margin: 16px 2px 0; font-size: 13px; color: #475569">
+      <span><i style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #EF4444; vertical-align: -2px; margin-right: 6px"></i>Rent overdue</span>
+      <span><i style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #3B82F6; vertical-align: -2px; margin-right: 6px"></i>Paid up</span>
+      <span><i style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid #34C38F; box-sizing: border-box; vertical-align: -2px; margin-right: 6px"></i>Free bed</span>
+    </div>
+
+    <sc-for list="{{buildings}}" as="b" hint-placeholder-count="1">
+      <section style="margin-top: 16px; background: #FFFFFF; border: 1px solid #E6E9EF; border-radius: 16px; padding: 16px 18px 18px">
+        <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #EEF1F5">
+          <span style="color: #DB2777">▦</span>
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">{{b.name}}</h2>
+          <span style="flex: 1"></span>
+          <span style="font-size: 13px; color: #64748B">{{b.sub}}</span>
+        </div>
+
+        <sc-for list="{{b.floors}}" as="f" hint-placeholder-count="2">
+          <div style="margin-top: 14px">
+            <button type="button" onClick="{{f.toggle}}" style="display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 2px 0; color: #0F172A">
+              <span style="color: #64748B; font-size: 12px">{{f.caret}}</span>
+              <b style="font-size: 16px; font-weight: 700; margin-right: 4px">{{f.name}}</b>
+              <span style="height: 24px; padding: 0 9px; border-radius: 99px; background: #EEF0F4; color: #475569; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center">{{f.rooms}} rooms</span>
+              <span style="height: 24px; padding: 0 9px; border-radius: 99px; background: #ECFDF3; color: #067647; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center">{{f.free}} free</span>
+              <sc-if value="{{f.hasDue}}" hint-placeholder-val="{{ true }}"><span style="height: 24px; padding: 0 9px; border-radius: 99px; background: #FDECEA; color: #DC2626; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center">{{f.dueText}}</span></sc-if>
+            </button>
+
+            <sc-if value="{{f.open}}" hint-placeholder-val="{{ true }}">
+              <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 12px">
+                <sc-for list="{{f.roomCards}}" as="r" hint-placeholder-count="4">
+                  <article style="position: relative; background: #FFFFFF; border: 1px solid #E6E9EF; border-left: 3px solid {{r.edge}}; border-radius: 14px; padding: 14px 16px; opacity: {{r.opacity}}">
+                    <div style="display: flex; align-items: center">
+                      <b style="font-size: 18px; font-weight: 700">{{r.no}}</b>
+                      <span style="flex: 1"></span>
+                      <span style="font-size: 12px; color: #94A3B8">{{r.size}}</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px">
+                      <sc-for list="{{r.beds}}" as="d" hint-placeholder-count="2">
+                        <button type="button" onClick="{{d.pick}}" title="{{d.title}}" style="width: 34px; height: 34px; border-radius: 8px; border: {{d.border}}; background: {{d.bg}}; color: {{d.ink}}; font-size: 12.5px; font-weight: 700; padding: 0; box-shadow: {{d.ring}}">{{d.label}}</button>
+                      </sc-for>
+                    </div>
+                    <!-- NEW: says money, not just beds -->
+                    <p style="margin: 10px 0 0; font-size: 13.5px; font-weight: 600; color: {{r.lineInk}}">{{r.line}}</p>
+                    <sc-if value="{{r.hasSub}}" hint-placeholder-val="{{ true }}"><p style="margin: 1px 0 0; font-size: 12.5px; color: #64748B">{{r.sub}}</p></sc-if>
+                    <div style="height: 5px; border-radius: 99px; background: #EEF0F4; margin-top: 10px; overflow: hidden"><span style="display: block; height: 100%; width: {{r.fill}}; background: {{r.edge}}"></span></div>
+
+                    <!-- NEW: click a square, a small card pops up right there -->
+                    <sc-if value="{{r.popOpen}}" hint-placeholder-val="{{ false }}">
+                      <div style="position: absolute; z-index: 5; left: 8px; right: -60px; top: 96px; background: #FFFFFF; border: 1px solid #E2E5EC; border-radius: 14px; box-shadow: 0 16px 36px rgba(15,23,42,.18); padding: 14px">
+                        <div style="display: flex; align-items: center; gap: 10px">
+                          <span style="width: 38px; height: 38px; border-radius: 10px; background: {{r.pBg}}; color: {{r.pInk}}; border: {{r.pBorder}}; display: grid; place-items: center; font-weight: 800; font-size: 14px; box-sizing: border-box">{{r.pBadge}}</span>
+                          <span style="flex: 1; min-width: 0"><b style="display: block; font-size: 15px; font-weight: 700">{{r.pTitle}}</b><span style="font-size: 12.5px; color: #64748B">{{r.pWhere}}</span></span>
+                          <button type="button" aria-label="Close" onClick="{{r.close}}" style="width: 28px; height: 28px; border: 0; border-radius: 99px; background: #F1F3F7; color: #475569">✕</button>
+                        </div>
+                        <p style="margin: 10px 0 0; font-size: 14px; font-weight: 600; color: {{r.pLineInk}}">{{r.pLine}}</p>
+                        <div style="display: flex; gap: 8px; margin-top: 12px">
+                          <button type="button" style="flex: 1; height: 38px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-size: 13.5px; font-weight: 600">{{r.pMain}}</button>
+                          <sc-if value="{{r.pTaken}}" hint-placeholder-val="{{ true }}">
+                            <button type="button" style="height: 38px; padding: 0 12px; border: 1px solid #CDEFD9; border-radius: 10px; background: #F0FBF5; color: #066B3F; font-size: 13.5px; font-weight: 600">✆</button>
+                          </sc-if>
+                          <sc-if value="{{r.pTaken}}" hint-placeholder-val="{{ true }}">
+                            <button type="button" style="height: 38px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-size: 13.5px; font-weight: 600">Open</button>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </article>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </section>
+    </sc-for>
+    <p style="margin: 12px 2px 0; font-size: 12.5px; color: #94A3B8">Edit a room or add beds from its pop-up, or in Setup.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { show: 'all', closed: {}, sel: { room: '01', bed: 1 } }; }
+  renderVals() {
+    const st = this.state;
+    const rs = (n) => '₹' + n.toLocaleString('en-IN');
+    const T = (who, due, amt) => ({ who, due, amt });
+    const DATA = [
+      { name: 'MF Manjil', floors: [
+        { id: 'f1', name: 'First floor', rooms: [
+          { no: '01', rent: 8000, beds: [T('jknjn', true, 8000), null, null, null, null, null] },
+          { no: '02', rent: 9000, beds: [null, null] },
+          { no: '03', rent: 9000, beds: [null, null] },
+          { no: '04', rent: 10000, beds: [T('test0122', true, 10000), T('kjhkj', false, 10000)] },
+        ] },
+        { id: 'f2', name: '2nd floor', rooms: [
+          { no: '05', rent: 10000, beds: [null, null] },
+          { no: '06', rent: 9000, beds: [null, null] },
+          { no: '07', rent: 10000, beds: [null, null] },
+          { no: '08', rent: 10000, beds: [T('test user 01', true, 10000), T('sajjad test 02', true, 10000)] },
+        ] },
+      ] },
+    ];
+    const SHOW = {
+      all: ['All beds', '#475569', () => true, 20],
+      free: ['Available', '#34C38F', (b) => !b, 15],
+      taken: ['Occupied', '#3B82F6', (b) => !!b, 5],
+      due: ['Overdue', '#EF4444', (b) => b && b.due, 4],
+    };
+    const show = SHOW[st.show];
+    const ini = (n) => n.trim()[0].toUpperCase();
+    const buildings = DATA.map((bd) => {
+      let tb = 0, tf = 0;
+      const floors = bd.floors.map((f) => {
+        let free = 0, due = 0;
+        const roomCards = f.rooms.map((r) => {
+          const n = r.beds.length;
+          const occ = r.beds.filter(Boolean).length;
+          const owed = r.beds.filter((b) => b && b.due);
+          const owedSum = owed.reduce((s, b) => s + b.amt, 0);
+          free += n - occ; due += owed.length; tb += n; tf += occ;
+          const edge = owed.length ? '#EF4444' : occ === n ? '#3B82F6' : '#34C38F';
+          let line, lineInk, sub = '';
+          if (owed.length) { line = rs(owedSum) + ' due'; lineInk = '#DC2626'; sub = occ === n ? 'Full' : (n - occ) + ' free'; }
+          else if (occ === n) { line = 'Full · all paid'; lineInk = '#2563EB'; }
+          else { line = (n - occ) + ' free'; lineInk = '#16A34A'; sub = rs(r.rent) + ' a bed'; }
+          let pop = null;
+          const beds = r.beds.map((b, i) => {
+            const on = st.sel && st.sel.room === r.no && st.sel.bed === i + 1;
+            if (on) pop = { b, bed: i + 1 };
+            const pick = () => this.setState({ sel: on ? null : { room: r.no, bed: i + 1 } });
+            const ring = on ? '0 0 0 2px #FFFFFF, 0 0 0 4px #5B3DF5' : 'none';
+            const dim = !show[2](b);
+            if (!b) return { label: '', bg: dim ? '#F8FAFC' : '#FFFFFF', border: '1.5px solid ' + (dim ? '#E2E8F0' : '#34C38F'), ink: '#16A34A', title: 'Bed ' + (i + 1) + ' · free', pick, ring };
+            const c = b.due ? '#EF4444' : '#3B82F6';
+            return { label: ini(b.who), bg: dim ? '#E2E8F0' : c, border: '0', ink: '#FFFFFF', title: b.who + (b.due ? ' · owes ' + rs(b.amt) : ' · paid up'), pick, ring };
+          });
+          const p = pop;
+          return {
+            no: r.no, size: n + ' bed' + (n === 1 ? '' : 's'), edge, line, lineInk, sub, hasSub: !!sub,
+            fill: Math.round((occ / n) * 100) + '%', opacity: r.beds.some((b) => show[2](b)) ? '1' : '0.45', beds,
+            popOpen: !!p,
+            pBadge: p ? (p.b ? ini(p.b.who) : '+') : '', pBg: p && p.b ? (p.b.due ? '#EF4444' : '#3B82F6') : '#F0FDF4',
+            pInk: p && p.b ? '#FFFFFF' : '#16A34A', pBorder: p && p.b ? '0' : '1.5px solid #34C38F',
+            pTitle: p ? (p.b ? p.b.who : 'Bed ' + p.bed + ' is free') : '', pWhere: p ? 'Room ' + r.no + ' · Bed ' + p.bed + ' · ' + f.name : '',
+            pLine: p ? (p.b ? (p.b.due ? 'Owes ' + rs(p.b.amt) + ' · 8 days late' : 'Paid up · ' + rs(p.b.amt) + ' a month') : rs(r.rent) + ' a month') : '',
+            pLineInk: p && p.b && p.b.due ? '#DC2626' : p && p.b ? '#2563EB' : '#16A34A',
+            pMain: p ? (p.b ? (p.b.due ? 'Collect ' + rs(p.b.amt) : 'See payments') : 'Add a tenant here') : '', pTaken: !!(p && p.b),
+            close: () => this.setState({ sel: null }),
+          };
+        });
+        const open = !st.closed[f.id];
+        return { name: f.name, rooms: String(f.rooms.length), free: String(free), hasDue: due > 0, dueText: due + ' overdue', roomCards, open, caret: open ? '▾' : '▸', toggle: () => this.setState({ closed: { ...st.closed, [f.id]: open } }) };
+      });
+      return { name: bd.name, sub: tf + ' of ' + tb + ' beds filled', floors };
+    });
+    return {
+      buildings,
+      shows: Object.entries(SHOW).map(([id, [label, dot, , n]]) => {
+        const on = id === st.show;
+        return { label, dot, count: String(n), border: on ? dot : '#E6E9EF', bg: on ? '#FFFFFF' : '#FFFFFF', numInk: id === 'due' ? '#DC2626' : '#0F172A', pick: () => this.setState({ show: on ? 'all' : id, sel: null }) };
+      }),
+      nav: ['Collect', 'Tenants', 'Rooms', 'Enquiries', 'Money', 'Setup', 'Sales', 'Settings'].map((l) => ({ label: l, bg: l === 'Rooms' ? '#F1EEFF' : 'transparent', ink: l === 'Rooms' ? '#3D27B8' : '#334155', weight: l === 'Rooms' ? '600' : '500' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

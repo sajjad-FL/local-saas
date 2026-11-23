@@ -9,10 +9,13 @@ import {
   SafeAreaView,
   TextInput,
   Alert,
+  Linking,
+  Modal as RNModal,
+  Pressable,
 } from 'react-native';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
-import { api, rupees } from '../../api/api';
+import { api, rupees, waLink, remindMsg } from '../../api/api';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
@@ -22,6 +25,7 @@ import { ScreenSkeleton } from '../../components/Loader';
 import AddMemberModal from '../modals/AddMemberModal';
 import { AddRoomModal, EditRoomModal } from '../modals/RoomModals';
 import { tint } from '../../constants/theme';
+import { CollectSheet } from '../members/MembersScreen';
 
 function bedState(tenant) {
   if (!tenant) return 'free';
@@ -143,40 +147,118 @@ function RoomCard({ room, theme, onBed, onAddBed, onRemoveBed, onEdit }) {
 }
 
 // Compact view: the same tile as Setup, one square per bed
-function RoomMini({ room, theme, onBed, onEdit }) {
+function RoomMini({ room, theme, onBed, dim, bedShown }) {
   const free = room.beds.filter((b) => b.state === 'free').length;
-  const due = room.beds.some((b) => b.state === 'overdue');
-  const edge = due ? '#EF4444' : free ? '#10B981' : '#3B82F6';
+  const owing = room.beds.filter((b) => b.state === 'overdue');
+  const owed = owing.reduce((s, b) => s + (b.tenant.balance || 0), 0);
+  const full = free === 0;
+  const edge = owing.length ? '#EF4444' : full ? '#3B82F6' : '#10B981';
   const pct = Math.round(((room.beds.length - free) / Math.max(room.beds.length, 1)) * 100);
+  // the room's money in words: what's owed first, then what's free
+  let line; let lineInk; let sub = '';
+  if (owing.length) { line = `${rupees(owed)} due`; lineInk = theme.colors.dangerDark; sub = full ? 'Full' : `${free} free`; }
+  else if (full) { line = 'Full · all paid'; lineInk = theme.colors.infoDark; }
+  else { line = `${free} free`; lineInk = theme.colors.successDark; sub = room.bedRent != null ? `${rupees(room.bedRent)} a bed` : ''; }
   return (
-    <View style={[styles.miniTile, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderLeftColor: edge }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <View style={[styles.miniTile, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderLeftColor: edge, opacity: dim ? 0.42 : 1 }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <Text style={[styles.miniNo, { color: theme.colors.text }]}>{room.roomNo}</Text>
-        <TouchableOpacity onPress={onEdit} accessibilityLabel={`Edit room ${room.roomNo}`} hitSlop={8}>
-          <Icon name="create-outline" size={13} color={theme.colors.textMuted} />
-        </TouchableOpacity>
+        <Text style={{ fontSize: 11.5, color: theme.colors.textMuted }}>{room.beds.length} bed{room.beds.length === 1 ? '' : 's'}</Text>
       </View>
       <View style={styles.miniBeds}>
         {room.beds.map((b) => {
           const st = STATE[b.state];
           return (
-            <TouchableOpacity key={b.num} onPress={() => onBed(b)}
-              style={[styles.miniBed, { borderColor: st.color, backgroundColor: b.state === 'free' ? 'transparent' : st.color }]}>
+            <TouchableOpacity key={b.num} onPress={() => onBed(b)} hitSlop={3}
+              accessibilityLabel={b.tenant ? `Bed ${b.num}: ${b.tenant.name}, ${st.text}` : `Bed ${b.num}: free`}
+              style={[styles.miniBed, { borderColor: st.color, backgroundColor: b.state === 'free' ? 'transparent' : st.color, opacity: bedShown(b) ? 1 : 0.3 }]}>
               <Text style={styles.miniBedText}>{b.tenant ? firstName(b.tenant.name).slice(0, 1).toUpperCase() : ''}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
-      <View style={styles.miniFoot}>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: due ? theme.colors.danger : free ? theme.colors.successDark : theme.colors.infoDark }}>
-          {free ? `${free} free` : 'Full'}
-        </Text>
-        {room.bedRent != null && <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.text }}>{rupees(room.bedRent)}</Text>}
+      <View>
+        <Text style={{ fontSize: 13.5, fontWeight: '700', color: lineInk }}>{line}</Text>
+        {sub ? <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 1 }}>{sub}</Text> : null}
       </View>
       <View style={[styles.miniTrack, { backgroundColor: theme.colors.border }]}>
-        <View style={{ width: `${pct}%`, height: '100%', borderRadius: 99, backgroundColor: due ? '#EF4444' : '#3B82F6' }} />
+        <View style={{ width: `${pct}%`, height: '100%', borderRadius: 99, backgroundColor: edge }} />
       </View>
     </View>
+  );
+}
+
+const daysLate = (t) => (t?.balance > 0 && t.owingSince
+  ? Math.max(0, Math.floor((new Date(new Date().toDateString()) - new Date(new Date(t.owingSince).toDateString())) / 86400000))
+  : 0);
+
+// Tap a bed: a sheet from the bottom with what you can do there
+function BedSheet({ bed, theme, onClose, onCollect, onOpen, onAdd, onEdit, biz }) {
+  const c = theme.colors;
+  const t = bed.b.tenant;
+  const st = STATE[bed.b.state];
+  const late = daysLate(t);
+  const box = { overdue: theme.isDark ? 'rgba(248,113,113,0.14)' : '#FEF3F2', leaving: theme.isDark ? 'rgba(251,191,36,0.14)' : '#FFF6E5', taken: theme.isDark ? 'rgba(96,165,250,0.14)' : '#EFF6FF', free: theme.isDark ? 'rgba(52,211,153,0.12)' : '#F0FDF4' }[bed.b.state];
+  const ink = { overdue: c.dangerDark, leaving: c.warningDark, taken: c.infoDark, free: c.successDark }[bed.b.state];
+  const line = t
+    ? (bed.b.state === 'overdue' ? `Owes ${rupees(t.balance)}${late ? ` · ${late} day${late === 1 ? '' : 's'} late` : ''}`
+      : bed.b.state === 'leaving' ? 'Leaving soon · notice given'
+      : `Paid up${t.planAmount ? ` · ${rupees(t.planAmount)} a month` : ''}`)
+    : (bed.room.bedRent != null ? `Rent ${rupees(bed.room.bedRent)} a month` : 'Ready for a new tenant');
+  const canAct = (biz?.access ? biz.access.level : 3) >= 1;
+  return (
+    <RNModal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.sheetScrim} onPress={onClose} />
+      <View style={[styles.sheet, { backgroundColor: c.card }]}>
+        <View style={styles.sheetGrip} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={[styles.sheetBadge, t ? { backgroundColor: st.color } : { borderWidth: 1.5, borderColor: st.color }]}>
+            {t ? <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>{firstName(t.name).slice(0, 1).toUpperCase()}</Text> : <Icon name="add" size={20} color={st.color} />}
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }} numberOfLines={1}>{t ? t.name : `Bed ${bed.b.num} is free`}</Text>
+            <Text style={{ fontSize: 13, color: c.textMuted }}>Room {bed.room.roomNo} · Bed {bed.b.num}{bed.where ? ` · ${bed.where}` : ''}</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} accessibilityLabel="Close" style={[styles.sheetX, { backgroundColor: theme.isDark ? 'rgba(148,163,184,0.14)' : '#F1F3F7' }]}>
+            <Icon name="close" size={16} color={c.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.sheetLine, { backgroundColor: box, color: ink }]}>{line}</Text>
+        {t ? (
+          <>
+            {t.balance > 0 && canAct ? (
+              <TouchableOpacity onPress={() => onCollect(t)} style={[styles.sheetMain, { backgroundColor: c.primary }]}>
+                <Text style={styles.sheetMainText}>Collect {rupees(t.balance)}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => onOpen(t)} style={[styles.sheetMain, { backgroundColor: c.primary }]}>
+                <Text style={styles.sheetMainText}>See payments</Text>
+              </TouchableOpacity>
+            )}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              {t.phone ? (
+                <TouchableOpacity onPress={() => Linking.openURL(waLink(t.phone, t.balance > 0 ? remindMsg(biz, t, t.balance) : `Hi ${t.name}, `))}
+                  style={[styles.sheetSmall, { borderColor: theme.isDark ? 'rgba(52,211,153,0.3)' : '#CDEFD9', backgroundColor: theme.isDark ? 'rgba(52,211,153,0.12)' : '#F0FBF5' }]}>
+                  <Icon name="logo-whatsapp" size={16} color={c.successDark} />
+                  <Text style={{ color: c.successDark, fontWeight: '600', fontSize: 14 }}>Remind</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity onPress={() => onOpen(t)} style={[styles.sheetSmall, { borderColor: c.border, backgroundColor: c.card }]}>
+                <Text style={{ color: c.text, fontWeight: '600', fontSize: 14 }}>Open</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : canAct ? (
+          <TouchableOpacity onPress={onAdd} style={[styles.sheetMain, { backgroundColor: c.primary }]}>
+            <Text style={styles.sheetMainText}>Add a tenant here</Text>
+          </TouchableOpacity>
+        ) : null}
+        <TouchableOpacity onPress={onEdit} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 }}>
+          <Icon name="create-outline" size={14} color={c.textMuted} />
+          <Text style={{ color: c.textMuted, fontSize: 13 }}>Edit room {bed.room.roomNo}</Text>
+        </TouchableOpacity>
+      </View>
+    </RNModal>
   );
 }
 
@@ -191,7 +273,10 @@ export default function RoomsScreen({ navigation }) {
   const [buildingId, setBuildingId] = useState('all');
   const [floorId, setFloorId] = useState('all');
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'compact'
+  const [viewMode, setViewMode] = useState('compact'); // 'cards' | 'compact'
+  const [buildingPicker, setBuildingPicker] = useState(false);
+  const [bedSheet, setBedSheet] = useState(null); // compact: { room, b, where }
+  const [collecting, setCollecting] = useState(null); // { m, amt, mode } for the Collect sheet
   const [foldedFloors, setFoldedFloors] = useState(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -285,9 +370,10 @@ export default function RoomsScreen({ navigation }) {
   }, [placeBeds]);
 
   const query = search.trim().toLowerCase().replace(/^room\s*/, '');
+  const bedShown = (b) => show === 'all' || (show === 'taken' ? b.state !== 'free' : b.state === show);
   const matches = (r) => {
     const matchState =
-      show === 'all'
+      viewMode === 'compact' || show === 'all'
         ? true
         : show === 'taken'
         ? r.beds.some((b) => b.state !== 'free')
@@ -407,42 +493,40 @@ export default function RoomsScreen({ navigation }) {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
         }>
-        {/* Header: title, hint, Add tenant (same as the web on phones) */}
-        <Text style={[styles.headTitle, { color: theme.colors.text }]}>Rooms</Text>
-        <Text style={[styles.headSub, { color: theme.colors.textMuted }]}>Tap a free bed to add a tenant there</Text>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.addTenantBtn}
-          onPress={() => { setSelectedRoomId(''); setAddTenantOpen(true); }}>
-          <Icon name="add" size={17} color="#FFFFFF" />
-          <Text style={styles.addTenantText}>Add tenant</Text>
-        </TouchableOpacity>
+        {/* Header: title on the left, a small Add top right */}
+        <View style={styles.headRow}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.headTitle, { color: theme.colors.text }]}>Rooms</Text>
+            <Text style={[styles.headSub, { color: theme.colors.textMuted }]}>Tap a free bed to add a tenant there</Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            accessibilityLabel="Add tenant"
+            style={styles.addSmall}
+            onPress={() => { setSelectedRoomId(''); setAddTenantOpen(true); }}>
+            <Icon name="add" size={16} color="#FFFFFF" />
+            <Text style={styles.addSmallText}>Tenant</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Building */}
-        {sortedGroups.length > 1 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-            {[{ _id: 'all', name: 'All buildings' }, ...sortedGroups].map((g) => {
-              const active = (activeBuilding?._id || 'all') === g._id;
-              return (
-                <TouchableOpacity
-                  key={g._id}
-                  onPress={() => { setBuildingId(g._id); setFloorId('all'); }}
-                  style={[styles.chip, { backgroundColor: active ? theme.colors.primary : theme.colors.card, borderColor: active ? theme.colors.primary : theme.colors.border }]}>
-                  <Text style={[styles.chipText, { color: active ? '#FFFFFF' : theme.colors.textSecondary }]}>{g.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        {/* Search + Cards / Compact */}
+        {/* One row: building · search · view */}
         <View style={styles.toolRow}>
+          {sortedGroups.length > 1 && (
+            <TouchableOpacity
+              accessibilityLabel={`Building: ${activeBuilding?.name || 'All buildings'}`}
+              onPress={() => setBuildingPicker(true)}
+              style={[styles.buildingBtn, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder }]}>
+              <Icon name="business-outline" size={15} color={theme.colors.textMuted} />
+              <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: theme.colors.text }} numberOfLines={1}>{activeBuilding?.name || 'All'}</Text>
+              <Icon name="chevron-down" size={14} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          )}
           <View style={[styles.searchBox, { flex: 1, backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder }]}>
             <Icon name="search-outline" size={16} color={theme.colors.textMuted} />
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Room or tenant"
+              placeholder="Search"
               placeholderTextColor={theme.colors.textMuted}
               style={[styles.searchInput, { color: theme.colors.text }]}
             />
@@ -453,12 +537,10 @@ export default function RoomsScreen({ navigation }) {
             ) : null}
           </View>
           <View style={[styles.segment, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}>
-            {['cards', 'compact'].map((v) => (
-              <TouchableOpacity key={v} onPress={() => setViewMode(v)}
-                style={[styles.segmentBtn, viewMode === v && { backgroundColor: theme.colors.card, ...styles.segmentActive }]}>
-                <Text style={[styles.segmentText, { color: viewMode === v ? theme.colors.text : theme.colors.textMuted }]}>
-                  {v === 'cards' ? 'Cards' : 'Compact'}
-                </Text>
+            {[['cards', 'grid-outline', 'Cards view'], ['compact', 'apps-outline', 'Compact view']].map(([v, icon, label]) => (
+              <TouchableOpacity key={v} onPress={() => setViewMode(v)} accessibilityLabel={label} accessibilityState={{ selected: viewMode === v }}
+                style={[styles.segmentIcon, viewMode === v && { backgroundColor: theme.colors.card, ...styles.segmentActive }]}>
+                <Icon name={icon} size={16} color={viewMode === v ? theme.colors.text : theme.colors.textMuted} />
               </TouchableOpacity>
             ))}
           </View>
@@ -498,13 +580,24 @@ export default function RoomsScreen({ navigation }) {
                   borderColor: active ? c.color : tint(c.color, 0.3, theme.colors.card),
                   borderWidth: active ? 1.5 : 1,
                 }]}>
-                <View style={[styles.countDot, { backgroundColor: c.color }]} />
-                <Text style={[styles.countLabel, { color: theme.colors.textSecondary }]}>{c.label}</Text>
-                <Text style={[styles.countValue, { color: theme.colors.text }]}>{c.count}</Text>
+                <Text style={[styles.countValue, { color: c.id === 'all' ? theme.colors.text : c.color }]}>{c.count}</Text>
+                <Text style={[styles.countLabel, { color: theme.colors.textSecondary }]} numberOfLines={1}>{c.label}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
+
+        {/* compact: what each square means, up front */}
+        {viewMode === 'compact' && (
+          <View style={styles.keyRow}>
+            {[['Rent overdue', '#EF4444', true], ['Paid up', '#3B82F6', true], ['Leaving', '#F59E0B', true], ['Free bed', '#10B981', false]].map(([t, col, solid]) => (
+              <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ width: 13, height: 13, borderRadius: 4, borderWidth: 1.5, borderColor: col, backgroundColor: solid ? col : 'transparent' }} />
+                <Text style={[styles.summaryText, { color: theme.colors.textSecondary }]}>{t}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {sections.length > 0 && (
           <View style={styles.summaryRow}>
@@ -588,7 +681,8 @@ export default function RoomsScreen({ navigation }) {
                     {!isFolded && (sec.rooms.length ? (
                       <View style={viewMode === 'compact' ? styles.miniGrid : { gap: 12, paddingBottom: 12 }}>
                         {sec.rooms.map((r) => (viewMode === 'compact'
-                          ? <RoomMini key={r._id} room={r} theme={theme} onBed={(b) => openBed(r, b)} onEdit={() => setEditingRoom(r)} />
+                          ? <RoomMini key={r._id} room={r} theme={theme} dim={show !== 'all' && !r.beds.some(bedShown)} bedShown={bedShown}
+                              onBed={(b) => setBedSheet({ room: r, b, where: sec.title })} />
                           : <RoomCard key={r._id} room={r} theme={theme} onBed={(b) => openBed(r, b)} onEdit={() => setEditingRoom(r)}
                               onAddBed={() => handleSetCapacity(r, r.capacity + 1)} onRemoveBed={() => handleRemoveBed(r)} />
                         ))}
@@ -629,22 +723,72 @@ export default function RoomsScreen({ navigation }) {
           </View>
         ) : null}
 
-        {/* Legend */}
-        <View style={styles.legend}>
+        {/* Legend (Cards view; Compact shows its key at the top) */}
+        {viewMode !== 'compact' && <View style={styles.legend}>
           {[['Available', '#10B981'], ['Occupied', '#3B82F6'], ['Leaving', '#F59E0B'], ['Overdue', '#EF4444']].map(([t, c]) => (
             <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <View style={{ width: 10, height: 10, borderRadius: 3, borderWidth: 1.5, borderColor: c }} />
               <Text style={[styles.summaryText, { color: theme.colors.textMuted }]}>{t}</Text>
             </View>
           ))}
-        </View>
+        </View>}
       </ScrollView>
+
+      {/* building picker: a short list from the bottom */}
+      <RNModal visible={buildingPicker} transparent animationType="fade" onRequestClose={() => setBuildingPicker(false)}>
+        <Pressable style={styles.sheetScrim} onPress={() => setBuildingPicker(false)} />
+        <View style={[styles.sheet, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.sheetGrip} />
+          <Text style={{ fontSize: 16, fontWeight: '700', color: theme.colors.text, marginBottom: 6 }}>Building</Text>
+          {[{ _id: 'all', name: 'All buildings' }, ...sortedGroups].map((g) => {
+            const on = (activeBuilding?._id || 'all') === g._id;
+            return (
+              <TouchableOpacity key={g._id} onPress={() => { setBuildingId(g._id); setFloorId('all'); setBuildingPicker(false); }}
+                style={[styles.pickRow, { borderBottomColor: theme.colors.borderSubtle }]}>
+                <Text style={{ flex: 1, fontSize: 15, fontWeight: on ? '700' : '500', color: on ? theme.colors.primary : theme.colors.text }}>{g.name}</Text>
+                {on ? <Icon name="checkmark" size={18} color={theme.colors.primary} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </RNModal>
+
+      {bedSheet && (
+        <BedSheet
+          bed={bedSheet}
+          theme={theme}
+          biz={biz}
+          onClose={() => setBedSheet(null)}
+          onCollect={(t) => { setBedSheet(null); setCollecting({ m: t, amt: t.balance, mode: 'upi' }); }}
+          onOpen={(t) => { setBedSheet(null); navigation.navigate('MemberDetail', { id: t._id }); }}
+          onAdd={() => { const r = bedSheet.room; setBedSheet(null); setSelectedRoomId(r._id); setAddTenantOpen(true); }}
+          onEdit={() => { const r = bedSheet.room; setBedSheet(null); setEditingRoom(r); }}
+        />
+      )}
+      {collecting && (
+        <CollectSheet
+          sheet={collecting}
+          setSheet={setCollecting}
+          room={rooms.find((r) => r._id === String(collecting.m.roomId?._id || collecting.m.roomId))}
+          late={daysLate(collecting.m)}
+          theme={theme}
+          tone={{
+            red: { bg: theme.isDark ? 'rgba(248,113,113,0.14)' : '#FEF1F0', ink: theme.colors.dangerDark },
+            grey: { bg: theme.isDark ? 'rgba(148,163,184,0.14)' : '#EEF1F6', ink: theme.colors.textMuted },
+          }}
+          onDone={(paid) => {
+            setCollecting(null);
+            fetchRoomsData();
+            Alert.alert('Saved', `${rupees(paid.amt)} from ${paid.m.name}${paid.left > 0 ? ` · ${rupees(paid.left)} still due` : ' · paid in full'}`);
+          }}
+        />
+      )}
 
       {/* Add Tenant Modal */}
       <AddMemberModal
         visible={addTenantOpen}
         biz={biz}
-        roomId={selectedRoomId}
+        initialRoomId={selectedRoomId}
         onClose={() => setAddTenantOpen(false)}
         onMemberAdded={fetchRoomsData}
       />
@@ -670,25 +814,41 @@ export default function RoomsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  sheetScrim: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)' },
+  sheet: { borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 26 },
+  sheetGrip: { width: 40, height: 4, borderRadius: 99, backgroundColor: '#D8DCE6', alignSelf: 'center', marginBottom: 14 },
+  sheetBadge: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  sheetX: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  sheetLine: { marginTop: 14, padding: 12, borderRadius: 12, fontSize: 15, fontWeight: '600', overflow: 'hidden' },
+  sheetMain: { height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  sheetMainText: { color: '#FFFFFF', fontSize: 15.5, fontWeight: '700' },
+  sheetSmall: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  keyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 12 },
   bedWrap: { flexBasis: '47%', flexGrow: 1 },
   bedRemove: { position: 'absolute', top: -7, left: -7, width: 22, height: 22, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   firstRoomBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', marginBottom: 12 },
   headTitle: { fontSize: 24, fontWeight: '600' },
-  headSub: { fontSize: 14, marginTop: 2, marginBottom: 14 },
+  headSub: { fontSize: 13.5, marginTop: 2 },
   addTenantBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 10, backgroundColor: '#5B3DF5', marginBottom: 14 },
   addTenantText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   chipScroll: { gap: 6, paddingBottom: 12 },
   chip: { height: 34, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1, justifyContent: 'center' },
   chipText: { fontSize: 13, fontWeight: '600' },
-  toolRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  toolRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   segment: { flexDirection: 'row', padding: 3, borderRadius: 8, borderWidth: 1 },
   segmentActive: { shadowColor: '#0F172A', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   segmentText: { fontSize: 13, fontWeight: '700' },
-  countGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  countBox: { flexBasis: '47%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 48, borderRadius: 12 },
+  countGrid: { flexDirection: 'row', gap: 6, marginBottom: 12 },
+  countBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2, paddingVertical: 8, borderRadius: 12 },
   countDot: { width: 10, height: 10, borderRadius: 3 },
-  countLabel: { flex: 1, fontSize: 13.5, fontWeight: '500' },
+  countLabel: { fontSize: 11.5, fontWeight: '500', marginTop: 1 },
   countValue: { fontSize: 18, fontWeight: '800' },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  addSmall: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 36, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#5B3DF5' },
+  addSmallText: { color: '#FFFFFF', fontSize: 13.5, fontWeight: '700' },
+  buildingBtn: { width: 100, height: 42, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, borderRadius: 10, borderWidth: 1 },
+  segmentIcon: { width: 36, height: 34, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  pickRow: { flexDirection: 'row', alignItems: 'center', height: 50, borderBottomWidth: 1 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   summaryText: { fontSize: 13 },
   summaryLink: { fontSize: 13, fontWeight: '700' },
@@ -715,8 +875,8 @@ const styles = StyleSheet.create({
   miniTile: { flexBasis: '46%', flexGrow: 1, borderWidth: 1, borderLeftWidth: 3, borderRadius: 14, padding: 12, gap: 9 },
   miniNo: { fontSize: 17, fontWeight: '800' },
   miniBeds: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
-  miniBed: { width: 26, height: 26, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  miniBedText: { color: '#FFFFFF', fontSize: 11.5, fontWeight: '800' },
+  miniBed: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  miniBedText: { color: '#FFFFFF', fontSize: 12.5, fontWeight: '800' },
   miniFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   miniTrack: { height: 5, borderRadius: 99, overflow: 'hidden' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, paddingVertical: 8 },

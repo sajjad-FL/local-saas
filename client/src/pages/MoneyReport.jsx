@@ -16,7 +16,6 @@ export const EXPENSE_CATEGORIES = {
   marketing: 'Marketing',
   other: 'Other',
 };
-const MODES = { cash: 'Cash', upi: 'UPI', other: 'Bank / card' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const dayStart = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -57,21 +56,6 @@ function trendChip(now, before, kind, goodWhenUp = true) {
   if (!p) return { text: `Same as ${prevLabel[kind]}`, tone: 'grey' };
   const good = goodWhenUp ? p > 0 : p < 0;
   return { text: `${p > 0 ? '▲' : '▼'} ${Math.abs(p)}% vs ${prevLabel[kind]}`, tone: good ? 'green' : 'red' };
-}
-
-function Split({ rows, labels, tone, empty }) {
-  const total = rows.reduce((s, [, v]) => s + v, 0);
-  if (!total) return <p className="mr-empty">{empty}</p>;
-  return (
-    <div className="mr-split">
-      {rows.sort((a, b) => b[1] - a[1]).map(([k, v], i) => (
-        <div key={k} className="mr-split-row">
-          <span className="mr-split-top"><span>{labels[k] || k} <span className="mr-dim">· {Math.round((v / total) * 100)}%</span></span><b>{rupees(v)}</b></span>
-          <span className="mr-track"><i className={`${tone} t${i}`} style={{ width: `${Math.max(2, (v / total) * 100)}%` }} /></span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // Profit & loss for a chosen period, plus the expenses that go into it.
@@ -168,10 +152,10 @@ export default function MoneyReport({ biz, header, adding: addingProp, setAdding
       {/* period: one quiet row */}
       <div className="mr-period">
         <div className="mr-seg" role="tablist" aria-label="Report period">
-          {[['month', 'Month'], ['quarter', 'Quarter'], ['year', 'Year'], ['custom', 'Custom']].map(([k, label]) => (
-            <button key={k} type="button" role="tab" aria-selected={kind === k}
+          {[['month', 'Month', 'M'], ['quarter', 'Quarter', 'Q'], ['year', 'Year', 'Y'], ['custom', 'Custom', '…']].map(([k, label, short]) => (
+            <button key={k} type="button" role="tab" aria-selected={kind === k} aria-label={label} title={label}
               className={kind === k ? 'on' : ''} onClick={() => { setKind(k); setStep(0); }}>
-              {label}
+              <span className="mr-seg-long">{label}</span><span className="mr-seg-short" aria-hidden="true">{short}</span>
             </button>
           ))}
         </div>
@@ -283,10 +267,6 @@ export default function MoneyReport({ biz, header, adding: addingProp, setAdding
               </section>
 
               <div className="mr-side">
-                <section className="mr-box">
-                  <div className="mr-box-head"><h3>How members paid</h3></div>
-                  <Split rows={Object.entries(r.byMode || {})} labels={MODES} tone="mode" empty="No payments in this period yet." />
-                </section>
                 <section className="mr-box">
                   <div className="mr-box-head">
                     <h3>Where money went</h3>
