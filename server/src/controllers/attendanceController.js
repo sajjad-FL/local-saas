@@ -1,4 +1,4 @@
-import { Attendance, Member, Subscription, Business } from '../models/index.js';
+import { Attendance, Member, Subscription, Business, Group, User } from '../models/index.js';
 import { localDay, addDays, isDay, summarize, detectColumns, findHeaderRow, buildPunches, firstPunchPerDay } from '../services/attendanceService.js';
 import { ensureToken, memberBalances } from '../services/billingService.js';
 
@@ -18,13 +18,32 @@ export async function getAttendanceDay(req, res, next) {
 
     const members = await Member.find(filter).sort('name');
     const ids = members.map((m) => m._id);
-    const [records, paused, balances] = await Promise.all([
+    const weekStart = addDays(day, -6);
+    const [records, paused, balances, lastSeen, subs, groups, week] = await Promise.all([
       Attendance.find({ memberId: { $in: ids }, day }),
       Subscription.find({ memberId: { $in: ids }, status: 'paused' }).distinct('memberId'),
       memberBalances(req.business._id),
+      // the last day each member came before this one
+      Attendance.aggregate([
+        { $match: { memberId: { $in: ids }, status: 'present', day: { $lt: day } } },
+        { $group: { _id: '$memberId', last: { $max: '$day' } } },
+      ]),
+      Subscription.find({ memberId: { $in: ids }, status: { $in: ['active', 'paused'] } }).populate('planId', 'name'),
+      Group.find({ businessId: req.business._id }, 'name'),
+      // the 7 days ending on this day, for the week strip
+      Attendance.aggregate([
+        { $match: { businessId: req.business._id, status: 'present', day: { $gte: weekStart, $lte: day } } },
+        { $group: { _id: '$day', present: { $sum: 1 } } },
+      ]),
     ]);
     const byMember = new Map(records.map((r) => [String(r.memberId), r]));
     const pausedSet = new Set(paused.map(String));
+    const lastBy = new Map(lastSeen.map((l) => [String(l._id), l.last]));
+    const planBy = new Map(subs.map((x) => [String(x.memberId), x.planId?.name || null]));
+    const groupBy = new Map(groups.map((g) => [String(g._id), g.name]));
+    const markers = await User.find({ _id: { $in: [...new Set(records.map((r) => r.markedBy).filter(Boolean).map(String))] } }, 'name');
+    const markerBy = new Map(markers.map((u) => [String(u._id), u.name]));
+    const presentOn = new Map(week.map((w) => [w._id, w.present]));
 
     const rows = members.map((m) => {
       const r = byMember.get(String(m._id));
@@ -32,12 +51,18 @@ export async function getAttendanceDay(req, res, next) {
         _id: m._id, name: m.name, phone: m.phone, groupId: m.groupId,
         paused: pausedSet.has(String(m._id)),
         status: r?.status || null, method: r?.method || null, at: r?.at || null,
+        markedBy: r?.markedBy ? (String(r.markedBy) === String(req.userId) ? 'you' : markerBy.get(String(r.markedBy)) || null) : null,
+        lastPresent: lastBy.get(String(m._id)) || null,
+        joinDay: localDay(m.joinDate || m._id.getTimestamp(), req.business.timezone || 'Asia/Kolkata'),
+        planName: planBy.get(String(m._id)) || null,
+        groupName: m.groupId ? groupBy.get(String(m.groupId)) || null : null,
         due: Math.max(0, balances.get(String(m._id)) || 0),
       };
     });
     const present = rows.filter((r) => r.status === 'present').length;
     const absent = rows.filter((r) => r.status === 'absent').length;
-    res.json({ day, today, members: rows, counts: { present, absent, unmarked: rows.length - present - absent, total: rows.length } });
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((d) => ({ day: d, present: presentOn.get(d) || 0 }));
+    res.json({ day, today, members: rows, week: weekDays, counts: { present, absent, unmarked: rows.length - present - absent, total: rows.length } });
   } catch (err) {
     next(err);
   }

@@ -36,12 +36,9 @@ export async function createExpense(req, res, next) {
   }
 }
 
-// owner only, like payment reversal: staff can't make spending disappear
+// owner, or staff with Full access (checked before this runs) — lower levels can't make spending disappear
 export async function deleteExpense(req, res, next) {
   try {
-    if (!req.business.ownerId.equals(req.userId)) {
-      return res.status(403).json({ error: 'owner only' });
-    }
     const expense = await Expense.findOneAndDelete({ _id: req.params.expenseId, businessId: req.business._id });
     if (!expense) return res.status(404).json({ error: 'expense not found' });
     res.json({ ok: true });

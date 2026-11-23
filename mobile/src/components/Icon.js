@@ -1,7 +1,7 @@
 import React from 'react';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function Icon({ name, type = 'ionicons', size = 20, color = '#10B981', style }) {
+export default function Icon({ name, type = 'ionicons', size = 20, color = '#5B3DF5', style }) {
   if (type === 'feather') {
     return <Feather name={name} size={size} color={color} style={style} />;
   }

@@ -52,11 +52,12 @@ export const getTheme = (isDark = false) => {
     isDark,
     colors: {
       // Primary brand green
-      primary: '#10B981',
-      primaryHover: '#059669',
-      primaryDark: isDark ? '#34D399' : '#059669',
-      primarySoft: isDark ? 'rgba(16, 185, 129, 0.14)' : '#ECFDF5',
-      primaryBorder: isDark ? 'rgba(16, 185, 129, 0.3)' : '#A7F3D0',
+      // LocalSaaS purple for buttons, links and active items; paid / collected stays success green
+      primary: isDark ? '#7C66FF' : '#5B3DF5',
+      primaryHover: isDark ? '#6A52FF' : '#4A2EE6',
+      primaryDark: isDark ? '#C4B8FF' : '#3D27B8',
+      primarySoft: isDark ? 'rgba(124, 102, 255, 0.16)' : '#F1EEFF',
+      primaryBorder: isDark ? 'rgba(124, 102, 255, 0.35)' : '#D9D2FE',
 
       // Amber / Warning / Due soon
       warning: '#F59E0B',
@@ -125,7 +126,7 @@ export const getTheme = (isDark = false) => {
       // Bottom Navigation Tab Bar matching web .tabs
       tabBarBg: isDark ? '#1E293B' : '#FFFFFF',
       tabBarBorder: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-      tabActive: '#10B981',
+      tabActive: isDark ? '#7C66FF' : '#5B3DF5',
       tabInactive: isDark ? '#94A3B8' : '#64748B',
 
       // Business Types dictionary configured for current theme

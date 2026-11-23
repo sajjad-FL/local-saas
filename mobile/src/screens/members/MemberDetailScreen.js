@@ -21,6 +21,7 @@ import Badge from '../../components/Badge';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
+import Loader, { Spinner } from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { tint, tinted } from '../../constants/theme';
 
@@ -235,7 +236,7 @@ export default function MemberDetailScreen({ route, navigation }) {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
         <TopBar navigation={navigation} />
         <View style={styles.centerBox}>
-          <Text style={{ color: theme.colors.textSecondary }}>Loading member profile…</Text>
+          <Loader label="Loading member" />
         </View>
       </SafeAreaView>
     );
@@ -268,7 +269,7 @@ export default function MemberDetailScreen({ route, navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
         }>
         {/* Back to the list, same pill as the web; edit and delete on the right */}
         <View style={styles.topRow}>
@@ -530,7 +531,9 @@ export default function MemberDetailScreen({ route, navigation }) {
                 { backgroundColor: theme.colors.primary, opacity: !amount || payLoading ? 0.6 : 1 },
               ]}
               onPress={handleRecordPayment}>
-              <Icon name="checkmark-sharp" size={15} color="#FFFFFF" />
+              {payLoading
+                ? <Spinner size={16} color="#FFFFFF" track="rgba(255, 255, 255, 0.3)" />
+                : <Icon name="checkmark-sharp" size={15} color="#FFFFFF" />}
               <Text style={styles.btnRecordPaymentText}>
                 {payLoading ? 'Recording Payment…' : 'Record Payment'}
               </Text>

@@ -11,4 +11,8 @@ export { Reminder } from './Reminder.js';
 
 export { Expense } from './Expense.js';
 export { Attendance } from './Attendance.js';
+export { Enquiry } from './Enquiry.js';
 export { AdminLog } from './AdminLog.js';
+export { Staff } from './Staff.js';
+export { CatalogueItem } from './CatalogueItem.js';
+export { Sale } from './Sale.js';

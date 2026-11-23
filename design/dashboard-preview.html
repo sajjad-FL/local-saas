@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard design preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --p: #5B3DF5; --ps: #F1EEFF; --pi: #3D27B8; --bg: #F4F6FA; --card: #FFFFFF; --line: #E7E9F0; --soft: #EEF0F5; --text: #0F172A; --muted: #64748B; --red: #B42318; --green: #066B3F; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); font-family: Inter, system-ui, sans-serif; color: var(--text); }
+  button { font: inherit; cursor: pointer; }
+  a { color: #4A2EE6; text-decoration: none; }
+  .app { display: flex; min-height: 100vh; }
+  aside { width: 240px; flex: none; background: #fff; border-right: 1px solid var(--line); padding: 18px 12px; display: flex; flex-direction: column; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid var(--soft); font-weight: 800; font-size: 16px; }
+  .brand i { width: 22px; height: 22px; border-radius: 6px; background: var(--p); }
+  .brand b { color: var(--p); }
+  .biz { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
+  .biz .kf { width: 34px; height: 34px; border-radius: 9px; background: var(--ps); color: var(--pi); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .biz small { display: block; font-size: 12px; color: var(--muted); }
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  nav a { height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; font-weight: 500; font-size: 14px; }
+  nav a.on { background: var(--ps); color: var(--pi); font-weight: 600; }
+  main { flex: 1; min-width: 0; padding: 28px 36px 40px; display: flex; flex-direction: column; gap: 18px; }
+  .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  .head p { margin: 0; font-size: 13px; color: var(--muted); font-weight: 500; }
+  .head h1 { margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .btn { height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 600; font-size: 14px; border: 1px solid #E2E5EC; background: #fff; color: var(--text); }
+  .btn.pri { border: 0; background: var(--p); color: #fff; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+  .money { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; overflow: hidden; }
+  .money > * { padding: 20px 22px; border-right: 1px solid var(--soft); color: var(--text); display: flex; flex-direction: column; gap: 6px; }
+  .money > *:last-child { border-right: 0; }
+  .lbl { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .big { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .sub { font-size: 13px; color: var(--muted); }
+  .bar { height: 8px; border-radius: 99px; background: var(--soft); overflow: hidden; margin-top: 8px; }
+  .bar span { display: block; height: 100%; width: 72%; background: #16A34A; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+  .todo-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 18px 20px 0; flex-wrap: wrap; }
+  .todo-head h2 { margin: 0; font-size: 17px; }
+  .todo-head p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+  .wa { height: 36px; padding: 0 14px; border: 1px solid #D5F0E2; border-radius: 10px; background: #F0FBF5; color: var(--green); font-weight: 600; font-size: 13px; }
+  .tabs { display: flex; gap: 4px; padding: 14px 16px 0; border-bottom: 1px solid var(--soft); }
+  .tab { height: 40px; padding: 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .tab.on { border-bottom-color: var(--p); color: var(--pi); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; }
+  .cnt { min-width: 22px; height: 20px; padding: 0 6px; border-radius: 99px; background: #F1F3F7; color: #475569; font-size: 12px; display: grid; place-items: center; }
+  .tab.on .cnt { background: var(--p); color: #fff; }
+  ul { list-style: none; margin: 0; padding: 6px 8px 8px; }
+  li.row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+  .av { width: 38px; height: 38px; flex: none; border-radius: 99px; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .who b { font-weight: 600; font-size: 14.5px; }
+  .who span { font-size: 12.5px; font-weight: 500; }
+  .amt { font-size: 15px; font-weight: 700; min-width: 72px; text-align: right; }
+  .acts { display: flex; gap: 6px; }
+  .ic { width: 36px; height: 36px; border: 1px solid #D5F0E2; border-radius: 10px; background: #F0FBF5; color: var(--green); display: grid; place-items: center; padding: 0; }
+  .cta { height: 36px; min-width: 96px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #E2E5EC; background: #fff; color: var(--text); }
+  .cta.pri { border: 0; background: var(--p); color: #fff; }
+  .foot { display: block; padding: 12px 20px 16px; border-top: 1px solid var(--soft); font-size: 13px; font-weight: 600; }
+  .side { display: flex; flex-direction: column; gap: 18px; }
+  .pad { padding: 18px 20px; }
+  .pays li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #F0F2F6; }
+  .rs { width: 32px; height: 32px; border-radius: 10px; background: #ECFDF3; color: var(--green); display: grid; place-items: center; font-weight: 700; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--soft); overflow: hidden; }
+  .tiles a { padding: 14px 16px; background: #fff; color: var(--text); }
+  .tiles span { display: block; font-size: 12.5px; color: var(--muted); font-weight: 500; }
+  .tiles b { font-size: 22px; }
+  .label { font: 600 12px Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #94A3B8; margin: 0 0 10px; }
+
+  /* phone */
+  .phone { width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); border-radius: 28px; border: 1px solid var(--line); }
+  .phone .scroll { height: 100%; overflow-y: auto; padding: 18px 16px 96px; display: flex; flex-direction: column; gap: 14px; }
+  .phone .mhead { display: flex; justify-content: space-between; align-items: center; }
+  .phone .mhead p { margin: 0; font-size: 12.5px; color: var(--muted); font-weight: 500; }
+  .phone .mhead h1 { margin: 2px 0 0; font-size: 22px; font-weight: 700; }
+  .plus { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--p); color: #fff; font-size: 22px; }
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--soft); }
+  .three a { color: var(--text); }
+  .three a + a { padding-left: 12px; border-left: 1px solid var(--soft); }
+  .three span { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .pills { display: flex; gap: 6px; padding: 10px 12px; overflow-x: auto; }
+  .pill { flex: none; height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 99px; background: #fff; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .pill.on { border: 0; background: var(--text); color: #fff; }
+  .mrow { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-top: 1px solid #F0F2F6; }
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; border-top: 1px solid var(--line); padding: 10px 8px 22px; font-size: 12px; text-align: center; color: var(--muted); font-weight: 600; }
+  .tabbar .on { color: var(--pi); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app" id="desktop">
+  <aside>
+    <div class="brand"><i></i>Local<b style="margin-left:-8px">SaaS</b></div>
+    <div class="biz"><span class="kf">KF</span><span><b style="font-size:14px;font-weight:600">KK Fitness</b><small>Gym · 24 members</small></span></div>
+    <nav><a class="on">Collect</a><a>Members</a><a>Attendance</a><a>Money</a><a>Plans &amp; setup</a></nav>
+  </aside>
+  <main>
+    <div class="head">
+      <div><p>Friday, 20 November</p><h1>Good evening, Sajjad</h1></div>
+      <div style="display:flex;gap:8px"><button class="btn">₹ Add expense</button><button class="btn pri">+ Add member</button></div>
+    </div>
+
+    <section class="card money" aria-label="This month">
+      <div>
+        <div style="display:flex;justify-content:space-between"><span class="lbl">Collected in November</span><span class="lbl" style="color:var(--green)">72%</span></div>
+        <div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:32px;font-weight:700;letter-spacing:-.02em">₹38,000</b><span class="sub" style="font-size:14px">of ₹52,500 billed</span></div>
+        <div class="bar"><span></span></div>
+      </div>
+      <a style="background:#FFF8F7"><span class="lbl" style="color:var(--red)">Still to collect</span><b class="big" style="color:var(--red)">₹14,500</b><span class="sub">from 5 members →</span></a>
+      <a><span class="lbl">Spent</span><b class="big">₹12,000</b><span class="sub">rent, salary, bills</span></a>
+      <a><span class="lbl">Profit</span><b class="big" style="color:var(--green)">₹26,000</b><span class="sub">collected minus spent</span></a>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="todo-head">
+          <div><h2>Follow up today</h2><p id="hint"></p></div>
+          <button class="wa" id="remindAll"></button>
+        </div>
+        <div class="tabs" id="tabs"></div>
+        <ul id="rows"></ul>
+        <a class="foot">See all in Members →</a>
+      </section>
+      <div class="side">
+        <section class="card pad">
+          <div style="display:flex;align-items:center;gap:16px">
+            <svg width="64" height="64" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="#EEF0F5" stroke-width="4"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="#5B3DF5" stroke-width="4" stroke-linecap="round" stroke-dasharray="56.8 97.4" transform="rotate(-90 18 18)"/></svg>
+            <div><div class="lbl">Came in today</div><div style="display:flex;align-items:baseline;gap:6px"><b style="font-size:26px">14</b><span class="sub" style="font-size:14px">of 24 members</span></div></div>
+          </div>
+          <button class="btn" style="width:100%;margin-top:14px">Mark attendance</button>
+        </section>
+        <section class="card pad" style="padding-bottom:8px">
+          <div style="display:flex;justify-content:space-between"><b style="font-size:15px">Recent payments</b><a style="font-size:13px;font-weight:600">Money →</a></div>
+          <ul class="pays" style="padding:10px 0 0">
+            <li><span class="rs">₹</span><span class="who"><b style="font-size:14px">Vikram Shah</b><span style="color:var(--muted);font-size:12px">Today · UPI</span></span><b style="color:var(--green)">+₹4,000</b></li>
+            <li><span class="rs">₹</span><span class="who"><b style="font-size:14px">Divya Menon</b><span style="color:var(--muted);font-size:12px">Yesterday · Cash</span></span><b style="color:var(--green)">+₹1,500</b></li>
+            <li><span class="rs">₹</span><span class="who"><b style="font-size:14px">Meena Joshi</b><span style="color:var(--muted);font-size:12px">17 Nov · UPI</span></span><b style="color:var(--green)">+₹4,000</b></li>
+          </ul>
+        </section>
+        <section class="card tiles"><a><span>Active members</span><b>24</b></a><a><span>Joined this month</span><b>3</b></a></section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="mobile" style="padding:24px;display:none">
+  <div class="phone">
+    <div class="scroll">
+      <div class="mhead"><div><p>Fri, 20 Nov · KK Fitness</p><h1>Good evening, Sajjad</h1></div><button class="plus" aria-label="Add member">+</button></div>
+      <section class="card" style="padding:16px">
+        <div style="display:flex;justify-content:space-between"><span class="lbl">Collected in November</span><span class="lbl" style="color:var(--green)">72%</span></div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px"><b style="font-size:28px">₹38,000</b><span class="sub">of ₹52,500</span></div>
+        <div class="bar"><span></span></div>
+        <div class="three"><a><span style="color:var(--red)">To collect</span><b style="color:var(--red)">₹14,500</b></a><a><span>Spent</span><b>₹12,000</b></a><a><span>Profit</span><b style="color:var(--green)">₹26,000</b></a></div>
+      </section>
+      <section class="card">
+        <b style="display:block;padding:14px 16px 0;font-size:16px">Follow up today</b>
+        <div class="pills"><span class="pill on">Expired · 4</span><span class="pill"><i class="dot" style="background:#D97706"></i>Expiring · 3</span><span class="pill"><i class="dot" style="background:#7C3AED"></i>Not coming · 3</span></div>
+        <div style="padding:0 8px 6px" id="mrows"></div>
+      </section>
+      <section class="card" style="display:flex;align-items:center;gap:14px;padding:14px 16px">
+        <svg width="48" height="48" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="#EEF0F5" stroke-width="4"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="#5B3DF5" stroke-width="4" stroke-linecap="round" stroke-dasharray="56.8 97.4" transform="rotate(-90 18 18)"/></svg>
+        <div style="flex:1"><span class="sub" style="display:block">Came in today</span><b style="font-size:18px">14 <span class="sub">of 24</span></b></div>
+        <button class="btn" style="height:38px">Mark</button>
+      </section>
+    </div>
+    <div class="tabbar"><span class="on">Collect</span><span>Members</span><span>Attendance</span><span>Money</span></div>
+  </div>
+</div>
+
+<script>
+  const lists = {
+    late: [['Rohit Kumar', 'Expired 41 days ago · 2 fees unpaid', '₹3,000'], ['Neha Singh', 'Expired 19 days ago', '₹4,000'], ['Sajjad Alam', 'Expired 4 days ago', '₹1,500'], ['Farhan Ali', 'Expired 2 days ago', '₹1,500'], ['Aman Gupta', 'Due today', '₹1,000']],
+    soon: [['Pooja Rao', 'Expires tomorrow', '₹1,500'], ['Divya Menon', 'Expires in 3 days', '₹1,500'], ['Vikram Shah', 'Expires in 6 days', '₹4,000']],
+    away: [['Karan Mehta', 'Not come for 35 days', ''], ['Meena Joshi', 'Not come for 12 days', ''], ['Pooja Rao', 'Not come for 9 days', ''], ['Arjun Das', 'Never came · joined 10 Nov', '']],
+  };
+  const meta = {
+    late: { label: 'Expired', dot: '#DC2626', hint: 'Plan ended and the fee is still unpaid', cta: 'Collect', ink: '#B42318' },
+    soon: { label: 'Expiring this week', dot: '#D97706', hint: 'Remind them before the plan ends', cta: 'Remind', ink: '#92400E' },
+    away: { label: 'Not coming', dot: '#7C3AED', hint: 'Away 7+ days: a quick call keeps them coming', cta: 'Call', ink: '#6D28D9' },
+  };
+  const tones = [['#F1EEFF', '#3D27B8'], ['#E8F6FF', '#0B5E8A'], ['#FFF3E6', '#9A4A06'], ['#ECFDF3', '#066B3F'], ['#FCEEF6', '#9D1C5E']];
+  const ini = (n) => n.split(' ').map((p) => p[0]).join('');
+  const wa = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-13.3 7.9L3 21l1.1-4.6A9 9 0 1 1 21 12Z"/></svg>';
+  function show(tab) {
+    const m = meta[tab];
+    document.getElementById('hint').textContent = m.hint;
+    const ra = document.getElementById('remindAll');
+    ra.style.display = tab === 'away' ? 'none' : '';
+    ra.textContent = `Remind all ${lists[tab].length} on WhatsApp`;
+    document.getElementById('tabs').innerHTML = Object.keys(meta).map((id) =>
+      `<button class="tab ${id === tab ? 'on' : ''}" data-t="${id}"><i class="dot" style="background:${meta[id].dot}"></i>${meta[id].label}<span class="cnt">${lists[id].length}</span></button>`).join('');
+    document.getElementById('rows').innerHTML = lists[tab].map(([n, s, a], i) => {
+      const [bg, fg] = tones[(n.length + i) % tones.length];
+      return `<li class="row"><span class="av" style="background:${bg};color:${fg}">${ini(n)}</span><span class="who"><b>${n}</b><span style="color:${m.ink}">${s}</span></span><b class="amt" style="color:${tab === 'late' ? '#B42318' : '#0F172A'}">${a}</b><span class="acts"><button class="ic" aria-label="WhatsApp">${wa}</button><button class="cta ${tab === 'late' ? 'pri' : ''}">${m.cta}</button></span></li>`;
+    }).join('');
+    document.querySelectorAll('.tab').forEach((b) => b.onclick = () => show(b.dataset.t));
+  }
+  show('late');
+  document.getElementById('mrows').innerHTML = lists.late.slice(0, 4).map(([n, s, a]) =>
+    `<div class="mrow"><span class="av" style="width:36px;height:36px;background:#F1EEFF;color:#3D27B8;font-size:12px">${ini(n)}</span><span class="who"><b style="font-size:14px">${n}</b><span style="color:#B42318;font-size:12px">${s} · ${a}</span></span><button class="cta pri" style="min-width:0">Collect</button></div>`).join('');
+  // ?view=mobile shows the phone design
+  if (new URLSearchParams(location.search).get('view') === 'mobile') {
+    document.getElementById('desktop').style.display = 'none';
+    document.getElementById('mobile').style.display = 'block';
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Staff – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 900px; position: relative; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="border: 1px solid #E7E9F0; border-radius: 12px; display: flex; align-items: center; gap: 10px; padding: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+      <span style="color: #64748B">⌄</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Outlets</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Staff</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Plans &amp; setup</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">Who can open your outlets, and what they can do</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Staff</h1>
+      </div>
+      <button type="button" onClick="{{openAdd}}" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ Add staff</button>
+    </div>
+
+    <!-- what each access level means, always visible so nobody guesses -->
+    <section aria-label="Access levels" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{levelCards}}" as="l" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px">
+          <span style="display: flex; align-items: center; justify-content: space-between">
+            <span style="height: 24px; padding: 0 9px; border-radius: 99px; background: {{l.bg}}; color: {{l.ink}}; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center">{{l.name}}</span>
+            <b style="font-size: 18px">{{l.count}}</b>
+          </span>
+          <span style="font-size: 12.5px; color: #64748B; line-height: 1.45">{{l.short}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <section aria-label="Staff list" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; overflow: hidden">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+        <thead>
+          <tr style="background: #FAFBFC; text-align: left">
+            <th style="padding: 12px 18px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748B">Person</th>
+            <th style="padding: 12px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748B">Outlets</th>
+            <th style="padding: 12px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748B">Can do</th>
+            <th style="padding: 12px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748B">Added</th>
+            <th style="padding: 12px 18px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748B; text-align: right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{people}}" as="p" hint-placeholder-count="4">
+            <tr style="border-top: 1px solid #EEF0F5">
+              <td style="padding: 14px 18px">
+                <span style="display: flex; align-items: center; gap: 10px">
+                  <span style="width: 36px; height: 36px; border-radius: 99px; background: {{p.avBg}}; color: {{p.avInk}}; display: grid; place-items: center; font-weight: 700; font-size: 13px">{{p.short}}</span>
+                  <span style="display: flex; flex-direction: column">
+                    <span style="display: flex; align-items: center; gap: 6px"><b style="font-weight: 600">{{p.name}}</b>
+                      <sc-if value="{{p.you}}" hint-placeholder-val="{{ false }}"><span style="height: 20px; padding: 0 7px; border-radius: 99px; background: #F1EEFF; color: #3D27B8; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center">You · Owner</span></sc-if>
+                      <sc-if value="{{p.pending}}" hint-placeholder-val="{{ false }}"><span style="height: 20px; padding: 0 7px; border-radius: 99px; background: #FFF6E5; color: #92400E; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center">Not signed in yet</span></sc-if>
+                    </span>
+                    <span style="font-size: 12.5px; color: #64748B">{{p.phone}}</span>
+                  </span>
+                </span>
+              </td>
+              <td style="padding: 14px 12px; color: #334155">{{p.outlets}}</td>
+              <td style="padding: 14px 12px"><span style="height: 24px; padding: 0 9px; border-radius: 99px; background: {{p.lvBg}}; color: {{p.lvInk}}; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap">{{p.level}}</span></td>
+              <td style="padding: 14px 12px; color: #64748B">{{p.added}}</td>
+              <td style="padding: 14px 18px; text-align: right; white-space: nowrap">
+                <sc-if value="{{p.editable}}" hint-placeholder-val="{{ true }}">
+                  <button type="button" onClick="{{p.edit}}" style="height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 13px">Change access</button>
+                  <button type="button" style="height: 34px; padding: 0 12px; margin-left: 6px; border: 1px solid #FBD5D1; border-radius: 9px; background: #FFFFFF; color: #B42318; font-weight: 600; font-size: 13px">Remove</button>
+                </sc-if>
+                <sc-if value="{{p.you}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #94A3B8">Everything</span></sc-if>
+              </td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </section>
+    <p style="margin: 0; font-size: 12.5px; color: #64748B">Only you can change the UPI ID, add or remove staff, and delete an outlet — whatever access you give.</p>
+  </main>
+
+  <!-- add / change staff dialog -->
+  <sc-if value="{{adding}}" hint-placeholder-val="{{ true }}">
+    <button type="button" aria-label="Close" onClick="{{closeAdd}}" style="position: absolute; inset: 0; border: 0; padding: 0; background: rgba(15,23,42,.36); cursor: default"></button>
+    <section role="dialog" aria-modal="true" aria-labelledby="as-title" style="position: absolute; left: 50%; top: 36px; transform: translateX(-50%); width: 540px; background: #FFFFFF; border-radius: 18px; box-shadow: 0 24px 60px rgba(15,23,42,.25); padding: 22px 24px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h2 id="as-title" style="margin: 0; font-size: 18px; font-weight: 700">{{dialogTitle}}</h2>
+        <button type="button" aria-label="Close" onClick="{{closeAdd}}" style="width: 34px; height: 34px; border: 0; border-radius: 10px; background: #F4F6FA; padding: 0">✕</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #334155">Mobile number
+          <span style="display: flex; height: 44px; border: 1.5px solid #5B3DF5; border-radius: 10px; overflow: hidden"><span style="padding: 0 10px; display: grid; place-items: center; background: #F4F6FA; color: #475569; font-weight: 500">+91</span><input value="98480 22134" style="flex: 1; min-width: 0; border: 0; padding: 0 10px; font-size: 15px"></span>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #334155">Name
+          <input value="Imran Khan" style="height: 44px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 10px; font-size: 15px">
+        </label>
+      </div>
+      <p style="margin: -8px 0 0; font-size: 12.5px; color: #64748B">They sign in with this number. No account yet? We send them a WhatsApp invite.</p>
+
+      <fieldset style="border: 0; margin: 0; padding: 0">
+        <legend style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; padding: 0">Which outlets?</legend>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{outletPills}}" as="o" hint-placeholder-count="4">
+            <button type="button" aria-pressed="{{o.on}}" onClick="{{o.toggle}}" style="height: 36px; padding: 0 12px; border: {{o.border}}; border-radius: 99px; background: {{o.bg}}; color: {{o.ink}}; font-size: 13.5px; font-weight: {{o.weight}}">{{o.label}}</button>
+          </sc-for>
+        </div>
+      </fieldset>
+
+      <fieldset style="border: 0; margin: 0; padding: 0">
+        <legend style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; padding: 0">What can they do?</legend>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{levelPick}}" as="l" hint-placeholder-count="4">
+            <button type="button" role="radio" aria-checked="{{l.on}}" onClick="{{l.pick}}" style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; border: {{l.border}}; border-radius: 12px; background: {{l.bg}}; text-align: left; color: #0F172A">
+              <span style="width: 18px; height: 18px; margin-top: 1px; flex: none; border-radius: 99px; border: {{l.ring}}; box-sizing: border-box; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 99px; background: {{l.dot}}"></span></span>
+              <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px; font-weight: 600">{{l.name}}</b><span style="font-size: 12.5px; color: #64748B">{{l.long}}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </fieldset>
+
+      <p style="margin: 0; padding: 10px 12px; border-radius: 10px; background: #F4F6FA; font-size: 13px; color: #334155">{{summary}}</p>
+      <div style="display: flex; justify-content: flex-end; gap: 8px">
+        <button type="button" onClick="{{closeAdd}}" style="height: 42px; padding: 0 16px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600">Cancel</button>
+        <button type="button" onClick="{{closeAdd}}" style="height: 42px; padding: 0 18px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600">{{saveLabel}}</button>
+      </div>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { adding: true, editing: null, level: 1, outlets: [false, true, false], all: false }; }
+  renderVals() {
+    const st = this.state;
+    const LV = [
+      { name: 'See only', short: 'Look up members, dues and payments. Changes nothing.', long: 'Look up members, dues and payments. Can’t change anything.', verb: 'look up members and payments', bg: '#F1F3F7', ink: '#475569' },
+      { name: 'Add', short: 'Also add members and record payments.', long: 'Also add members, record payments and mark attendance.', verb: 'add members and record payments', bg: '#EEF4FF', ink: '#1D4ED8' },
+      { name: 'Add & edit', short: 'Also edit members, plans and payments.', long: 'Also edit members, plans and payments they made by mistake.', verb: 'add and edit members and payments', bg: '#FFF6E5', ink: '#92400E' },
+      { name: 'Full', short: 'Also delete members and payments.', long: 'Also delete members and payments. Give this only to a manager.', verb: 'add, edit and delete members and payments', bg: '#FEF1F0', ink: '#B42318' },
+    ];
+    const OUT = ['KK Fitness', 'KK Fitness – Yousufguda', 'KK Ladies Hostel'];
+    const staff = [
+      { name: 'Imran Khan', short: 'IK', phone: '+91 98480 22134', outlets: 'KK Fitness – Yousufguda', level: 1, added: '12 Oct', tone: '#E8F6FF:#0B5E8A' },
+      { name: 'Priya Nair', short: 'PN', phone: '+91 99592 10077', outlets: 'All outlets', level: 3, added: '2 Sep', tone: '#FCEEF6:#9D1C5E' },
+      { name: 'Ramesh', short: 'R', phone: '+91 70321 55890', outlets: 'KK Ladies Hostel', level: 0, added: 'Today', tone: '#FFF1E6:#9A3412', pending: true },
+    ];
+    const lv = LV[st.level];
+    const chosen = st.all ? ['All outlets'] : OUT.filter((_, i) => st.outlets[i]);
+    const pill = (on) => ({ border: on ? '1.5px solid #5B3DF5' : '1px solid #E2E5EC', bg: on ? '#F1EEFF' : '#FFFFFF', ink: on ? '#3D27B8' : '#334155', weight: on ? '600' : '500' });
+    return {
+      adding: st.adding,
+      dialogTitle: st.editing ? 'Change access · ' + st.editing : 'Add staff',
+      saveLabel: st.editing ? 'Save' : 'Add and send invite',
+      openAdd: () => this.setState({ adding: true, editing: null }),
+      closeAdd: () => this.setState({ adding: false }),
+      levelCards: LV.map((l, i) => ({ ...l, count: String(staff.filter((s) => s.level === i).length) })),
+      people: [
+        { name: 'Sajjad Alam', short: 'SA', phone: '+91 98765 43210', outlets: 'All outlets', level: 'Owner', lvBg: '#F1EEFF', lvInk: '#3D27B8', added: '—', avBg: '#F1EEFF', avInk: '#3D27B8', you: true, editable: false, pending: false, edit: () => {} },
+        ...staff.map((s) => {
+          const [avBg, avInk] = s.tone.split(':');
+          return { ...s, avBg, avInk, level: LV[s.level].name, lvBg: LV[s.level].bg, lvInk: LV[s.level].ink, you: false, editable: true, pending: !!s.pending,
+            edit: () => this.setState({ adding: true, editing: s.name, level: s.level, all: s.outlets === 'All outlets', outlets: OUT.map((o) => o === s.outlets) }) };
+        }),
+      ],
+      outletPills: [
+        { label: (st.all ? '✓ ' : '') + 'All outlets, now and later', on: st.all, ...pill(st.all), toggle: () => this.setState({ all: !st.all }) },
+        ...OUT.map((o, i) => { const on = !st.all && st.outlets[i]; return { label: (on ? '✓ ' : '') + o, on, ...pill(on), toggle: () => { const next = [...st.outlets]; next[i] = !next[i]; this.setState({ all: false, outlets: next }); } }; }),
+      ],
+      levelPick: LV.map((l, i) => {
+        const on = i === st.level;
+        return { ...l, on, border: on ? '1.5px solid #5B3DF5' : '1px solid #E7E9F0', bg: on ? '#FBFAFF' : '#FFFFFF', ring: on ? '2px solid #5B3DF5' : '2px solid #CBD2DC', dot: on ? '#5B3DF5' : 'transparent', pick: () => this.setState({ level: i }) };
+      }),
+      summary: chosen.length ? 'Imran can ' + lv.verb + ' in ' + chosen.join(', ') + '.' : 'Pick at least one outlet.',
+    };
+  }
+}
+</script>
+</body>
+</html>

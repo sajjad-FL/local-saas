@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models/index.js';
 import { signToken } from '../middlewares/authMiddleware.js';
+import { linkStaffInvites } from '../services/staffService.js';
 
 export async function register(req, res, next) {
   try {
@@ -16,6 +17,7 @@ export async function register(req, res, next) {
       phone,
       passwordHash: await bcrypt.hash(password, 10),
     });
+    await linkStaffInvites(user); // an owner may have added this number as staff already
     res.json({ token: signToken(user) });
   } catch (err) {
     next(err);
@@ -78,6 +80,7 @@ export async function login(req, res, next) {
     if (!user || !(await bcrypt.compare(password || '', user.passwordHash))) {
       return res.status(401).json({ error: 'invalid phone or password' });
     }
+    await linkStaffInvites(user);
     res.json({ token: signToken(user) });
   } catch (err) {
     next(err);

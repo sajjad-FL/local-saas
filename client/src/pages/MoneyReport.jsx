@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { api, rupees, userId } from '../api.js';
-import { ChevronIcon, PlusIcon, TrashIcon, RupeeIcon, CalendarIcon, XIcon, TagIcon, EditIcon, Field, ConfirmDialog, BarChartIcon, UsersIcon } from '../ui.jsx';
+import { api, rupees, can, DELETE } from '../api.js';
+import { ChevronIcon, PlusIcon, TrashIcon, RupeeIcon, CalendarIcon, XIcon, TagIcon, EditIcon, Field, ConfirmDialog } from '../ui.jsx';
 
 export const EXPENSE_CATEGORIES = {
   rent: 'Rent',
@@ -46,29 +46,28 @@ export function periodRange(kind, step, now = new Date()) {
 }
 
 const prevLabel = { month: 'last month', quarter: 'last quarter', year: 'last year', custom: 'previous period' };
+const CAT_ICON = { rent: '⌂', salary: '☺', electricity: 'ϟ', water: '≈', internet: '◎', maintenance: '⚙', equipment: '⚙', groceries: '◍', marketing: '✦', other: '•' };
+const pct = (now, before) => (before ? Math.round(((now - before) / Math.abs(before)) * 100) : null);
 
-function Change({ now, before, kind, goodWhenUp = true }) {
+// "▲ 12% vs last month" chip; good is green, bad is red
+function trendChip(now, before, kind, goodWhenUp = true) {
   if (!before && !now) return null;
-  const diff = now - before;
-  if (!diff) return <span className="money-change">Same as {prevLabel[kind]}</span>;
-  const good = goodWhenUp ? diff > 0 : diff < 0;
-  return (
-    <span className={`money-change ${good ? 'good' : 'bad'}`}>
-      {diff > 0 ? '▲' : '▼'} {rupees(Math.abs(diff))} vs {prevLabel[kind]}
-    </span>
-  );
+  const p = pct(now, before);
+  if (p === null) return now ? { text: `New vs ${prevLabel[kind]}`, tone: goodWhenUp ? 'green' : 'red' } : null;
+  if (!p) return { text: `Same as ${prevLabel[kind]}`, tone: 'grey' };
+  const good = goodWhenUp ? p > 0 : p < 0;
+  return { text: `${p > 0 ? '▲' : '▼'} ${Math.abs(p)}% vs ${prevLabel[kind]}`, tone: good ? 'green' : 'red' };
 }
 
-function Bars({ rows, labels, tone }) {
+function Split({ rows, labels, tone, empty }) {
   const total = rows.reduce((s, [, v]) => s + v, 0);
-  if (!total) return <p className="muted small" style={{ margin: '6px 0 0' }}>Nothing yet in this period.</p>;
+  if (!total) return <p className="mr-empty">{empty}</p>;
   return (
-    <div className="money-bars">
-      {rows.sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-        <div key={k} className="money-bar-row">
-          <span>{labels[k] || k}</span>
-          <div className="money-bar"><i className={tone} style={{ width: `${Math.max(2, (v / total) * 100)}%` }} /></div>
-          <b>{rupees(v)}</b>
+    <div className="mr-split">
+      {rows.sort((a, b) => b[1] - a[1]).map(([k, v], i) => (
+        <div key={k} className="mr-split-row">
+          <span className="mr-split-top"><span>{labels[k] || k} <span className="mr-dim">· {Math.round((v / total) * 100)}%</span></span><b>{rupees(v)}</b></span>
+          <span className="mr-track"><i className={`${tone} t${i}`} style={{ width: `${Math.max(2, (v / total) * 100)}%` }} /></span>
         </div>
       ))}
     </div>
@@ -76,11 +75,11 @@ function Bars({ rows, labels, tone }) {
 }
 
 // Profit & loss for a chosen period, plus the expenses that go into it.
-// adding / setAdding: the Reports header owns the "Add expense" button
-// tab / setTab: which detail shows under the cards ('breakdown' | 'expenses' | 'members', the last drawn by Reports)
-export default function MoneyReport({ biz, adding: addingProp, setAdding: setAddingProp, tab = 'breakdown', setTab }) {
+// header(r, range): the page draws its title and quick actions with this period's numbers
+// adding / setAdding: "Add expense" lives in the page header
+// tab / setTab: 'breakdown' | 'expenses' | 'members' (the last drawn by Reports, below this)
+export default function MoneyReport({ biz, header, adding: addingProp, setAdding: setAddingProp, tab = 'breakdown', setTab, whoCount }) {
   const qc = useQueryClient();
-  const isOwner = biz.ownerId === userId();
   const [kind, setKind] = useState('month'); // 'month' | 'quarter' | 'year' | 'custom'
   const [step, setStep] = useState(0);
   const [custom, setCustom] = useState(() => {
@@ -119,6 +118,7 @@ export default function MoneyReport({ biz, adding: addingProp, setAdding: setAdd
   });
 
   const isFuture = kind !== 'custom' && range.from > new Date();
+  const isCurrent = kind !== 'custom' && step === 0;
   const r = report || {};
   const profit = r.profit || 0;
   const now = new Date();
@@ -128,38 +128,65 @@ export default function MoneyReport({ biz, adding: addingProp, setAdding: setAdd
   const firstActive = upToNow.findIndex((m) => m.received || m.expenses || m.pending);
   const pastMonths = firstActive < 0 ? upToNow : upToNow.slice(firstActive);
   const amt = (v) => (v ? rupees(Math.abs(v)) : '—');
+  const monthName = (key) => { const [yy, mm] = key.split('-'); return `${MONTHS[Number(mm) - 1]} ${yy}`; };
+  const peak = Math.max(1, ...pastMonths.map((m) => Math.max(m.received || 0, m.expenses || 0, m.pending || 0)));
+  const collectedPct = r.billed ? Math.round(((r.billed - (r.pending || 0)) / r.billed) * 100) : null;
+
+  const cards = [
+    {
+      key: 'in', label: 'Received', value: rupees(r.received), tone: 'green', ink: r.received ? 'green' : '', icon: '↓',
+      note: `from ${r.paymentCount || 0} payment${r.paymentCount === 1 ? '' : 's'}`,
+      chip: r.previous && trendChip(r.received || 0, r.previous.received || 0, kind),
+    },
+    {
+      key: 'out', label: 'Spent', value: rupees(r.expenses), tone: 'red', ink: '', icon: '↑',
+      note: expenses.length ? `${expenses.length} expense${expenses.length === 1 ? '' : 's'}` : 'no expenses added',
+      chip: r.previous && r.expenses > 0 && trendChip(r.expenses || 0, r.previous.expenses || 0, kind, false),
+    },
+    {
+      key: 'profit', label: profit < 0 ? 'Loss' : 'Profit', value: `${profit < 0 ? '−' : ''}${rupees(Math.abs(profit))}`, tone: 'violet', ink: profit < 0 ? 'red' : '', icon: '₹',
+      note: 'received minus spent',
+      chip: profit < 0 ? { text: 'Spent more than came in', tone: 'red' } : r.received > 0 ? { text: `${Math.round((profit / r.received) * 100)}% margin`, tone: 'violet' } : null,
+    },
+    {
+      key: 'owe', label: 'Still to collect', value: rupees(r.pending), tone: 'amber', ink: r.pending ? 'red' : 'green', icon: '!',
+      note: r.billed ? `of ${rupees(r.billed)} in fees` : 'no fees fell in this period',
+      chip: collectedPct !== null ? { text: `${collectedPct}% collected`, tone: collectedPct === 100 ? 'green' : 'amber' } : null,
+    },
+  ];
+
+  const tabs = [
+    ['breakdown', 'Overview', null],
+    ['expenses', 'Expenses', expenses.length],
+    ['members', 'Who paid', whoCount],
+  ];
 
   return (
-    <section className="money-report" aria-label="Profit and loss">
-      {/* Period picker */}
-      <div className="analytics-card money-period">
-        <div className="money-tabs" role="tablist" aria-label="Report period">
+    <section className="money-report mr" aria-label="Profit and loss">
+      {header?.(r, { ...range, isCurrent, valid })}
+
+      {/* period: one quiet row */}
+      <div className="mr-period">
+        <div className="mr-seg" role="tablist" aria-label="Report period">
           {[['month', 'Month'], ['quarter', 'Quarter'], ['year', 'Year'], ['custom', 'Custom']].map(([k, label]) => (
             <button key={k} type="button" role="tab" aria-selected={kind === k}
-              className={kind === k ? 'active' : ''} onClick={() => { setKind(k); setStep(0); }}>
+              className={kind === k ? 'on' : ''} onClick={() => { setKind(k); setStep(0); }}>
               {label}
             </button>
           ))}
         </div>
         {kind === 'custom' ? (
-          <div className="money-custom">
-            <Field label="From" icon={CalendarIcon}>
-              <input type="date" value={custom.from} max={custom.to} onChange={(e) => setCustom({ ...custom, from: e.target.value })} />
-            </Field>
-            <Field label="To" icon={CalendarIcon}>
-              <input type="date" value={custom.to} min={custom.from} onChange={(e) => setCustom({ ...custom, to: e.target.value })} />
-            </Field>
+          <div className="mr-custom">
+            <label><span>From</span><input type="date" value={custom.from} max={custom.to} onChange={(e) => setCustom({ ...custom, from: e.target.value })} /></label>
+            <label><span>To</span><input type="date" value={custom.to} min={custom.from} onChange={(e) => setCustom({ ...custom, to: e.target.value })} /></label>
           </div>
         ) : (
-          <div className="money-stepper">
-            <button type="button" className="btn-secondary" aria-label="Previous period" onClick={() => setStep(step - 1)}>
+          <div className="mr-stepper">
+            <button type="button" className="mr-step" aria-label="Previous period" onClick={() => setStep(step - 1)}>
               <ChevronIcon size={16} style={{ transform: 'rotate(180deg)' }} />
             </button>
-            <div className="money-stepper-label">
-              <b>{range.label}</b>
-              <span className="muted small">{fmtDay(range.from)} – {fmtDay(range.to)}</span>
-            </div>
-            <button type="button" className="btn-secondary" aria-label="Next period" disabled={step >= 0} onClick={() => setStep(step + 1)}>
+            <span className="mr-range"><b>{range.label}</b><span>{fmtDay(range.from)} – {fmtDay(range.to)}</span></span>
+            <button type="button" className="mr-step" aria-label="Next period" disabled={step >= 0} onClick={() => setStep(step + 1)}>
               <ChevronIcon size={16} />
             </button>
           </div>
@@ -170,123 +197,141 @@ export default function MoneyReport({ biz, adding: addingProp, setAdding: setAdd
         <p className="error">Pick a start date on or before the end date.</p>
       ) : (
         <>
-          {/* The four numbers */}
-          <div className={`money-cards ${isLoading ? 'loading' : ''}`}>
-            <div className="money-card">
-              <span className="money-label">Received</span>
-              <b className={r.received ? 'green-text' : ''}>{rupees(r.received)}</b>
-              <span className="muted small">from {r.paymentCount || 0} payment{r.paymentCount === 1 ? '' : 's'}</span>
-              {r.previous && <Change now={r.received} before={r.previous.received} kind={kind} />}
-            </div>
-            <div className="money-card">
-              <span className="money-label">Spent</span>
-              <b className={r.expenses ? 'red-text' : ''}>{rupees(r.expenses)}</b>
-              <span className="muted small">{expenses.length ? `on ${expenses.length} expense${expenses.length === 1 ? '' : 's'}` : 'no expenses added'}</span>
-              {r.previous && r.expenses > 0 && <Change now={r.expenses} before={r.previous.expenses} kind={kind} goodWhenUp={false} />}
-            </div>
-            <div className={`money-card wide ${profit < 0 ? 'loss' : 'profit'}`}>
-              <span className="money-label">{profit < 0 ? 'Loss' : 'Profit'}</span>
-              <b>{profit < 0 ? '−' : ''}{rupees(Math.abs(profit))}</b>
-              <span className="muted small">received minus spent</span>
-              {r.previous && <Change now={profit} before={r.previous.profit} kind={kind} />}
-            </div>
-            <div className="money-card wide">
-              <span className="money-label">Still to collect</span>
-              <b className={r.pending ? 'amber-text' : ''}>{rupees(r.pending)}</b>
-              <span className="muted small">
-                {r.billed ? `of ${rupees(r.billed)} in fees for this period` : 'no fees fell in this period'}
-              </span>
-              {r.pendingNow > r.pending && <span className="muted small">{rupees(r.pendingNow)} owed in total</span>}
-            </div>
+          {/* the four numbers, Collect icon-card style */}
+          <div className={`mr-cards ${isLoading ? 'loading' : ''}`}>
+            {cards.map((c) => (
+              <div key={c.key} className={`mr-card mr-card-${c.key}`}>
+                <span className="mr-card-main">
+                  <span className={`db-today-icon ${c.tone}`} aria-hidden="true">{c.icon}</span>
+                  <span className="mr-card-text">
+                    <span className="db-label">{c.label}</span>
+                    <b className={c.ink}>{c.value}</b>
+                  </span>
+                </span>
+                <span className="mr-card-foot">
+                  <span>{c.note}</span>
+                  {c.chip && <span className={`mr-chip ${c.chip.tone}`}>{c.chip.text}</span>}
+                </span>
+              </div>
+            ))}
           </div>
-          {isFuture && <p className="muted small">This period hasn't started yet.</p>}
+          {isFuture && <p className="mr-empty">This period hasn't started yet.</p>}
 
-          {/* the details, one tab at a time */}
           {setTab && (
-            <div className="settings-tabs report-tabs" role="tablist" aria-label="Report details">
-              {[
-                ['breakdown', 'Breakdown', BarChartIcon],
-                ['expenses', `Expenses${expenses.length ? ` (${expenses.length})` : ''}`, RupeeIcon],
-                ['members', 'Who paid', UsersIcon],
-              ].map(([key, label, Icon]) => (
-                <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
-                  <Icon size={15} /> {label}
+            <div className="db-tabs mr-tabs" role="tablist" aria-label="Report details">
+              {tabs.map(([key, label, count]) => (
+                <button key={key} type="button" role="tab" aria-selected={tab === key} className={`db-tab ${tab === key ? 'on' : ''}`} onClick={() => setTab(key)}>
+                  {label}
+                  {count > 0 && <span className="db-tab-count">{count}</span>}
                 </button>
               ))}
             </div>
           )}
 
-          {tab === 'breakdown' && !(pastMonths.length > 1) && !(r.received > 0 || r.expenses > 0) && (
-            <p className="settings-note">Nothing received or spent in this period yet.</p>
-          )}
-
-          {/* Month by month (longer periods) */}
-          {tab === 'breakdown' && pastMonths.length > 1 && (
-            <div className="analytics-card">
-              <h3 className="analytics-card-title">Month by month</h3>
-              <div className="money-months">
-                <div className="money-month head"><span>Month</span><span>Received</span><span>Spent</span><span>Profit</span><span>To collect</span></div>
-                {pastMonths.map((m) => {
-                  const [yy, mm] = m.key.split('-');
-                  return (
-                    <div key={m.key} className="money-month">
-                      <span>{MONTHS[Number(mm) - 1]} {yy}</span>
-                      <span className={m.received ? 'green-text' : 'muted'}>{amt(m.received)}</span>
-                      <span className={m.expenses ? 'red-text' : 'muted'}>{amt(m.expenses)}</span>
-                      <b className={m.profit < 0 ? 'red-text' : m.profit ? '' : 'muted'}>{m.profit < 0 ? '−' : ''}{amt(m.profit)}</b>
-                      <span className={m.pending ? 'amber-text' : 'muted'}>{amt(m.pending)}</span>
+          {tab === 'breakdown' && (
+            <div className="mr-overview">
+              <section className="mr-box mr-months">
+                <div className="mr-box-head">
+                  <h3>Month by month</h3>
+                  <span className="mr-legend"><span><i className="in" />Received</span><span><i className="out" />Spent</span><span><i className="owe" />Still owed</span></span>
+                </div>
+                {pastMonths.length === 0 || !(pastMonths.some((m) => m.received || m.expenses || m.pending)) ? (
+                  <p className="mr-empty">Nothing received, spent or owed in this period yet.</p>
+                ) : (
+                  <>
+                    <div className="mr-chart" style={{ gridTemplateColumns: `repeat(${pastMonths.length}, minmax(0, 1fr))` }} aria-hidden="true">
+                      {pastMonths.map((m) => (
+                        <div key={m.key} className="mr-chart-col">
+                          <span className="mr-chart-bars">
+                            <i className="in" style={{ height: `${((m.received || 0) / peak) * 100}%` }} />
+                            <i className="out" style={{ height: `${((m.expenses || 0) / peak) * 100}%` }} />
+                            <i className="owe" style={{ height: `${((m.pending || 0) / peak) * 100}%` }} />
+                          </span>
+                          <span className="mr-chart-label">{MONTHS[Number(m.key.split('-')[1]) - 1]}</span>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Where money came from and went, side by side in one card */}
-          {tab === 'breakdown' && (r.received > 0 || r.expenses > 0) && (
-            <div className="analytics-card money-splits">
-              <div>
-                <h3 className="analytics-card-title">How members paid</h3>
-                <Bars rows={Object.entries(r.byMode || {})} labels={MODES} tone="in" />
-              </div>
-              <div>
-                <h3 className="analytics-card-title">Where money went</h3>
-                <Bars rows={Object.entries(r.byCategory || {})} labels={EXPENSE_CATEGORIES} tone="out" />
-              </div>
-            </div>
-          )}
-
-          {/* Expenses */}
-          {tab === 'expenses' && (
-          <div className="analytics-card">
-            <div className="card-header-row" style={{ marginBottom: 6 }}>
-              <div>
-                <h3 className="analytics-card-title">Expenses</h3>
-                <span className="analytics-card-subtitle">Rent, salaries, bills: what you paid in this period</span>
-              </div>
-            </div>
-            {expenses.length ? (
-              <div className="money-expenses">
-                {expenses.map((e) => (
-                  <div key={e._id} className="money-expense">
-                    <div className="grow" style={{ minWidth: 0 }}>
-                      <b>{e.category === 'other' && e.label ? e.label : EXPENSE_CATEGORIES[e.category] || e.category}</b>
-                      <span className="muted small">{fmtDay(e.date)}{e.note ? ` · ${e.note}` : ''}</span>
+                    <table className="mr-table">
+                      <thead><tr><th>Month</th><th>Received</th><th>Spent</th><th>Profit</th><th>Still owed</th></tr></thead>
+                      <tbody>
+                        {pastMonths.map((m) => (
+                          <tr key={m.key}>
+                            <td>{monthName(m.key)}</td>
+                            <td className={m.received ? 'green' : 'dim'}>{amt(m.received)}</td>
+                            <td className={m.expenses ? 'red' : 'dim'}>{amt(m.expenses)}</td>
+                            <td className={m.profit < 0 ? 'red strong' : m.profit ? 'strong' : 'dim'}>{m.profit < 0 ? '−' : ''}{amt(m.profit)}</td>
+                            <td className={m.pending ? 'amber' : 'dim'}>{amt(m.pending)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {/* phones: one short line per month */}
+                    <div className="mr-mlist">
+                      {pastMonths.map((m) => {
+                        const big = Math.max(1, m.received || 0, m.expenses || 0);
+                        return (
+                          <div key={m.key} className="mr-mrow">
+                            <span className="mr-mrow-top"><b>{monthName(m.key)}</b><b className={m.profit < 0 ? 'red' : ''}>{m.profit < 0 ? '−' : ''}{amt(m.profit)} <span className="mr-dim">{m.profit < 0 ? 'loss' : 'profit'}</span></b></span>
+                            <span className="mr-track two"><i className="in" style={{ width: `${((m.received || 0) / big) * 100}%` }} /><i className="out" style={{ width: `${((m.expenses || 0) / big) * 100}%` }} /></span>
+                            <span className="mr-mrow-sub"><span className="green">In {amt(m.received)}</span><span className="red">Out {amt(m.expenses)}</span><span className="amber">Owed {amt(m.pending)}</span></span>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <b className="red-text">−{rupees(e.amount)}</b>
-                    {isOwner && (
-                      <button type="button" className="icon-btn" aria-label={`Delete ${e.category} expense of ${rupees(e.amount)}`}
-                        onClick={() => setDeleting(e)}>
-                        <TrashIcon size={14} />
-                      </button>
-                    )}
+                  </>
+                )}
+              </section>
+
+              <div className="mr-side">
+                <section className="mr-box">
+                  <div className="mr-box-head"><h3>How members paid</h3></div>
+                  <Split rows={Object.entries(r.byMode || {})} labels={MODES} tone="mode" empty="No payments in this period yet." />
+                </section>
+                <section className="mr-box">
+                  <div className="mr-box-head">
+                    <h3>Where money went</h3>
+                    <button type="button" className="mr-link" onClick={() => setAdding(true)}><PlusIcon size={13} /> Add expense</button>
                   </div>
-                ))}
+                  {Object.values(r.byCategory || {}).some(Boolean) ? (
+                    <div className="mr-cats">
+                      {Object.entries(r.byCategory).filter(([, v]) => v).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+                        <div key={k} className="mr-cat"><span className="mr-cat-icon" aria-hidden="true">{CAT_ICON[k] || '•'}</span><span className="grow">{EXPENSE_CATEGORIES[k] || k}</span><b>−{rupees(v)}</b></div>
+                      ))}
+                    </div>
+                  ) : <p className="mr-empty">No expenses in this period. Add rent, salaries and bills to see your real profit.</p>}
+                </section>
               </div>
-            ) : (
-              <p className="muted small" style={{ margin: '8px 0 4px' }}>No expenses recorded in this period. Use “Add expense” at the top.</p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {tab === 'expenses' && (
+            <section className="mr-box mr-expenses">
+              <div className="mr-box-head">
+                <h3>Expenses <span className="mr-dim">· rent, salaries, bills paid in this period</span></h3>
+                <button type="button" className="mr-link" onClick={() => setAdding(true)}><PlusIcon size={13} /> Add expense</button>
+              </div>
+              {expenses.length ? (
+                <div className="mr-exp-list">
+                  {expenses.map((e) => (
+                    <div key={e._id} className="mr-exp">
+                      <span className="mr-cat-icon" aria-hidden="true">{CAT_ICON[e.category] || '•'}</span>
+                      <span className="grow mr-exp-text">
+                        <b>{e.category === 'other' && e.label ? e.label : EXPENSE_CATEGORIES[e.category] || e.category}</b>
+                        <span>{fmtDay(e.date)}{e.note ? ` · ${e.note}` : ''}</span>
+                      </span>
+                      <b className="red">−{rupees(e.amount)}</b>
+                      {can(biz, DELETE) && (
+                        <button type="button" className="mr-del" aria-label={`Delete ${e.category} expense of ${rupees(e.amount)}`} onClick={() => setDeleting(e)}>
+                          <TrashIcon size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mr-empty">No expenses recorded in this period.</p>
+              )}
+            </section>
           )}
         </>
       )}

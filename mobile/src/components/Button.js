@@ -1,5 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { Spinner } from './Loader';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Button({
@@ -27,7 +28,7 @@ export default function Button({
       case 'danger':
         return theme.colors.danger;
       case 'whatsapp':
-        return theme.colors.primary; // matching web's .btn.wa (#10B981)
+        return theme.colors.success; // WhatsApp stays green, like the web's .btn.wa
       case 'ghost':
         return 'transparent';
       default:
@@ -105,7 +106,7 @@ export default function Button({
         style,
       ]}>
       {loading ? (
-        <ActivityIndicator size="small" color={getTextColor()} />
+        <Spinner size={18} color={getTextColor()} track="rgba(255, 255, 255, 0.3)" />
       ) : (
         <View style={styles.content}>
           {icon && <View style={styles.iconWrap}>{icon}</View>}

@@ -49,7 +49,7 @@ export async function exportDuesCsv(req, res, next) {
       dueRemaining(list, paidBy.get(memberId) || 0).forEach((remaining, i) => {
         if (remaining <= 0) return;
         const d = list[i];
-        rows.push([d.dueDate, m.name, m.phone, `${day(d.periodStart)} to ${day(d.periodEnd)}`, d.amount, d.amount - remaining, remaining,
+        rows.push([d.dueDate, m.name, m.phone, d.kind === 'sale' ? `Sale: ${d.label}` : `${day(d.periodStart)} to ${day(d.periodEnd)}`, d.amount, d.amount - remaining, remaining,
           Math.max(0, Math.floor((Date.now() - d.dueDate) / 86400000)), m.status]);
       });
     }

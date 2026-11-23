@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { CheckCircleIcon } from '../ui.jsx';
+import { CheckCircleIcon, Loader } from '../ui.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const PHONE_KEY = 'checkin-phone';
@@ -34,7 +34,7 @@ export default function CheckIn() {
     onSuccess: (d) => { if (!d.choose) remember(phone); },
   });
 
-  if (isLoading) return <p className="center">Loading…</p>;
+  if (isLoading) return <Loader page />;
   if (linkError) {
     return (
       <main className="checkin">

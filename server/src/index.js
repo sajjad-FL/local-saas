@@ -27,7 +27,17 @@ const app = express();
 if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
 
 // Standard Middlewares
-app.use(cors());
+// Any website or app may call the API (sign-in is by token, not cookies, so this is safe).
+// Preflight (OPTIONS) requests are answered here, before auth or any other route.
+const corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Disposition'],
+  maxAge: 86400,
+};
+app.use(cors(corsOptions));
+app.options('/{*any}', cors(corsOptions));
 app.use(express.json({ limit: '5mb' })); // biometric attendance imports can be ~1 MB a month
 
 // Routes

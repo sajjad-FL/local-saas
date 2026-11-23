@@ -8,10 +8,42 @@ export async function getMembers(req, res, next) {
       memberBalances(req.business._id),
     ]);
     const memberIds = members.map((m) => m._id);
-    const [subs, payments] = await Promise.all([
+    const attendanceOn = req.business.attendanceEnabled !== false;
+    const [subs, payments, visits, dues] = await Promise.all([
       Subscription.find({ memberId: { $in: memberIds } }).populate('planId').sort('-createdAt'),
       Payment.find({ memberId: { $in: memberIds } }),
+      // the last day each member was marked present, for the "Last visit" column
+      attendanceOn
+        ? Attendance.aggregate([
+          { $match: { memberId: { $in: memberIds }, status: 'present' } },
+          { $group: { _id: '$memberId', last: { $max: '$day' } } },
+        ])
+        : [],
+      Due.find({ memberId: { $in: memberIds } }).select('memberId amount dueDate').sort('dueDate').lean(),
     ]);
+    const lastVisitMap = new Map(visits.map((v) => [String(v._id), v.last]));
+
+    // How late each member is: payments clear the oldest dues first, so the first due
+    // that the total paid doesn't cover is the one they've owed since.
+    const duesBy = new Map();
+    for (const d of dues) {
+      const k = String(d.memberId);
+      if (!duesBy.has(k)) duesBy.set(k, []);
+      duesBy.get(k).push(d);
+    }
+    const lateInfo = (memberId, paid) => {
+      let left = paid;
+      let since = null;
+      let unpaidCycles = 0;
+      for (const d of duesBy.get(memberId) || []) {
+        if (left >= d.amount) { left -= d.amount; continue; }
+        left = 0;
+        if (d.dueDate > new Date()) continue; // billed ahead, not due yet
+        since = since || d.dueDate;
+        unpaidCycles += 1;
+      }
+      return { owingSince: since, unpaidCycles };
+    };
 
     const subMap = new Map();
     for (const s of subs) {
@@ -21,9 +53,12 @@ export async function getMembers(req, res, next) {
     }
 
     const paidMap = new Map();
+    const lastPaymentMap = new Map();
     for (const p of payments) {
       const mid = String(p.memberId);
       paidMap.set(mid, (paidMap.get(mid) || 0) + p.amount);
+      const prev = lastPaymentMap.get(mid);
+      if (!prev || p.date > prev.date) lastPaymentMap.set(mid, p);
     }
 
     res.json(
@@ -40,6 +75,11 @@ export async function getMembers(req, res, next) {
           nextRenewal: s?.periodEnd || null,
           subscription: s,
           totalPaid: paidMap.get(String(m._id)) || 0,
+          lastPaidAt: lastPaymentMap.get(String(m._id))?.date || null,
+          lastPaidMode: lastPaymentMap.get(String(m._id))?.mode || null,
+          lastVisit: attendanceOn ? lastVisitMap.get(String(m._id)) || null : undefined, // 'YYYY-MM-DD'
+          // oldest unpaid due date (null when nothing is overdue) and how many cycles are unpaid
+          ...lateInfo(String(m._id), paidMap.get(String(m._id)) || 0),
         };
       })
     );
@@ -96,12 +136,15 @@ export async function updateMember(req, res, next) {
       const err = await roomFullError(roomId, req.member.businessId, req.member._id);
       if (err) return res.status(400).json({ error: err });
     }
+    const wasLeft = req.member.status === 'left';
     Object.assign(
       req.member,
       Object.fromEntries(
         Object.entries({ name, phone, groupId, status, roomId, deposit, noticeGivenOn, biometricId }).filter(([, v]) => v !== undefined)
       )
     );
+    if (req.member.status === 'left' && !wasLeft) req.member.leftAt = new Date();
+    if (req.member.status !== 'left') req.member.leftAt = undefined;
     await req.member.save();
     if (req.member.status === 'left') {
       await Subscription.updateMany({ memberId: req.member._id, status: 'active' }, { status: 'stopped' });
@@ -259,11 +302,9 @@ export async function shareStatement(req, res, next) {
 }
 
 // owner only — reverses a mis-entered payment; dues are re-derived so the balance corrects itself
+// owner, or staff with Full access (the access check runs before this)
 export async function deletePayment(req, res, next) {
   try {
-    if (!req.business.ownerId.equals(req.userId)) {
-      return res.status(403).json({ error: 'owner only' });
-    }
     const payment = await Payment.findOneAndDelete({ _id: req.params.paymentId, memberId: req.member._id });
     if (!payment) return res.status(404).json({ error: 'payment not found' });
     await recomputeDues(req.member._id);

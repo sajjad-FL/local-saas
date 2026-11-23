@@ -1,6 +1,7 @@
 // Shared UI components, modern icons, and motion helpers.
 import { useEffect, useRef } from 'react';
 import { motion, animate, AnimatePresence } from 'framer-motion';
+import { LogoMark } from './brand.jsx';
 
 const icon = (children, filled) => function Icon({ size = 20, ...props }) {
   return (
@@ -22,6 +23,8 @@ export const RupeeIcon = icon(<><path d="M6 3h12" /><path d="M6 8h12" /><path d=
 export const AlertIcon = icon(<><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></>);
 export const CheckCircleIcon = icon(<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>);
 export const CheckIcon = icon(<polyline points="20 6 9 17 4 12" />);
+export const EyeIcon = icon(<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>);
+export const EyeOffIcon = icon(<><path d="M10.6 5.1A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.2" /><path d="M6.6 6.6A16.7 16.7 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><line x1="2" x2="22" y1="2" y2="22" /></>);
 export const BedIcon = icon(<><path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v9" /></>);
 export const DownloadIcon = icon(<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></>);
 export const PlusIcon = icon(<><path d="M5 12h14" /><path d="M12 5v14" /></>);
@@ -144,6 +147,19 @@ export function Avatar({ name, lg }) {
       }}>
       {initials}
     </span>
+  );
+}
+
+// The LocalSaaS loader: the logo with a purple arc turning around it.
+// `page` fills the screen (app start, public pages); otherwise it sits inline in a card.
+export function Loader({ label = 'Loading', page = false }) {
+  return (
+    <div className={`loader${page ? ' loader-page' : ''}`} role="status" aria-live="polite">
+      <span className="loader-ring" aria-hidden="true">
+        <LogoMark size={page ? 30 : 24} />
+      </span>
+      <span className="loader-label">{label}<span className="loader-dots" aria-hidden="true"><i /><i /><i /></span></span>
+    </div>
   );
 }
 

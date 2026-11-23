@@ -6,6 +6,7 @@ import { api, rupees, waLink } from '../api.js';
 import {
   Avatar, ShieldIcon, SearchIcon, XIcon, PhoneIcon, WhatsAppIcon, CopyIcon, LogOutIcon,
   PauseIcon, PlayIcon, ChevronIcon, BIZ_TYPES,
+  Loader,
 } from '../ui.jsx';
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
@@ -151,7 +152,7 @@ function BusinessDetail({ id, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
         className="modal-content admin-detail" onClick={(e) => e.stopPropagation()}>
-        {!b ? <p className="muted">Loading…</p> : (
+        {!b ? <Loader /> : (
           <>
             <div className="form-header" style={{ marginBottom: 12 }}>
               <div style={{ minWidth: 0 }}>

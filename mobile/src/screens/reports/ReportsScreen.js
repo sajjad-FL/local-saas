@@ -19,6 +19,7 @@ import Card from '../../components/Card';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
+import { ScreenSkeleton } from '../../components/Loader';
 import { tinted } from '../../constants/theme';
 import AddExpenseModal from '../modals/AddExpenseModal';
 
@@ -119,6 +120,7 @@ export default function ReportsScreen({ navigation }) {
   const [step, setStep] = useState(0);
   const [tab, setTab] = useState('breakdown'); // 'breakdown' | 'expenses' | 'members'
   const [report, setReport] = useState(null);
+  const [loaded, setLoaded] = useState(false); // the first fetch has finished
   const [dashboardData, setDashboardData] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [search, setSearch] = useState('');
@@ -146,6 +148,8 @@ export default function ReportsScreen({ navigation }) {
       setExpenses(Array.isArray(exp) ? exp : []);
     } catch (err) {
       console.warn('Reports fetch error:', err);
+    } finally {
+      setLoaded(true);
     }
   }, [biz?._id, range.from, range.to]);
 
@@ -229,6 +233,8 @@ export default function ReportsScreen({ navigation }) {
     return m.name.toLowerCase().includes(qLower) || (m.phone || '').includes(qLower);
   });
 
+  if (!loaded) return <ScreenSkeleton navigation={navigation} kind="reports" />;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* TopBar with Brand and Theme Toggle */}
@@ -240,7 +246,7 @@ export default function ReportsScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
+            tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card}
           />
         }>
         {/* PAGE TITLE & ACTION BUTTONS */}
@@ -250,7 +256,7 @@ export default function ReportsScreen({ navigation }) {
           <View style={styles.actionRow}>
             <TouchableOpacity
               activeOpacity={0.8}
-              style={[styles.btnAddExpense, { backgroundColor: '#10B981' }]}
+              style={[styles.btnAddExpense, { backgroundColor: theme.colors.primary }]}
               onPress={() => setAddExpenseOpen(true)}>
               <Text style={styles.btnAddExpenseText}>+ Add expense</Text>
             </TouchableOpacity>
@@ -343,7 +349,7 @@ export default function ReportsScreen({ navigation }) {
           {/* Received */}
           <Card style={[styles.kpiHalfCard, tinted(theme, '#10B981')]}>
             <Text style={[styles.kpiLabel, { color: theme.colors.textMuted }]}>Received</Text>
-            <Text style={[styles.kpiVal, { color: received ? theme.colors.primary : theme.colors.text }]}>
+            <Text style={[styles.kpiVal, { color: received ? theme.colors.successDark : theme.colors.text }]}>
               {rupees(received)}
             </Text>
             <Text style={[styles.kpiSub, { color: theme.colors.textMuted }]}>

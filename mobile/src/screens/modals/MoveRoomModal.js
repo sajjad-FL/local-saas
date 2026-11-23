@@ -6,6 +6,7 @@ import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
+import Loader from '../../components/Loader';
 
 const natural = (a, b) =>
   String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
@@ -28,6 +29,7 @@ export default function MoveRoomModal({
   const [onDate, setOnDate] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [roomsLoading, setRoomsLoading] = useState(false);
 
   const currentRoomId = String(member?.roomId?._id || member?.roomId || '');
 
@@ -38,6 +40,7 @@ export default function MoveRoomModal({
       setOnDate(new Date().toISOString().slice(0, 10));
       setError('');
 
+      setRoomsLoading(true);
       (async () => {
         try {
           const [rList, gList] = await Promise.all([
@@ -54,6 +57,8 @@ export default function MoveRoomModal({
           setBuildingId(String(currentBId));
         } catch (err) {
           console.warn('Error fetching rooms for move', err);
+        } finally {
+          setRoomsLoading(false);
         }
       })();
     }
@@ -182,6 +187,7 @@ export default function MoveRoomModal({
         <Text style={[styles.sectionLabel, { color: theme.colors.text, marginTop: 12 }]}>
           Available Rooms
         </Text>
+        {roomsLoading && <Loader label="Loading rooms" />}
         <View style={styles.roomGrid}>
           {filteredRooms.map((r) => {
             const occupied = r.occupied || 0;

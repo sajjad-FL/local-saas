@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 1180px; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="border: 1px solid #E7E9F0; border-radius: 12px; display: flex; align-items: center; gap: 10px; padding: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Enquiries</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Setup</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 18px">
+    <!-- header with the person, like a profile page -->
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 14px">
+        <span style="width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, #5B3DF5, #8B5CF6); color: #FFFFFF; display: grid; place-items: center; font-weight: 700; font-size: 20px">SA</span>
+        <div>
+          <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">Sajjad Alam · +91 75697 54107 · Owner</p>
+          <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Settings</h1>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 14px">Edit profile</button>
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 14px">Change password</button>
+      </div>
+    </div>
+
+    <!-- health check: what's working, what needs you — same icon cards as Collect -->
+    <section aria-label="At a glance" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{health}}" as="h" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid {{h.border}}; border-radius: 14px">
+          <span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: {{h.bg}}; color: {{h.ink}}; display: grid; place-items: center; font-weight: 700">{{h.icon}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 12.5px; color: #64748B; font-weight: 500">{{h.label}}</span><b style="font-size: 15px; color: {{h.valueInk}}">{{h.value}}</b></span>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start">
+      <!-- LEFT: money -->
+      <div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; overflow: hidden">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 16px 18px 0"><span style="width: 30px; height: 30px; border-radius: 9px; background: #ECFDF3; color: #066B3F; display: grid; place-items: center; font-weight: 700; font-size: 14px">₹</span><b style="font-size: 15.5px">How members pay you</b></div>
+          <!-- the UPI card looks like what members see -->
+          <div style="margin: 14px 18px; padding: 18px; border-radius: 16px; background: linear-gradient(135deg, #1E1B4B 0%, #3D27B8 60%, #5B3DF5 100%); color: #FFFFFF; display: flex; align-items: center; gap: 18px">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 12px; opacity: .75; letter-spacing: .06em; text-transform: uppercase; font-weight: 600">Pay KK Fitness by UPI</span>
+              <b style="font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: .01em">7002729745@ybl</b>
+              <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px"><i style="width: 8px; height: 8px; border-radius: 99px; background: #4ADE80"></i>Working · last ₹1 test passed on 12 Nov</span>
+            </span>
+            <span aria-label="QR code preview" style="width: 84px; height: 84px; border-radius: 12px; background: #FFFFFF; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 8px; box-sizing: border-box">
+              <sc-for list="{{qr}}" as="q" hint-placeholder-count="49"><i style="background: {{q}}; border-radius: 1px"></i></sc-for>
+            </span>
+          </div>
+          <div style="display: flex; gap: 8px; padding: 0 18px 16px">
+            <button type="button" style="flex: 1; height: 40px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 13.5px">Send ₹1 test</button>
+            <button type="button" style="flex: 1; height: 40px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 13.5px">Change UPI ID</button>
+            <button type="button" style="flex: 1; height: 40px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 13.5px">Print QR poster</button>
+          </div>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; overflow: hidden">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 16px 18px 4px"><span style="width: 30px; height: 30px; border-radius: 9px; background: #F0FBF5; color: #066B3F; display: grid; place-items: center; font-weight: 700; font-size: 14px">✆</span><b style="font-size: 15.5px">WhatsApp reminders</b></div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px 18px">
+            <span style="flex: 1; display: flex; flex-direction: column"><b style="font-weight: 600; font-size: 14px">Send them automatically</b><span style="font-size: 12.5px; color: #64748B">Every day at 10 AM to members who owe, with your pay link</span></span>
+            <span role="switch" aria-checked="true" style="width: 44px; height: 26px; border-radius: 99px; background: #5B3DF5; position: relative"><i style="position: absolute; right: 3px; top: 3px; width: 20px; height: 20px; border-radius: 99px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></i></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-top: 1px solid #EEF0F5">
+            <span style="flex: 1; display: flex; flex-direction: column"><b style="font-weight: 600; font-size: 14px">Same member at most every</b><span style="font-size: 12.5px; color: #64748B">Fewer messages keep members from muting you</span></span>
+            <div role="radiogroup" style="display: flex; gap: 4px; padding: 3px; background: #F4F6FA; border-radius: 10px">
+              <sc-for list="{{every}}" as="e" hint-placeholder-count="3"><button type="button" onClick="{{e.pick}}" style="height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: {{e.bg}}; box-shadow: {{e.shadow}}; color: {{e.ink}}; font-weight: {{e.weight}}; font-size: 13px">{{e.label}}</button></sc-for>
+            </div>
+          </div>
+          <!-- message preview so the owner knows what members get -->
+          <div style="margin: 4px 18px 16px; padding: 12px; border-radius: 12px; background: #ECE5DD">
+            <div style="max-width: 82%; margin-left: auto; padding: 9px 11px; border-radius: 10px 10px 2px 10px; background: #DCF8C6; font-size: 13px; line-height: 1.45; color: #111B21">Hi Rohit, your KK Fitness fee of ₹1,500 was due on 10 Nov. Pay here: upi://pay?pa=7002729745@ybl… 🙏<span style="display: block; text-align: right; font-size: 11px; color: #667781; margin-top: 2px">10:00 AM</span></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid #FCE7C3; background: #FFFBF2; font-size: 12.5px; color: #92400E"><b style="font-weight: 600">Not connected yet.</b>Until WhatsApp is connected on the server, tap Remind on Collect — WhatsApp opens with this message ready.</div>
+        </section>
+      </div>
+
+      <!-- RIGHT: this outlet + data -->
+      <div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; overflow: hidden">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 16px 18px"><span style="width: 40px; height: 40px; border-radius: 11px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700">KF</span><span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 15.5px">KK Fitness</b><span style="font-size: 12.5px; color: #64748B">Gym · this outlet's settings</span></span><button type="button" style="height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; font-weight: 600; font-size: 13px">Rename</button></div>
+          <sc-for list="{{outletRows}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-top: 1px solid #EEF0F5">
+              <span style="width: 30px; height: 30px; flex: none; border-radius: 9px; background: {{r.bg}}; color: {{r.ink}}; display: grid; place-items: center; font-size: 13px">{{r.icon}}</span>
+              <span style="flex: 1; display: flex; flex-direction: column"><b style="font-weight: 600; font-size: 14px">{{r.label}}</b><span style="font-size: 12.5px; color: #64748B">{{r.hint}}</span></span>
+              <sc-if value="{{r.toggle}}" hint-placeholder-val="{{ false }}"><span role="switch" aria-checked="true" style="width: 44px; height: 26px; border-radius: 99px; background: #5B3DF5; position: relative"><i style="position: absolute; right: 3px; top: 3px; width: 20px; height: 20px; border-radius: 99px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2)"></i></span></sc-if>
+              <sc-if value="{{r.link}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; color: #4A2EE6; font-weight: 600">{{r.action}} ›</span></sc-if>
+            </div>
+          </sc-for>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 30px; height: 30px; border-radius: 9px; background: #EEF4FF; color: #1D4ED8; display: grid; place-items: center; font-size: 14px">↓</span><span style="display: flex; flex-direction: column"><b style="font-size: 15.5px">Download your data</b><span style="font-size: 12.5px; color: #64748B">Opens in Excel or Google Sheets</span></span></div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+            <sc-for list="{{downloads}}" as="d" hint-placeholder-count="4">
+              <button type="button" style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px; border: 1px solid #E7E9F0; border-radius: 12px; background: #FAFBFC; text-align: left; color: #0F172A"><b style="font-size: 13.5px; font-weight: 600">{{d.label}}</b><span style="font-size: 12px; color: #64748B">{{d.hint}}</span></button>
+            </sc-for>
+          </div>
+        </section>
+
+        <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; overflow: hidden">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px"><span style="flex: 1; display: flex; flex-direction: column"><b style="font-weight: 600; font-size: 14px">Look</b><span style="font-size: 12.5px; color: #64748B">On this device</span></span>
+            <div style="display: flex; gap: 4px; padding: 3px; background: #F4F6FA; border-radius: 10px"><span style="height: 30px; padding: 0 12px; border-radius: 8px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(15,23,42,.08); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center">☀ Light</span><span style="height: 30px; padding: 0 12px; color: #475569; font-size: 13px; display: inline-flex; align-items: center">☾ Dark</span></div></div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-top: 1px solid #EEF0F5"><span style="flex: 1; display: flex; flex-direction: column"><b style="font-weight: 600; font-size: 14px">Sign out</b><span style="font-size: 12.5px; color: #64748B">On this device only</span></span><button type="button" style="height: 34px; padding: 0 12px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; font-weight: 600; font-size: 13px">Sign out</button></div>
+        </section>
+
+        <!-- danger stays out of the way until asked for -->
+        <details style="background: #FFFFFF; border: 1px solid #F5C2BD; border-radius: 18px; padding: 14px 18px">
+          <summary style="cursor: pointer; font-weight: 600; font-size: 14px; color: #B42318">Danger zone · clear data or delete this outlet</summary>
+        </details>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { every: 0 }; }
+  renderVals() {
+    const pattern = '1110111101010111011101000000010111010101011101111';
+    return {
+      health: [
+        { icon: '₹', bg: '#ECFDF3', ink: '#066B3F', label: 'UPI payments', value: '✓ Working', valueInk: '#066B3F', border: '#E7E9F0' },
+        { icon: '✆', bg: '#FFF6E5', ink: '#92400E', label: 'Auto reminders', value: 'Not connected', valueInk: '#B45309', border: '#FCE7C3' },
+        { icon: '✓', bg: '#EEF4FF', ink: '#1D4ED8', label: 'Attendance', value: 'On · QR check-in', valueInk: '#0F172A', border: '#E7E9F0' },
+        { icon: '↓', bg: '#F1EEFF', ink: '#3D27B8', label: 'Last backup', value: 'Never', valueInk: '#0F172A', border: '#E7E9F0' },
+      ],
+      qr: pattern.split('').map((c) => (c === '1' ? '#0F172A' : '#FFFFFF')),
+      every: ['3 days', '5 days', '7 days'].map((label, i) => ({ label, bg: i === this.state.every ? '#FFFFFF' : 'transparent', shadow: i === this.state.every ? '0 1px 2px rgba(15,23,42,.08)' : 'none', ink: i === this.state.every ? '#0F172A' : '#475569', weight: i === this.state.every ? '600' : '500', pick: () => this.setState({ every: i }) })),
+      outletRows: [
+        { icon: '✓', bg: '#EEF4FF', ink: '#1D4ED8', label: 'Attendance', hint: 'Members scan a QR at the door. Never changes fees.', toggle: true, link: false },
+        { icon: '☺', bg: '#FCEEF6', ink: '#9D1C5E', label: 'Staff & their access', hint: '3 people', toggle: false, link: true, action: 'Setup' },
+        { icon: '₹', bg: '#ECFDF3', ink: '#066B3F', label: 'Plans & batches', hint: '3 plans · 2 batches', toggle: false, link: true, action: 'Setup' },
+      ],
+      downloads: [
+        { label: 'Everything', hint: 'Full backup file' },
+        { label: 'Payments', hint: 'Every payment received' },
+        { label: 'Unpaid fees', hint: 'Who owes what' },
+        { label: 'Expenses', hint: 'Everything you spent' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

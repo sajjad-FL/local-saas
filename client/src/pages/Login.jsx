@@ -1,13 +1,22 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { api } from '../api.js';
 import { useTheme } from '../App.jsx';
-import { DumbbellIcon, SunIcon, MoonIcon, UserIcon, PhoneIcon, ShieldIcon } from '../ui.jsx';
+import { SunIcon, MoonIcon, UserIcon, PhoneIcon, ShieldIcon, BuildingIcon, CheckIcon, EyeIcon, EyeOffIcon } from '../ui.jsx';
+import { Logo, HeroArt, TYPES, TYPE_ART } from '../brand.jsx';
 
-export default function Login({ onLogin }) {
+const POINTS_LOGIN = ['Easy setup', 'Save time', 'Stay organized', 'Grow your business'];
+const POINTS_SIGNUP = ['Manage rooms, members and payments', 'Track daily attendance', 'Get reminders and reports', 'Works for every business type'];
+
+// Sign in (mode "login") or create an account and its business in one go (mode "signup")
+export default function Login({ mode = 'login', onLogin }) {
   const { theme, toggleTheme } = useTheme();
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [form, setForm] = useState({ name: '', phone: '', password: '' });
+  const signup = mode === 'signup';
+  const [params] = useSearchParams();
+  const startType = TYPES.some((t) => t.key === params.get('type')) ? params.get('type') : 'hostel';
+  const [form, setForm] = useState({ name: '', phone: '', password: '', business: '', type: startType });
+  const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -17,7 +26,19 @@ export default function Login({ onLogin }) {
     setError('');
     setBusy(true);
     try {
-      const { token } = await api(`/auth/${mode}`, { method: 'POST', body: form });
+      const phone = form.phone.replace(/\D/g, '').slice(-10);
+      const { token } = await api(`/auth/${signup ? 'register' : 'login'}`, {
+        method: 'POST',
+        body: signup ? { name: form.name.trim(), phone, password: form.password } : { phone, password: form.password },
+      });
+      if (signup) {
+        // the business comes with the account; if this step fails they can still create it after signing in
+        localStorage.setItem('token', token);
+        try {
+          const biz = await api('/businesses', { method: 'POST', body: { name: form.business.trim(), type: form.type } });
+          if (biz?._id) localStorage.setItem('bizId', biz._id);
+        } catch { /* the app asks for the business next */ }
+      }
       onLogin(token);
     } catch (err) {
       setError(err.message);
@@ -27,127 +48,122 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div className="auth-page">
-      {/* Top right theme toggle */}
-      <div className="auth-theme-toggle">
-        <button
-          type="button"
-          className="theme-toggle-btn"
-          onClick={toggleTheme}
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          aria-label="Toggle theme">
-          {theme === 'dark' ? <SunIcon size={16} /> : <MoonIcon size={16} />}
-        </button>
-      </div>
+    <div className="auth2">
+      <header className="auth2-top">
+        <Link to="/" aria-label="LocalSaaS home"><Logo /></Link>
+        <div className="auth2-top-right">
+          <span className="auth2-switch">
+            {signup ? 'Already have an account?' : 'New to LocalSaaS?'}{' '}
+            <Link to={signup ? '/login' : '/signup'}>{signup ? 'Log in' : 'Sign up'}</Link>
+          </span>
+          <button type="button" className="theme-toggle-btn" onClick={toggleTheme} aria-label="Toggle theme"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
+            {theme === 'dark' ? <SunIcon size={16} /> : <MoonIcon size={16} />}
+          </button>
+        </div>
+      </header>
 
-      {/* Main Authentication Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="auth-card">
-        
-        {/* Brand Header */}
-        <div className="auth-brand">
-          <div className="auth-logo-wrap">
-            <DumbbellIcon size={24} />
-          </div>
-          <h1 className="auth-title">Local SaaS</h1>
-          <p className="auth-subtitle">
-            Billing, dues tracking & WhatsApp collections for gym, hostel, tuition & mess.
+      <div className="auth2-body">
+        {/* left: the pitch */}
+        <aside className="auth2-pitch">
+          <HeroArt className="auth2-art" />
+          <span className="brand-chip">{signup ? 'Start in minutes' : 'All-in-one management'}</span>
+          <h1 className="auth2-headline">
+            {signup ? <>Create your <em>account</em></> : <>A calmer way to run your <em>business.</em></>}
+          </h1>
+          <p className="auth2-lead">
+            {signup
+              ? 'Set up your business and start managing everything in one place.'
+              : 'Manage rooms, members, payments and daily operations for PGs, hostels, tuition centres, gyms and mess — all in one simple platform.'}
           </p>
-        </div>
+          <ul className={signup ? 'auth2-checks' : 'auth2-points'}>
+            {(signup ? POINTS_SIGNUP : POINTS_LOGIN).map((p) => (
+              <li key={p}><span aria-hidden="true"><CheckIcon size={14} /></span>{p}</li>
+            ))}
+          </ul>
+        </aside>
 
-        {/* Tab Switcher */}
-        <div className="auth-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'login'}
-            className={`auth-tab-btn ${mode === 'login' ? 'active' : ''}`}
-            onClick={() => { setError(''); setMode('login'); }}>
-            Login
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'register'}
-            className={`auth-tab-btn ${mode === 'register' ? 'active' : ''}`}
-            onClick={() => { setError(''); setMode('register'); }}>
-            Create Account
-          </button>
-        </div>
+        {/* right: the form */}
+        <motion.form
+          className="auth2-card"
+          onSubmit={submit}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+          <h2 className="auth2-title">{signup ? 'Create your account' : 'Welcome back'}</h2>
+          <p className="auth2-sub">{signup ? 'Tell us a few details to get started.' : 'Sign in to manage your business'}</p>
 
-        {/* Auth Form */}
-        <form className="auth-form" onSubmit={submit}>
-          <AnimatePresence mode="wait">
-            {mode === 'register' && (
-              <motion.div
-                key="register-name"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}>
-                <div className="field" style={{ marginBottom: 12 }}>
-                  <label className="input-label">
-                    <UserIcon size={14} /> Full Name
-                  </label>
-                  <input
-                    autoComplete="name"
-                    placeholder="e.g. Rahul Sharma"
-                    required
-                    value={form.name}
-                    onChange={set('name')}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {signup && (
+            <fieldset className="auth2-types">
+              <legend>Business type</legend>
+              <div className="type-tiles">
+                {TYPES.map((t) => {
+                  const Art = TYPE_ART[t.key];
+                  const on = form.type === t.key;
+                  return (
+                    <label key={t.key} className={`type-tile${on ? ' on' : ''}`}>
+                      <input type="radio" name="type" value={t.key} checked={on} onChange={set('type')} />
+                      <span className="type-tile-check" aria-hidden="true">{on && <CheckIcon size={12} />}</span>
+                      <Art />
+                      <b>{t.title}</b>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
 
-          <div className="field">
-            <label className="input-label">
-              <PhoneIcon size={14} /> Mobile Phone Number
+          {signup && (
+            <label className="auth2-field">
+              <span>Full name</span>
+              <span className="auth2-input"><UserIcon size={17} />
+                <input autoComplete="name" placeholder="Enter your full name" required value={form.name} onChange={set('name')} />
+              </span>
             </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              placeholder="10-digit mobile number"
-              required
-              value={form.phone}
-              onChange={set('phone')}
-            />
-          </div>
+          )}
 
-          <div className="field">
-            <label className="input-label">
-              <ShieldIcon size={14} /> Password
+          <label className="auth2-field">
+            <span>Mobile number</span>
+            <span className="auth2-input">
+              {signup ? <span className="auth2-cc">+91</span> : <PhoneIcon size={17} />}
+              <input type="tel" inputMode="numeric" autoComplete="tel" placeholder="10-digit mobile number" required
+                pattern="[0-9 +\-]{10,14}" title="10-digit mobile number" value={form.phone} onChange={set('phone')} />
+            </span>
+          </label>
+
+          {signup && (
+            <label className="auth2-field">
+              <span>Business name</span>
+              <span className="auth2-input"><BuildingIcon size={17} />
+                <input placeholder="e.g. Green Nest PG" required maxLength={60} value={form.business} onChange={set('business')} />
+              </span>
             </label>
-            <input
-              type="password"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder="••••••••"
-              required
-              value={form.password}
-              onChange={set('password')}
-            />
-          </div>
+          )}
 
-          {error && <p className="small red-text" role="alert" style={{ marginTop: 2 }}>{error}</p>}
+          <label className="auth2-field">
+            <span>Password</span>
+            <span className="auth2-input"><ShieldIcon size={17} />
+              <input type={show ? 'text' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'}
+                placeholder={signup ? 'Create a password' : 'Enter your password'} required minLength={signup ? 6 : undefined}
+                value={form.password} onChange={set('password')} />
+              <button type="button" className="auth2-eye" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'}>
+                {show ? <EyeOffIcon size={17} /> : <EyeIcon size={17} />}
+              </button>
+            </span>
+          </label>
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="btn"
-            style={{ width: '100%', minHeight: 38, fontSize: 13, fontWeight: 600, marginTop: 6, background: 'var(--green)' }}>
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign In to Workspace' : 'Create Free Account'}
+          {error && <p className="auth2-error" role="alert">{error}</p>}
+
+          <button type="submit" className="auth2-submit" disabled={busy}>
+            {busy ? 'Please wait…' : signup ? 'Sign up' : 'Log in'}
           </button>
-        </form>
 
-        <div className="auth-footer-note">
-          <span>Works on any phone or computer · Data exportable anytime</span>
-        </div>
-      </motion.div>
+          <p className="auth2-alt">
+            {signup ? 'Already have an account?' : 'New to LocalSaaS?'}{' '}
+            <Link to={signup ? '/login' : '/signup'}>{signup ? 'Log in' : 'Sign up'}</Link>
+          </p>
+        </motion.form>
+      </div>
     </div>
   );
 }

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, Linking, ScrollView } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../context/ThemeContext';
-import { api, rupees, remindMsg, waLink } from '../../api/api';
+import { api, rupees, remindMsg, waLink, WEB_URL } from '../../api/api';
 import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
+import Loader from '../../components/Loader';
 
 export default function SendReminderModal({
   visible,
@@ -28,7 +29,7 @@ export default function SendReminderModal({
         try {
           const share = await api(`/members/${member._id}/share`, { method: 'POST' });
           if (share?.token) {
-            url = `https://app.example.com/s/${share.token}`;
+            url = `${WEB_URL}/s/${share.token}`;
           }
         } catch {
           // ignore
@@ -70,6 +71,7 @@ export default function SendReminderModal({
           Reminder includes the pending amount, your direct UPI payment link, and the member's verified statement link.
         </Text>
 
+        {loading ? <Loader label="Preparing the message" /> : (
         <Input
           label="Message Preview (Editable)"
           value={customMsg}
@@ -78,6 +80,7 @@ export default function SendReminderModal({
           numberOfLines={6}
           style={{ minHeight: 120 }}
         />
+        )}
 
         <View style={{ gap: 8, marginTop: 4 }}>
           <Button

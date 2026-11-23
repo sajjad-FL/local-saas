@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4A2EE6}a:hover{color:#3D27B8}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid #E7E9F0; border-radius: 12px">
+      <span style="width: 34px; height: 34px; border-radius: 9px; background: #F1EEFF; color: #3D27B8; display: grid; place-items: center; font-weight: 700; font-size: 13px">KF</span>
+      <span style="display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">KK Fitness</b><span style="font-size: 12px; color: #64748B">Gym · 24 members</span></span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Attendance</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Plans &amp; setup</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 18px">
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+      <div>
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">Friday, 20 November</p>
+        <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Good evening, Sajjad</h1>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">₹ Add expense</button>
+        <button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ Add member</button>
+      </div>
+    </div>
+
+    <!-- one money card for the month: what came in against what was billed, and what's left -->
+    <section aria-label="This month" style="display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; box-shadow: 0 1px 2px rgba(15,23,42,.04); overflow: hidden">
+      <div style="padding: 20px 22px; border-right: 1px solid #EEF0F5">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <span style="font-size: 13px; font-weight: 600; color: #64748B">Collected in November</span>
+          <span style="font-size: 13px; font-weight: 600; color: #066B3F">{{pct}}%</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 6px">
+          <b style="font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums">₹38,000</b>
+          <span style="font-size: 14px; color: #64748B">of ₹52,500 billed</span>
+        </div>
+        <div role="img" aria-label="72% of this month's fees collected" style="height: 8px; margin-top: 14px; border-radius: 99px; background: #EEF0F5; overflow: hidden; display: flex">
+          <span style="width: 72%; background: #16A34A"></span>
+        </div>
+      </div>
+      <a href="#" style="padding: 20px 22px; border-right: 1px solid #EEF0F5; text-decoration: none; color: #0F172A; display: flex; flex-direction: column; gap: 6px; background: #FFF8F7">
+        <span style="font-size: 13px; font-weight: 600; color: #B42318">Still to collect</span>
+        <b style="font-size: 26px; font-weight: 700; color: #B42318; font-variant-numeric: tabular-nums">₹14,500</b>
+        <span style="font-size: 13px; color: #64748B">from 5 members →</span>
+      </a>
+      <a href="#" style="padding: 20px 22px; border-right: 1px solid #EEF0F5; text-decoration: none; color: #0F172A; display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 13px; font-weight: 600; color: #64748B">Spent</span>
+        <b style="font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums">₹12,000</b>
+        <span style="font-size: 13px; color: #64748B">rent, salary, bills</span>
+      </a>
+      <a href="#" style="padding: 20px 22px; text-decoration: none; color: #0F172A; display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 13px; font-weight: 600; color: #64748B">Profit</span>
+        <b style="font-size: 26px; font-weight: 700; color: #066B3F; font-variant-numeric: tabular-nums">₹26,000</b>
+        <span style="font-size: 13px; color: #64748B">collected minus spent</span>
+      </a>
+    </section>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 18px; align-items: start">
+
+      <!-- today's work: one list, three reasons to reach out -->
+      <section aria-labelledby="todo-title" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; box-shadow: 0 1px 2px rgba(15,23,42,.04)">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 20px 0">
+          <div>
+            <h2 id="todo-title" style="margin: 0; font-size: 17px; font-weight: 700">Follow up today</h2>
+            <p style="margin: 2px 0 0; font-size: 13px; color: #64748B">{{tabHint}}</p>
+          </div>
+          <sc-if value="{{canRemindAll}}" hint-placeholder-val="{{ true }}">
+            <button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #D5F0E2; border-radius: 10px; background: #F0FBF5; color: #066B3F; font-weight: 600; font-size: 13px">Remind all {{count}} on WhatsApp</button>
+          </sc-if>
+        </div>
+        <div role="tablist" aria-label="Who to follow up" style="display: flex; gap: 4px; padding: 14px 16px 0; border-bottom: 1px solid #EEF0F5">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+            <sc-if value="{{t.on}}" hint-placeholder-val="{{ false }}">
+              <button type="button" role="tab" aria-selected="true" onClick="{{t.pick}}" style="height: 40px; padding: 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid #5B3DF5; background: none; color: #3D27B8; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px">
+                <span style="width: 8px; height: 8px; border-radius: 99px; background: {{t.dot}}"></span>{{t.label}}<span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: #5B3DF5; color: #FFFFFF; font-size: 12px; display: grid; place-items: center">{{t.count}}</span>
+              </button>
+            </sc-if>
+            <sc-if value="{{t.off}}" hint-placeholder-val="{{ true }}">
+              <button type="button" role="tab" aria-selected="false" onClick="{{t.pick}}" style="height: 40px; padding: 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: #64748B; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px">
+                <span style="width: 8px; height: 8px; border-radius: 99px; background: {{t.dot}}"></span>{{t.label}}<span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 99px; background: #F1F3F7; color: #475569; font-size: 12px; display: grid; place-items: center">{{t.count}}</span>
+              </button>
+            </sc-if>
+          </sc-for>
+        </div>
+        <ul style="list-style: none; margin: 0; padding: 6px 8px 8px">
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+            <li style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px">
+              <span style="width: 38px; height: 38px; flex: none; border-radius: 99px; background: {{r.avBg}}; color: {{r.avInk}}; display: grid; place-items: center; font-size: 13px; font-weight: 700">{{r.initials}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+                <b style="font-weight: 600; font-size: 14.5px">{{r.name}}</b>
+                <span style="font-size: 12.5px; color: {{r.subInk}}; font-weight: 500">{{r.sub}}</span>
+              </span>
+              <b style="font-size: 15px; font-weight: 700; color: {{r.amtInk}}; font-variant-numeric: tabular-nums; min-width: 72px; text-align: right">{{r.amount}}</b>
+              <span style="display: flex; gap: 6px">
+                <button type="button" aria-label="WhatsApp {{r.name}}" style="width: 36px; height: 36px; border: 1px solid #D5F0E2; border-radius: 10px; background: #F0FBF5; color: #066B3F; display: grid; place-items: center; padding: 0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-13.3 7.9L3 21l1.1-4.6A9 9 0 1 1 21 12Z"></path></svg>
+                </button>
+                <button type="button" style="height: 36px; min-width: 96px; padding: 0 12px; border: {{r.ctaBorder}}; border-radius: 10px; background: {{r.ctaBg}}; color: {{r.ctaInk}}; font-size: 13px; font-weight: 600">{{r.cta}}</button>
+              </span>
+            </li>
+          </sc-for>
+        </ul>
+        <a href="#" style="display: block; padding: 12px 20px 16px; border-top: 1px solid #EEF0F5; font-size: 13px; font-weight: 600; text-decoration: none; color: #4A2EE6">See all in Members →</a>
+      </section>
+
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <!-- attendance at a glance, with the one button that matters -->
+        <section aria-labelledby="att-title" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(15,23,42,.04)">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <svg width="64" height="64" viewBox="0 0 36 36" role="img" aria-label="14 of 24 members came in today">
+              <circle cx="18" cy="18" r="15.5" fill="none" stroke="#EEF0F5" stroke-width="4"></circle>
+              <circle cx="18" cy="18" r="15.5" fill="none" stroke="#5B3DF5" stroke-width="4" stroke-linecap="round" stroke-dasharray="56.8 97.4" transform="rotate(-90 18 18)"></circle>
+            </svg>
+            <div style="flex: 1">
+              <h2 id="att-title" style="margin: 0; font-size: 15px; font-weight: 600; color: #64748B">Came in today</h2>
+              <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 2px"><b style="font-size: 26px; font-weight: 700">14</b><span style="font-size: 14px; color: #64748B">of 24 members</span></div>
+            </div>
+          </div>
+          <button type="button" style="width: 100%; height: 40px; margin-top: 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; color: #0F172A; font-weight: 600; font-size: 14px">Mark attendance</button>
+        </section>
+
+        <!-- latest money in -->
+        <section aria-labelledby="pay-title" style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 18px; padding: 18px 20px 8px; box-shadow: 0 1px 2px rgba(15,23,42,.04)">
+          <div style="display: flex; justify-content: space-between; align-items: baseline">
+            <h2 id="pay-title" style="margin: 0; font-size: 15px; font-weight: 700">Recent payments</h2>
+            <a href="#" style="font-size: 13px; font-weight: 600; text-decoration: none">Money →</a>
+          </div>
+          <ul style="list-style: none; margin: 10px 0 0; padding: 0">
+            <sc-for list="{{payments}}" as="p" hint-placeholder-count="4">
+              <li style="display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #F0F2F6">
+                <span style="width: 32px; height: 32px; border-radius: 10px; background: #ECFDF3; color: #066B3F; display: grid; place-items: center; font-size: 14px; font-weight: 700">₹</span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">{{p.name}}</b><span style="font-size: 12px; color: #64748B">{{p.when}}</span></span>
+                <b style="font-size: 14px; color: #066B3F; font-variant-numeric: tabular-nums">+{{p.amount}}</b>
+              </li>
+            </sc-for>
+          </ul>
+        </section>
+
+        <!-- members at a glance -->
+        <section aria-label="Members" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #EEF0F5; border: 1px solid #E7E9F0; border-radius: 18px; overflow: hidden">
+          <a href="#" style="padding: 14px 16px; background: #FFFFFF; text-decoration: none; color: #0F172A"><span style="display: block; font-size: 12.5px; color: #64748B; font-weight: 500">Active members</span><b style="font-size: 22px; font-weight: 700">24</b></a>
+          <a href="#" style="padding: 14px 16px; background: #FFFFFF; text-decoration: none; color: #0F172A"><span style="display: block; font-size: 12.5px; color: #64748B; font-weight: 500">Joined this month</span><b style="font-size: 22px; font-weight: 700">3</b></a>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'late' }; }
+  renderVals() {
+    const tones = ['#F1EEFF:#3D27B8', '#E8F6FF:#0B5E8A', '#FFF3E6:#9A4A06', '#ECFDF3:#066B3F', '#FCEEF6:#9D1C5E'];
+    const lists = {
+      late: [
+        ['Rohit Kumar', 'Expired 41 days ago · 2 fees unpaid', '₹3,000'],
+        ['Neha Singh', 'Expired 19 days ago', '₹4,000'],
+        ['Sajjad Alam', 'Expired 4 days ago', '₹1,500'],
+        ['Farhan Ali', 'Expired 2 days ago', '₹1,500'],
+        ['Aman Gupta', 'Due today', '₹1,000'],
+      ],
+      soon: [
+        ['Pooja Rao', 'Expires tomorrow', '₹1,500'],
+        ['Divya Menon', 'Expires in 3 days', '₹1,500'],
+        ['Vikram Shah', 'Expires in 6 days', '₹4,000'],
+      ],
+      away: [
+        ['Karan Mehta', 'Not come for 35 days', ''],
+        ['Meena Joshi', 'Not come for 12 days', ''],
+        ['Pooja Rao', 'Not come for 9 days', ''],
+        ['Arjun Das', 'Never came · joined 10 Nov', ''],
+      ],
+    };
+    const meta = {
+      late: { label: 'Expired', dot: '#DC2626', hint: 'Plan ended and the fee is still unpaid', cta: 'Collect', subInk: '#B42318', amtInk: '#B42318' },
+      soon: { label: 'Expiring this week', dot: '#D97706', hint: 'Remind them before the plan ends', cta: 'Remind', subInk: '#92400E', amtInk: '#0F172A' },
+      away: { label: 'Not coming', dot: '#7C3AED', hint: 'Away 7+ days: a quick call keeps them coming', cta: 'Call', subInk: '#6D28D9', amtInk: '#0F172A' },
+    };
+    const tab = this.state.tab;
+    const m = meta[tab];
+    const rows = lists[tab].map(([name, sub, amount], i) => {
+      const [avBg, avInk] = tones[(name.length + i) % tones.length].split(':');
+      const primary = tab === 'late';
+      return {
+        name, sub, amount, avBg, avInk, subInk: m.subInk, amtInk: m.amtInk,
+        initials: name.split(' ').map((p) => p[0]).join(''),
+        cta: m.cta,
+        ctaBg: primary ? '#5B3DF5' : '#FFFFFF', ctaInk: primary ? '#FFFFFF' : '#0F172A', ctaBorder: primary ? '0' : '1px solid #E2E5EC',
+      };
+    });
+    const tabs = Object.keys(meta).map((id) => ({
+      label: meta[id].label, dot: meta[id].dot, count: String(lists[id].length), on: id === tab, off: id !== tab,
+      pick: () => this.setState({ tab: id }),
+    }));
+    return {
+      pct: 72, tabs, rows, tabHint: m.hint, count: String(lists[tab].length), canRemindAll: tab !== 'away',
+      payments: [
+        { name: 'Vikram Shah', when: 'Today · UPI', amount: '₹4,000' },
+        { name: 'Divya Menon', when: 'Yesterday · Cash', amount: '₹1,500' },
+        { name: 'Meena Joshi', when: '17 Nov · UPI', amount: '₹4,000' },
+        { name: 'Aman Gupta', when: '15 Nov · Cash', amount: '₹500' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

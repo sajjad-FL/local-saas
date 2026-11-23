@@ -18,6 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { api, waLink, WEB_URL } from '../../api/api';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
+import { ScreenSkeleton } from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import QrCode, { qrSvg } from '../../components/QrCode';
 import AttendanceImportModal from '../modals/AttendanceImportModal';
@@ -181,6 +182,8 @@ export default function AttendanceScreen({ navigation }) {
     ? members.filter((m) => `${m.name} ${m.phone || ''}`.toLowerCase().includes(query))
     : members;
 
+  if (loading && !data) return <ScreenSkeleton navigation={navigation} kind="attendance" />;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* Universal TopBar */}
@@ -189,7 +192,7 @@ export default function AttendanceScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
         }>
         {/* Page Header */}
         <View style={styles.pageHeader}>

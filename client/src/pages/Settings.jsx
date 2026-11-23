@@ -1,166 +1,385 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { api, userId, download } from '../api.js';
-import { useBiz } from '../App.jsx';
+import QRCode from 'qrcode';
+import { api, userId, download, rupees } from '../api.js';
+import { useBiz, useTheme } from '../App.jsx';
+import { words } from '../wording.js';
 import {
-  Avatar, Field, ShieldIcon, UserIcon, UsersIcon, PhoneIcon,
-  PlusIcon, DownloadIcon, CheckCircleIcon, SettingsIcon,
-  CheckIcon, BuildingIcon, FileSpreadsheetIcon, SparklesIcon,
-  ConfirmDialog, BIZ_TYPES, BellIcon, AlertCircleIcon, CopyIcon,
-  XIcon, TrashIcon, LogOutIcon, SlidersHorizontalIcon, ChevronIcon, CalendarCheckIcon, EditIcon,
+  Field, ShieldIcon, UserIcon, UsersIcon, PhoneIcon, DownloadIcon, CheckIcon, BuildingIcon,
+  ConfirmDialog, BIZ_TYPES, AlertCircleIcon, XIcon, TrashIcon, LogOutIcon, ChevronIcon,
+  CalendarCheckIcon, EditIcon, RupeeIcon, WhatsAppIcon, SunIcon, MoonIcon, PrinterIcon, CreditCardIcon, TagIcon,
 } from '../ui.jsx';
 
-// Settings in four tabs, one topic each, in a single readable column
-const TABS = [
-  { key: 'profile', label: 'Profile', icon: UserIcon, intro: 'Your name, phone number and password.' },
-  { key: 'payments', label: 'Payments', icon: ShieldIcon, intro: 'How members pay you, and how they are reminded.' },
-  { key: 'team', label: 'Team', icon: UsersIcon, intro: 'People who can help you run the business.', ownerOnly: true },
-  { key: 'business', label: 'Business', icon: BuildingIcon, intro: 'Your business details and the features you use.' },
-  { key: 'data', label: 'Backup', icon: DownloadIcon, intro: 'Download your data for accounting or safekeeping.' },
-];
+const ago = (t) => {
+  if (!t) return 'Never';
+  const days = Math.floor((Date.now() - t) / 86400000);
+  return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`;
+};
+const readLS = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
+const fmtPhone = (p) => (p && p.length === 10 ? `+91 ${p.slice(0, 5)} ${p.slice(5)}` : p ? `+91 ${p}` : '');
 
+// Settings on one page: what's working at the top, then getting paid, this outlet and your data.
 export default function Settings() {
   const biz = useBiz();
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api('/me'), staleTime: 5 * 60000 });
   const isOwner = biz.ownerId === userId();
-  const typeConfig = BIZ_TYPES[biz.type] || BIZ_TYPES.gym;
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabs = TABS.filter((t) => !t.ownerOnly || isOwner);
-  const tab = tabs.find((t) => t.key === searchParams.get('tab')) || tabs[0];
-  const openTab = (key) => setSearchParams((p) => { p.set('tab', key); return p; }, { replace: true });
+  const [dialog, setDialog] = useState(null); // 'profile' | 'password'
+  const backupKey = `backup:${biz._id}`;
+  const [lastBackup, setLastBackup] = useState(() => Number(readLS(backupKey)) || null);
+  const remindersOn = biz.notifications?.renewalReminders ?? true;
+  const attendanceOn = biz.attendanceEnabled !== false;
+
+  const health = [
+    {
+      key: 'upi', icon: RupeeIcon, label: 'UPI payments',
+      value: biz.upiId ? '✓ Set up' : 'Not set up', tone: biz.upiId ? 'green' : 'red', warn: !biz.upiId,
+    },
+    {
+      key: 'wa', icon: WhatsAppIcon, label: 'Auto reminders',
+      value: !remindersOn ? 'Off' : me?.waConnected ? '✓ Sending daily' : 'Not connected',
+      tone: !remindersOn ? 'grey' : me?.waConnected ? 'green' : 'amber', warn: remindersOn && me && !me.waConnected,
+    },
+    {
+      key: 'att', icon: CalendarCheckIcon, label: 'Attendance',
+      value: attendanceOn ? (biz.type === 'gym' ? 'On · QR check-in' : 'On') : 'Off', tone: 'blue',
+    },
+    {
+      key: 'backup', icon: DownloadIcon, label: 'Last backup', value: ago(lastBackup), tone: 'violet',
+      note: lastBackup ? 'on this device' : null,
+    },
+  ];
+  const signOut = () => { localStorage.removeItem('token'); localStorage.removeItem('bizId'); location.href = '/'; };
 
   return (
-    <>
-      <div className="page-header" style={{ marginBottom: 14 }}>
-        <div className="page-title-wrap">
-          <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">{tab.intro}</p>
+    <div className="st">
+      <div className="page-header home-header db-head st-head">
+        <div className="st-who">
+          <span className="st-avatar" aria-hidden="true">{initials(me?.name)}</span>
+          <div className="page-title-wrap">
+            <p className="db-date">{[me?.name, fmtPhone(me?.phone), isOwner ? 'Owner' : 'Staff'].filter(Boolean).join(' · ')}</p>
+            <h1 className="db-hello">Settings</h1>
+          </div>
+        </div>
+        <div className="st-head-actions">
+          <button type="button" className="btn-secondary" onClick={() => setDialog('profile')}><UserIcon size={15} /> <span className="st-long">Edit profile</span><span className="st-short">Edit</span></button>
+          <button type="button" className="btn-secondary" onClick={() => setDialog('password')}><ShieldIcon size={15} /> Change password</button>
         </div>
       </div>
 
-      {/* shortcuts */}
-      <div className="settings-shortcuts">
-        <Link to="/setup" className="settings-shortcut">
-          <SlidersHorizontalIcon size={16} />
-          <span><b>Plans, batches & rooms</b><small>Fees, cycles, groups, rooms</small></span>
-          <ChevronIcon size={14} />
-        </Link>
-        {me?.role === 'admin' && (
-          <Link to="/admin" className="settings-shortcut admin">
-            <ShieldIcon size={16} />
-            <span><b>Platform admin</b><small>All businesses and owners</small></span>
-            <ChevronIcon size={14} />
-          </Link>
-        )}
+      <section className="st-health" aria-label="At a glance">
+        {health.map((h) => (
+          <div key={h.key} className={`st-health-card ${h.warn ? 'warn' : ''}`}>
+            <span className={`db-today-icon ${h.tone}`}><h.icon size={17} /></span>
+            <span className="st-health-text">
+              <span className="db-label">{h.label}</span>
+              <b className={h.tone}>{h.value}</b>
+              {h.note && <span className="st-dim">{h.note}</span>}
+            </span>
+          </div>
+        ))}
+      </section>
+      {/* phones: the same, as a strip of chips */}
+      <div className="st-chips" aria-hidden="true">
+        {health.map((h) => <span key={h.key} className={`st-chip ${h.tone}`}>{h.label}: {h.value}</span>)}
       </div>
 
-      <div className="settings-tabs" role="tablist" aria-label="Settings">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button key={t.key} type="button" role="tab" aria-selected={tab.key === t.key}
-              className={tab.key === t.key ? 'active' : ''} onClick={() => openTab(t.key)}>
-              <Icon size={15} /> {t.label}
-            </button>
-          );
-        })}
-      </div>
+      <div className="st-grid">
+        <div className="st-col">
+          <UpiCard isOwner={isOwner} />
+          <RemindersCard isOwner={isOwner} waConnected={me?.waConnected} />
+        </div>
 
-      <div className="settings-body">
-        {tab.key === 'profile' && <ProfileSettings me={me} />}
-
-        {tab.key === 'payments' && (
-          <>
-            {isOwner ? <UpiGatewaySettings /> : (
-              <p className="settings-note">Only the owner can change the UPI ID.</p>
-            )}
-            <NotificationPreferencesSettings />
-          </>
-        )}
-
-        {tab.key === 'team' && isOwner && <StaffAccountsSettings />}
-
-        {tab.key === 'business' && (
-          <>
-            <div className="analytics-card">
-              <div className="card-header-row" style={{ marginBottom: 12 }}>
-                <div>
-                  <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <BuildingIcon size={17} style={{ color: 'var(--primary)' }} />
-                    Business profile
-                  </h3>
-                  <span className="analytics-card-subtitle">The business this account manages</span>
-                </div>
-              </div>
-              <div className="profile-meta-grid settings-profile">
-                <div className="meta-item">
-                  <div className="meta-label">Name</div>
-                  <div className="meta-value">{isOwner ? <BusinessName biz={biz} /> : biz.name}</div>
-                </div>
-                <div className="meta-item">
-                  <div className="meta-label">Type</div>
-                  <div className="meta-value">{typeConfig.label}</div>
-                </div>
-                <div className="meta-item">
-                  <div className="meta-label">Your role</div>
-                  <div className="meta-value"><span className="badge primary">{isOwner ? 'Owner' : 'Staff member'}</span></div>
-                </div>
-                <div className="meta-item">
-                  <div className="meta-label">Workspace ID</div>
-                  <div className="meta-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{biz._id}</div>
-                </div>
-              </div>
+        <div className="st-col">
+          <OutletCard isOwner={isOwner} />
+          <section className="st-card">
+            <div className="st-card-head">
+              <span className="st-card-icon blue"><DownloadIcon size={15} /></span>
+              <span><b>Download your data</b><span className="st-dim">Opens in Excel or Google Sheets</span></span>
             </div>
-            <AttendanceSettings />
-            {isOwner && <DangerZoneSettings />}
-          </>
-        )}
-
-        {tab.key === 'data' && (
-          <div className="analytics-card">
-            <div className="card-header-row" style={{ marginBottom: 12 }}>
-              <div>
-                <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <DownloadIcon size={17} style={{ color: 'var(--primary)' }} />
-                  Data backup & export
-                </h3>
-                <span className="analytics-card-subtitle">Spreadsheets open in Excel or Google Sheets</span>
-              </div>
-            </div>
-            <div className="settings-downloads">
-              <button type="button" className="btn-secondary"
-                onClick={() => download(`/businesses/${biz._id}/export/payments.csv`, `${biz.name}-payments-backup.csv`)}>
-                <DownloadIcon size={15} />
-                <span><b>Payments</b><small>Every payment received (CSV)</small></span>
-              </button>
-              <button type="button" className="btn-secondary"
-                onClick={() => download(`/businesses/${biz._id}/export/balances.csv`, `${biz.name}-balances-backup.csv`)}>
-                <FileSpreadsheetIcon size={15} />
-                <span><b>Balances</b><small>What each member owes now (CSV)</small></span>
-              </button>
-              {isOwner && (
-                <button type="button" className="btn-secondary"
-                  onClick={() => download(`/businesses/${biz._id}/export/backup.json`, `${biz.name}-full-backup.json`)}>
-                  <DownloadIcon size={15} />
-                  <span><b>Full backup</b><small>Everything, to restore later (JSON)</small></span>
+            <div className="st-downloads">
+              {[
+                isOwner && ['backup.json', 'Everything', 'Full backup file', `${biz.name}-full-backup.json`, true],
+                ['payments.csv', 'Payments', 'Every payment received', `${biz.name}-payments.csv`],
+                ['dues.csv', 'Unpaid fees', 'Who owes what', `${biz.name}-unpaid-fees.csv`],
+                ['expenses.csv', 'Expenses', 'Everything you spent', `${biz.name}-expenses.csv`],
+              ].filter(Boolean).map(([file, label, hint, name, isBackup]) => (
+                <button key={file} type="button" className="st-dl" onClick={() => {
+                  download(`/businesses/${biz._id}/export/${file}`, name);
+                  if (isBackup) { const t = Date.now(); writeLS(backupKey, String(t)); setLastBackup(t); }
+                }}>
+                  <b>{label}</b><span>{hint}</span>
                 </button>
-              )}
+              ))}
             </div>
+          </section>
+
+          <section className="st-card st-rows">
+            <LookRow />
+            <div className="st-row st-pw-row">
+              <span className="st-row-text"><b>Password</b><span>At least 6 characters</span></span>
+              <button type="button" className="btn-secondary st-small" onClick={() => setDialog('password')}>Change</button>
+            </div>
+            <div className="st-row">
+              <span className="st-row-text"><b>Sign out</b><span>On this device only</span></span>
+              <button type="button" className="btn-secondary st-small" onClick={signOut}><LogOutIcon size={14} /> Sign out</button>
+            </div>
+            {me?.role === 'admin' && (
+              <Link to="/admin" className="st-row st-row-link">
+                <span className="st-row-text"><b>Platform admin</b><span>All businesses and owners</span></span>
+                <ChevronIcon size={15} />
+              </Link>
+            )}
+          </section>
+
+          {isOwner && (
+            <details className="st-danger">
+              <summary>Danger zone · clear data or delete this outlet</summary>
+              <DangerZoneSettings />
+            </details>
+          )}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {dialog && (
+          <div className="modal-overlay" onClick={() => setDialog(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 12 }} transition={{ duration: 0.18 }}
+              className="modal-content st-modal" role="dialog" aria-modal="true" aria-label={dialog === 'profile' ? 'Edit profile' : 'Change password'}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="form-header" style={{ marginBottom: 6 }}>
+                <div className="form-title">{dialog === 'profile' ? <><UserIcon size={18} style={{ color: 'var(--primary)' }} /> Edit profile</> : <><ShieldIcon size={18} style={{ color: 'var(--primary)' }} /> Change password</>}</div>
+                <button type="button" className="icon-btn" aria-label="Close" onClick={() => setDialog(null)}><XIcon size={14} /></button>
+              </div>
+              {dialog === 'profile' ? <ProfileSettings me={me} /> : <PasswordSettings />}
+            </motion.div>
           </div>
         )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// The UPI card, drawn like what members see, with its QR and a printable poster
+function UpiCard({ isOwner }) {
+  const biz = useBiz();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [upiInput, setUpiInput] = useState(biz.upiId || '');
+  const [error, setError] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [svg, setSvg] = useState('');
+  const payUrl = biz.upiId ? `upi://pay?pa=${encodeURIComponent(biz.upiId)}&pn=${encodeURIComponent(biz.name || '')}&cu=INR` : '';
+  useEffect(() => {
+    if (!payUrl) { setSvg(''); return; }
+    QRCode.toString(payUrl, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' }).then(setSvg).catch(() => setSvg(''));
+  }, [payUrl]);
+
+  const save = useMutation({
+    mutationFn: (v) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { upiId: v } }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['businesses'] }); setEditing(false); setConfirmOpen(false); },
+  });
+  const check = (v) => {
+    const t = v.trim();
+    if (!t) return 'Enter your UPI ID';
+    if (!t.includes('@')) return 'A UPI ID has an @ in it, like yourname@okaxis';
+    if (/\s/.test(t)) return 'No spaces in a UPI ID';
+    if (t.length < 5) return 'That looks too short';
+    return null;
+  };
+  const printPoster = () => {
+    document.body.classList.add('printing-poster');
+    const done = () => { document.body.classList.remove('printing-poster'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    window.print();
+  };
+  const showForm = editing || !biz.upiId;
+
+  return (
+    <section className="st-card">
+      <div className="st-card-head">
+        <span className="st-card-icon green"><RupeeIcon size={15} /></span>
+        <span><b>How members pay you</b><span className="st-dim">Reminders and statements carry a 1-tap pay link. Money goes straight to you.</span></span>
       </div>
 
-      {/* On phones the top bar has no sign-out button, so it lives here */}
-      <button
-        type="button"
-        className="btn btn-secondary mobile-only"
-        style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}
-        onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('bizId'); location.href = '/'; }}>
-        <LogOutIcon size={15} /> Sign out
-      </button>
-    </>
+      {showForm ? (
+        <form className="st-upi-form" onSubmit={(e) => { e.preventDefault(); const err = check(upiInput); setError(err || ''); if (!err) setConfirmOpen(true); }}>
+          <Field label="Your UPI ID">
+            <input value={upiInput} disabled={!isOwner} placeholder="e.g. yourgym@ybl" style={{ fontFamily: 'ui-monospace, monospace' }}
+              onChange={(e) => { setUpiInput(e.target.value); setError(''); }} />
+          </Field>
+          {error ? <p className="error small" style={{ margin: 0 }}>{error}</p> : <p className="st-dim" style={{ margin: 0 }}>Find it in your UPI app (PhonePe, GPay, Paytm) under your profile.</p>}
+          {isOwner ? (
+            <div className="en-actions">
+              <span style={{ flex: 1 }} />
+              {biz.upiId && <button type="button" className="btn-secondary" onClick={() => { setEditing(false); setUpiInput(biz.upiId); setError(''); }}>Cancel</button>}
+              <button type="submit" className="btn" disabled={save.isPending}><CheckIcon size={14} /> Save UPI ID</button>
+            </div>
+          ) : <p className="st-dim" style={{ margin: 0 }}>Only the owner can set the UPI ID.</p>}
+        </form>
+      ) : (
+        <>
+          <div className="st-upi">
+            <span className="st-upi-text">
+              <span className="st-upi-label">Pay {biz.name} by UPI</span>
+              <b className="st-upi-id">{biz.upiId}</b>
+              <span className="st-upi-ok"><i aria-hidden="true" /> Set up · try the ₹1 test once to be sure</span>
+            </span>
+            {svg && <span className="st-upi-qr" aria-label="QR code for your UPI ID" dangerouslySetInnerHTML={{ __html: svg }} />}
+          </div>
+          <div className="st-upi-actions">
+            <a className="btn btn-secondary st-test" href={`${payUrl}&am=1`} target="_blank" rel="noreferrer">Send ₹1 test</a>
+            {isOwner && <button type="button" className="btn-secondary" onClick={() => setEditing(true)}><EditIcon size={14} /> Change UPI ID</button>}
+            <button type="button" className="btn-secondary" disabled={!svg} onClick={printPoster}><PrinterIcon size={14} /> Print QR poster</button>
+          </div>
+          {/* only shows when printing */}
+          <div className="qr-poster" aria-hidden="true">
+            <h1>{biz.name}</h1>
+            <p className="qr-poster-sub">Scan to pay by UPI</p>
+            <div className="qr-poster-code" dangerouslySetInnerHTML={{ __html: svg }} />
+            <p>{biz.upiId} · Open any UPI app (PhonePe, GPay, Paytm), scan, and enter the amount.</p>
+          </div>
+        </>
+      )}
+      {save.error && <p className="error" role="alert">{save.error.message}</p>}
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => save.mutate(upiInput.trim())}
+        title="Use this UPI ID?"
+        message={`Members' pay links will send money to ${upiInput.trim()}. Check it carefully — a typo sends money to the wrong place.`}
+        confirmText="Yes, use it"
+        busy={save.isPending}
+      />
+    </section>
+  );
+}
+
+// Automatic WhatsApp reminders, with the message members actually get
+function RemindersCard({ isOwner, waConnected }) {
+  const biz = useBiz();
+  const qc = useQueryClient();
+  const w = words(biz.type);
+  const [enabled, setEnabled] = useState(biz.notifications?.renewalReminders ?? true);
+  const [everyDays, setEveryDays] = useState(biz.reminderEveryDays || 3);
+  const save = useMutation({
+    mutationFn: (body) => api(`/businesses/${biz._id}`, { method: 'PATCH', body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
+  });
+  const sample = `Hi Rohit, your payment of ${rupees(1500)} for ${biz.name} is pending. Please pay at the earliest. Thank you!${biz.upiId ? ` Pay via UPI: upi://pay?pa=${biz.upiId}…` : ''}`;
+
+  return (
+    <section className="st-card st-rows">
+      <div className="st-card-head">
+        <span className="st-card-icon wa"><WhatsAppIcon size={15} /></span>
+        <span><b>WhatsApp reminders</b><span className="st-dim">Every day at 10 AM, {w.member}s who owe get one, with your pay link</span></span>
+      </div>
+      <div className="st-row">
+        <span className="st-row-text"><b>Send them automatically</b><span>{enabled ? 'On' : 'Off — you can still send them yourself from Collect'}</span></span>
+        <button type="button" role="switch" aria-checked={enabled} aria-label="Send automatic reminders" disabled={!isOwner}
+          className={`switch-toggle ${enabled ? 'active' : ''}`}
+          onClick={() => { setEnabled(!enabled); save.mutate({ notifications: { renewalReminders: !enabled } }); }}>
+          <span className="switch-thumb" />
+        </button>
+      </div>
+      <div className="st-row">
+        <span className="st-row-text"><b>Same {w.member} at most every</b><span>Fewer messages keep {w.member}s from muting you</span></span>
+        <div className="st-seg" role="radiogroup" aria-label="Reminder spacing">
+          {[3, 5, 7].map((d) => (
+            <button key={d} type="button" role="radio" aria-checked={everyDays === d} className={everyDays === d ? 'on' : ''}
+              disabled={!isOwner || !enabled} onClick={() => { setEveryDays(d); save.mutate({ reminderEveryDays: d }); }}>{d} days</button>
+          ))}
+        </div>
+      </div>
+      <div className="st-wa-preview" aria-label="Example reminder">
+        <div className="st-wa-bubble">{sample}<span>10:00 AM</span></div>
+      </div>
+      {enabled && waConnected === false && (
+        <div className="st-wa-note"><b>Not connected yet.</b> Automatic sending needs WhatsApp to be connected on the server. Until then, tap Remind on Collect — WhatsApp opens with this message ready.</div>
+      )}
+      {!isOwner && <p className="st-dim" style={{ margin: '0 18px 14px' }}>Only the owner can change these.</p>}
+      {save.error && <p className="error" role="alert" style={{ margin: '0 18px 14px' }}>{save.error.message}</p>}
+    </section>
+  );
+}
+
+// This outlet: name, attendance, and where plans and staff live now
+function OutletCard({ isOwner }) {
+  const biz = useBiz();
+  const qc = useQueryClient();
+  const typeConfig = BIZ_TYPES[biz.type] || BIZ_TYPES.gym;
+  const [attOn, setAttOn] = useState(biz.attendanceEnabled !== false);
+  const [salesOn, setSalesOn] = useState(biz.salesEnabled !== false);
+  const saveSales = useMutation({
+    mutationFn: (on) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { salesEnabled: on } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
+    onError: (_e, on) => setSalesOn(!on),
+  });
+  const saveAtt = useMutation({
+    mutationFn: (on) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { attendanceEnabled: on } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
+    onError: (_e, on) => setAttOn(!on),
+  });
+  const { data: plans } = useQuery({ queryKey: [`/businesses/${biz._id}/plans`], queryFn: () => api(`/businesses/${biz._id}/plans`) });
+  const { data: staff } = useQuery({ queryKey: ['staff-all'], queryFn: () => api('/staff'), enabled: isOwner });
+  const myStaff = (staff || []).filter((s) => s.allOutlets || s.businessIds.map(String).includes(biz._id));
+  const initialsOf = (biz.name || '?').trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+  const isGym = biz.type === 'gym';
+
+  return (
+    <section className="st-card st-rows">
+      <div className="st-card-head st-outlet-head">
+        <span className="st-outlet-av" aria-hidden="true">{initialsOf}</span>
+        <span className="grow"><b className="st-outlet-name">{isOwner ? <BusinessName biz={biz} /> : biz.name}</b><span className="st-dim">{typeConfig.label} · this outlet's settings</span></span>
+      </div>
+      <div className="st-row">
+        <span className="st-card-icon blue"><CalendarCheckIcon size={14} /></span>
+        <span className="st-row-text"><b>Attendance</b><span>{isGym ? 'Members scan a QR at the door.' : 'Staff mark who came each day.'} Never changes fees.</span></span>
+        <button type="button" role="switch" aria-checked={attOn} aria-label="Use attendance" disabled={!isOwner || saveAtt.isPending}
+          className={`switch-toggle ${attOn ? 'active' : ''}`} onClick={() => { setAttOn(!attOn); saveAtt.mutate(!attOn); }}>
+          <span className="switch-thumb" />
+        </button>
+      </div>
+      <div className="st-row">
+        <span className="st-card-icon amber"><TagIcon size={14} /></span>
+        <span className="st-row-text"><b>Sell products &amp; services</b><span>{salesOn ? 'Shows Sales in the menu and Sell on Collect and member pages.' : 'Hidden. Turn on to sell PT packs, supplements, diet plans and more.'}</span></span>
+        <button type="button" role="switch" aria-checked={salesOn} aria-label="Sell products and services" disabled={!isOwner || saveSales.isPending}
+          className={`switch-toggle ${salesOn ? 'active' : ''}`} onClick={() => { setSalesOn(!salesOn); saveSales.mutate(!salesOn); }}>
+          <span className="switch-thumb" />
+        </button>
+      </div>
+      {isOwner && (
+        <Link to="/setup?tab=staff" className="st-row st-row-link">
+          <span className="st-card-icon pink"><UsersIcon size={14} /></span>
+          <span className="st-row-text"><b>Staff &amp; their access</b><span>{staff ? `${myStaff.length} ${myStaff.length === 1 ? 'person' : 'people'} can open this outlet` : 'Who can do what'}</span></span>
+          <span className="st-go">Setup <ChevronIcon size={14} /></span>
+        </Link>
+      )}
+      <Link to="/setup?tab=plans" className="st-row st-row-link">
+        <span className="st-card-icon green"><CreditCardIcon size={14} /></span>
+        <span className="st-row-text"><b>Plans &amp; {biz.type === 'hostel' ? 'rooms' : 'batches'}</b><span>{plans ? `${plans.length} ${plans.length === 1 ? 'plan' : 'plans'}` : 'Fees and cycles'}</span></span>
+        <span className="st-go">Setup <ChevronIcon size={14} /></span>
+      </Link>
+      {!isOwner && <p className="st-dim" style={{ margin: '0 18px 14px' }}>Only the owner can change these.</p>}
+      {(saveAtt.error || saveSales.error) && <p className="error" role="alert" style={{ margin: '0 18px 14px' }}>{(saveAtt.error || saveSales.error).message}</p>}
+    </section>
+  );
+}
+
+function LookRow() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <div className="st-row">
+      <span className="st-row-text"><b>Look</b><span>On this device</span></span>
+      <div className="st-seg" role="radiogroup" aria-label="Theme">
+        <button type="button" role="radio" aria-checked={theme === 'light'} className={theme === 'light' ? 'on' : ''} onClick={() => theme !== 'light' && toggleTheme()}><SunIcon size={13} /> Light</button>
+        <button type="button" role="radio" aria-checked={theme === 'dark'} className={theme === 'dark' ? 'on' : ''} onClick={() => theme !== 'dark' && toggleTheme()}><MoonIcon size={13} /> Dark</button>
+      </div>
+    </div>
   );
 }
 
@@ -232,7 +451,6 @@ function ProfileSettings({ me }) {
           </div>
         </form>
       </div>
-      <PasswordSettings />
     </>
   );
 }
@@ -326,383 +544,6 @@ function BusinessName({ biz }) {
   );
 }
 
-// 1. UPI Payment Gateway Settings Component
-function UpiGatewaySettings() {
-  const biz = useBiz();
-  const qc = useQueryClient();
-  const [upiInput, setUpiInput] = useState(biz.upiId || '');
-  const [isEditing, setIsEditing] = useState(!biz.upiId);
-  const [error, setError] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const save = useMutation({
-    mutationFn: (newUpi) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { upiId: newUpi } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['businesses'] });
-      setIsEditing(false);
-      setConfirmOpen(false);
-    },
-  });
-
-  const validateUpi = (v) => {
-    const trimmed = v.trim();
-    if (!trimmed) return 'UPI ID is required';
-    if (!trimmed.includes('@')) return 'UPI ID must contain "@" (e.g. yourname@okaxis)';
-    if (/\s/.test(trimmed)) return 'UPI ID cannot contain spaces';
-    if (trimmed.length < 5) return 'UPI ID must be at least 5 characters';
-    return null;
-  };
-
-  const handlePreSave = (e) => {
-    e.preventDefault();
-    const err = validateUpi(upiInput);
-    if (err) {
-      setError(err);
-      return;
-    }
-    setError('');
-    setConfirmOpen(true);
-  };
-
-  const testUpiUrl = `upi://pay?pa=${encodeURIComponent(biz.upiId || '')}&pn=${encodeURIComponent(biz.name || '')}&am=1&cu=INR`;
-
-  return (
-    <div className="analytics-card">
-      <div className="card-header-row" style={{ marginBottom: 12 }}>
-        <div>
-          <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <ShieldIcon size={17} style={{ color: 'var(--primary)' }} />
-            Your UPI ID for Payments
-          </h3>
-          <span className="analytics-card-subtitle">
-            Reminders and statements include a 1-tap pay link to this UPI ID. Money goes straight to you.
-          </span>
-        </div>
-      </div>
-
-      {biz.upiId && !isEditing ? (
-        <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: '12px 14px' }}>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-              <span className="badge green" style={{ fontSize: 11 }}>
-                <CheckIcon size={12} /> Active UPI
-              </span>
-              <span style={{ fontWeight: 600, fontSize: 13.5, fontFamily: 'monospace' }}>
-                {biz.upiId}
-              </span>
-            </div>
-
-            <div className="row" style={{ gap: 8 }}>
-              <a
-                href={testUpiUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-secondary"
-                style={{ minHeight: 26, padding: '2px 8px', fontSize: 11 }}>
-                Send ₹1 test
-              </a>
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ minHeight: 26, padding: '2px 8px', fontSize: 11 }}
-                onClick={() => setIsEditing(true)}>
-                Change
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={handlePreSave}>
-          <div className="field">
-            <label className="input-label">
-              <ShieldIcon size={14} /> Business UPI VPA Address
-            </label>
-            <div className="form-input-action-row">
-              <input
-                placeholder="e.g. fitness@ybl"
-                value={upiInput}
-                onChange={(e) => {
-                  setUpiInput(e.target.value);
-                  if (error) setError('');
-                }}
-                style={{ fontFamily: 'monospace' }}
-              />
-              <button disabled={save.isPending}>
-                <CheckIcon size={15} /> Save UPI ID
-              </button>
-            </div>
-            {error ? (
-              <span className="small red-text" style={{ marginTop: 2 }}>{error}</span>
-            ) : (
-              <span className="small muted">e.g. payments@okaxis or yourgym@ybl (must contain @, no spaces, min 5 chars)</span>
-            )}
-          </div>
-        </form>
-      )}
-
-      {/* Confirmation Dialog for UPI Save */}
-      <ConfirmDialog
-        isOpen={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={() => save.mutate(upiInput.trim())}
-        title="Confirm Payment UPI Address"
-        message={`Save "${upiInput.trim()}" as your official payment UPI address? Member WhatsApp payment links will route payments directly to this account.`}
-        confirmText="Yes, Save UPI ID"
-        busy={save.isPending}
-      />
-    </div>
-  );
-}
-
-// 2. Staff Accounts Settings Component
-function StaffAccountsSettings() {
-  const biz = useBiz();
-  const qc = useQueryClient();
-  const [phone, setPhone] = useState('');
-  const [copiedInvite, setCopiedInvite] = useState(false);
-  const [revokeTarget, setRevokeTarget] = useState(null);
-
-  const { data: staff } = useQuery({
-    queryKey: ['staff', biz._id],
-    queryFn: () => api(`/businesses/${biz._id}/staff`),
-  });
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['staff', biz._id] });
-
-  const add = useMutation({
-    mutationFn: () => api(`/businesses/${biz._id}/staff`, { method: 'POST', body: { phone: phone.replace(/\D/g, '') } }),
-    onSuccess: () => { setPhone(''); invalidate(); },
-  });
-
-  const remove = useMutation({
-    mutationFn: (uid) => api(`/businesses/${biz._id}/staff/${uid}`, { method: 'DELETE' }),
-    onSuccess: () => { setRevokeTarget(null); invalidate(); },
-  });
-
-  const handleCopyInvite = () => {
-    const inviteLink = `${window.location.origin}/login?inviteBiz=${encodeURIComponent(biz.name)}`;
-    navigator.clipboard.writeText(inviteLink);
-    setCopiedInvite(true);
-    setTimeout(() => setCopiedInvite(false), 2000);
-  };
-
-  return (
-    <div className="analytics-card">
-      <div className="card-header-row" style={{ marginBottom: 12 }}>
-        <div>
-          <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <UserIcon size={17} style={{ color: 'var(--primary)' }} />
-            Staff Accounts & Access Controls
-          </h3>
-          <span className="analytics-card-subtitle">
-            Authorized staff can manage members and record dues, but cannot modify UPI ID or remove other staff.
-          </span>
-        </div>
-      </div>
-
-      <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} style={{ marginBottom: 12 }}>
-        <div className="field">
-          <label className="input-label">
-            <PhoneIcon size={14} /> Staff Mobile Number
-          </label>
-          <div className="form-input-action-row">
-            <input
-              type="tel"
-              inputMode="numeric"
-              placeholder="10-digit registered phone"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-            />
-            <button disabled={add.isPending || phone.length !== 10}>
-              <PlusIcon size={15} /> {add.isPending ? 'Authorizing…' : 'Authorize Staff'}
-            </button>
-          </div>
-
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 4, flexWrap: 'wrap', gap: 6 }}>
-            <span className="small muted">
-              Staff must have a {biz.name} account. Share the invite link to get them started.
-            </span>
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ minHeight: 24, padding: '2px 8px', fontSize: 11 }}
-              onClick={handleCopyInvite}>
-              <CopyIcon size={12} /> {copiedInvite ? '✓ Copied invite link' : 'Copy invite link'}
-            </button>
-          </div>
-        </div>
-      </form>
-      {add.error && <p className="small red-text" role="alert" style={{ marginBottom: 8 }}>{add.error.message}</p>}
-
-      {(staff || []).map((s) => (
-        <div className="card row" key={s._id} style={{ alignItems: 'center', margin: '6px 0', padding: '10px 12px', border: '1px solid var(--border)' }}>
-          <Avatar name={s.name} />
-          <div className="grow" style={{ minWidth: 0, marginLeft: 8 }}>
-            <b style={{ fontSize: 13.5 }}>{s.name}</b>
-            <div className="muted small">📞 +91 {s.phone}</div>
-          </div>
-          <button
-            type="button"
-            className="btn-secondary red-text"
-            style={{ minHeight: 26, padding: '2px 8px', fontSize: 11 }}
-            onClick={() => setRevokeTarget(s)}>
-            Revoke Access
-          </button>
-        </div>
-      ))}
-
-      {staff && staff.length === 0 && (
-        <p className="muted small" style={{ margin: '4px 2px' }}>No additional staff accounts authorized yet.</p>
-      )}
-
-      <ConfirmDialog
-        isOpen={!!revokeTarget}
-        onClose={() => setRevokeTarget(null)}
-        onConfirm={() => revokeTarget && remove.mutate(revokeTarget._id)}
-        title={`Revoke staff access for ${revokeTarget?.name}?`}
-        message="This staff member will no longer be able to log in to view members or record payments for this business."
-        confirmText="Revoke Access"
-        danger
-        busy={remove.isPending}
-      />
-    </div>
-  );
-}
-
-// Attendance on/off. Off hides it everywhere and stops the gym's QR check-in; records are kept.
-function AttendanceSettings() {
-  const biz = useBiz();
-  const qc = useQueryClient();
-  const isOwner = biz.ownerId === userId();
-  const [enabled, setEnabled] = useState(biz.attendanceEnabled !== false);
-  const save = useMutation({
-    mutationFn: (on) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { attendanceEnabled: on } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
-    onError: (_e, on) => setEnabled(!on),
-  });
-  const toggle = () => {
-    setEnabled(!enabled);
-    save.mutate(!enabled);
-  };
-  const isGym = biz.type === 'gym';
-
-  return (
-    <div className="analytics-card">
-      <div className="card-header-row" style={{ marginBottom: 12 }}>
-        <div>
-          <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <CalendarCheckIcon size={17} style={{ color: 'var(--primary)' }} />
-            Attendance
-          </h3>
-          <span className="analytics-card-subtitle">
-            {isGym ? 'Members check in by scanning a QR code at the entrance.' : 'Staff mark who came each day.'} It never changes fees.
-          </span>
-        </div>
-      </div>
-      <div className="switch-wrap">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Use attendance</div>
-          <div className="small muted" style={{ marginTop: 1 }}>
-            {enabled
-              ? 'On: shows the Attendance tab, today\'s count on the home screen and each member\'s history.'
-              : biz.type === 'hostel'
-                ? 'Off by default for hostels. Turn it on if you take a daily or night roll-call.'
-                : `Off: hidden everywhere${isGym ? ' and the QR poster stops working' : ''}. Past records are kept.`}
-          </div>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          className={`switch-toggle ${enabled ? 'active' : ''}`}
-          aria-checked={enabled}
-          aria-label="Use attendance"
-          disabled={!isOwner || save.isPending}
-          onClick={toggle}>
-          <span className="switch-thumb" />
-        </button>
-      </div>
-      {!isOwner && <p className="small muted" style={{ margin: '8px 0 0' }}>Only the owner can change this.</p>}
-      {save.error && <p className="error" role="alert">{save.error.message}</p>}
-    </div>
-  );
-}
-
-// 3. Automatic reminders. Only settings the server actually acts on live here.
-function NotificationPreferencesSettings() {
-  const biz = useBiz();
-  const qc = useQueryClient();
-  const isOwner = biz.ownerId === userId();
-  const [enabled, setEnabled] = useState(biz.notifications?.renewalReminders ?? true);
-  const [everyDays, setEveryDays] = useState(biz.reminderEveryDays || 3);
-
-  const save = useMutation({
-    mutationFn: (body) => api(`/businesses/${biz._id}`, { method: 'PATCH', body }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
-  });
-
-  const toggle = () => {
-    setEnabled(!enabled);
-    save.mutate({ notifications: { renewalReminders: !enabled } });
-  };
-
-  return (
-    <div className="analytics-card">
-      <div className="card-header-row" style={{ marginBottom: 12 }}>
-        <div>
-          <h3 className="analytics-card-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <BellIcon size={17} style={{ color: 'var(--primary)' }} />
-            Automatic Reminders
-          </h3>
-          <span className="analytics-card-subtitle">
-            Daily at 10 AM, members who owe money get a WhatsApp reminder with your UPI link and their statement
-          </span>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <div className="switch-wrap">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Send automatic WhatsApp reminders</div>
-            <div className="small muted" style={{ marginTop: 1 }}>Needs the WhatsApp Cloud API keys on the server (WA_TOKEN, WA_PHONE_ID)</div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            className={`switch-toggle ${enabled ? 'active' : ''}`}
-            aria-checked={enabled}
-            aria-label="Send automatic WhatsApp reminders"
-            disabled={!isOwner}
-            onClick={toggle}>
-            <span className="switch-thumb" />
-          </button>
-        </div>
-
-        <div className="switch-wrap">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Remind the same member at most every</div>
-            <div className="small muted" style={{ marginTop: 1 }}>Fewer messages keep members from muting you</div>
-          </div>
-          <select
-            value={everyDays}
-            disabled={!isOwner || !enabled}
-            aria-label="Reminder spacing"
-            style={{ width: 'auto' }}
-            onChange={(e) => {
-              setEveryDays(Number(e.target.value));
-              save.mutate({ reminderEveryDays: Number(e.target.value) });
-            }}>
-            <option value={3}>3 days</option>
-            <option value={5}>5 days</option>
-            <option value={7}>7 days</option>
-          </select>
-        </div>
-        {save.error && <p className="error" role="alert">{save.error.message}</p>}
-      </div>
-    </div>
-  );
-}
-
 // 4. Danger Zone Settings Component
 function DangerZoneSettings() {
   const biz = useBiz();
@@ -736,7 +577,7 @@ function DangerZoneSettings() {
             <AlertCircleIcon size={17} /> Danger Zone
           </h3>
           <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-            Irreversible actions for {biz.name}. Please exercise extreme caution.
+            These can't be undone. Download the full backup first.
           </span>
         </div>
       </div>
@@ -744,28 +585,28 @@ function DangerZoneSettings() {
       <div className="danger-action-row">
         <div>
           <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>Clear all member data</div>
-          <div className="small muted">Permanently purge all members, payment transactions, dues, and subscription logs.</div>
+          <div className="small muted">Removes every member, payment, due and attendance record. Plans and staff stay.</div>
         </div>
         <button
           type="button"
           className="btn-danger"
           style={{ minHeight: 30, padding: '4px 12px', fontSize: 12 }}
           onClick={() => { setModalType('clear'); setConfirmInput(''); }}>
-          Clear All Data
+          Clear data…
         </button>
       </div>
 
       <div className="danger-action-row">
         <div>
-          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>Delete workspace</div>
-          <div className="small muted">Permanently delete this entire business workspace and all related configurations.</div>
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>Delete this outlet</div>
+          <div className="small muted">{biz.name} and everything in it. Your other outlets are not touched.</div>
         </div>
         <button
           type="button"
           className="btn-danger"
           style={{ minHeight: 30, padding: '4px 12px', fontSize: 12 }}
           onClick={() => { setModalType('delete'); setConfirmInput(''); }}>
-          Delete Workspace
+          Delete outlet…
         </button>
       </div>
 
@@ -784,7 +625,7 @@ function DangerZoneSettings() {
                 <h3 className="form-title" style={{ color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <AlertCircleIcon size={18} />
                   <span>
-                    {modalType === 'clear' ? 'Clear All Member Data?' : `Delete "${biz.name}" Workspace?`}
+                    {modalType === 'clear' ? 'Clear all member data?' : `Delete ${biz.name}?`}
                   </span>
                 </h3>
                 <button type="button" className="icon-btn" onClick={() => setModalType(null)}>
@@ -799,7 +640,7 @@ function DangerZoneSettings() {
                   </>
                 ) : (
                   <>
-                    This will <b>permanently destroy</b> the entire <b>{biz.name}</b> workspace, plans, and all member data.
+                    This <b>permanently deletes</b> <b>{biz.name}</b>: its plans, members, payments and attendance.
                   </>
                 )}
               </p>
@@ -830,7 +671,7 @@ function DangerZoneSettings() {
                     else deleteBiz.mutate();
                   }}>
                   <TrashIcon size={14} />
-                  {clearData.isPending || deleteBiz.isPending ? 'Processing…' : modalType === 'clear' ? 'Erase All Data' : 'Delete Workspace'}
+                  {clearData.isPending || deleteBiz.isPending ? 'Processing…' : modalType === 'clear' ? 'Erase all data' : 'Delete outlet'}
                 </button>
               </div>
             </motion.div>

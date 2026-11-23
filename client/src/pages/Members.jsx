@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { api, rupees, waLink, remindMsg } from '../api.js';
+import { api, rupees, waLink, remindMsg, download, can, ADD } from '../api.js';
 import { useBiz } from '../App.jsx';
 import { words } from '../wording.js';
-import { AddExpense } from './MoneyReport.jsx';
 import BulkRemind, { owingMessage, renewalMessage } from '../BulkRemind.jsx';
 import MoveRoom, { RoomHistory } from '../MoveRoom.jsx';
 import {
@@ -17,12 +16,20 @@ import {
   getMonthlyDelta,
 } from '../data/gymData.js';
 import {
-  Avatar, Empty, Field, Rise, CountUp, PlusIcon, SearchIcon, XIcon,
+  Avatar, Empty, Field, PlusIcon, SearchIcon, XIcon,
   ChevronIcon, UsersIcon, UserIcon, PhoneIcon, CreditCardIcon, RupeeIcon,
   CalendarIcon, BedIcon, BuildingIcon, LayersIcon, TagIcon, DoorIcon, WhatsAppIcon, CheckIcon, AlertIcon,
   AlertCircleIcon, CheckCircleIcon, SendIcon, EditIcon, TrashIcon,
-  CopyIcon, ClockIcon, CalendarClockIcon, SlidersHorizontalIcon, FilterIcon,
+  CopyIcon, ClockIcon, CalendarClockIcon, SlidersHorizontalIcon, FilterIcon, ChevronDownIcon, DownloadIcon,
 } from '../ui.jsx';
+
+// the Sort menu; header clicks can pick the other directions, which still get a name
+const SORT_OPTIONS = [['late_desc', 'Most late first'], ['balance_desc', 'Most owed first'], ['renewal_asc', 'Expiring soonest'], ['joined_desc', 'Newest joined']];
+const SORT_LABELS = {
+  ...Object.fromEntries(SORT_OPTIONS),
+  late_asc: 'Least late first', balance_asc: 'Least owed first', renewal_desc: 'Expiring latest',
+  joined_asc: 'Oldest joined', visit_desc: 'Away longest', visit_asc: 'Visited recently',
+};
 
 export default function Members() {
   const biz = useBiz();
@@ -30,19 +37,20 @@ export default function Members() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [adding, setAdding] = useState(false);
+  const [picking, setPicking] = useState(false); // "Record payment": choose who paid
   const [addToRoom, setAddToRoom] = useState(null); // ?room=<id> (a free bed on the Rooms board)
-  const [addingExpense, setAddingExpense] = useState(false);
   const [q, setQ] = useState('');
-  const [showFilters, setShowFilters] = useState(false); // phones: plan/renewal/sort/group behind a toggle
-  const [filter, setFilter] = useState(() => searchParams.get('filter') || 'all'); // 'all' | 'owing' | 'soon' | 'clear' | 'renewing' | 'left'
+  const [filter, setFilter] = useState(() => searchParams.get('filter') || 'all'); // a key of inTab below: the status dropdown
   const [planFilter, setPlanFilter] = useState('all');
   const [renewalFilter, setRenewalFilter] = useState(() => searchParams.get('renewal') || searchParams.get('renewalFilter') || 'all'); // 'all' | '7d' | '15d' | '30d' | 'overdue'
   const [groupFilter, setGroupFilter] = useState('all');
   const [floorFilter, setFloorFilter] = useState('all'); // hostels: a floor of the chosen building
   const [roomFilter, setRoomFilter] = useState('all');
-  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || searchParams.get('sort') || 'renewal_asc'); // 'renewal_asc' | 'joined_desc' | 'name_asc' | 'balance_desc'
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || searchParams.get('sort') || 'late_desc'); // 'renewal_asc' | 'joined_desc' | 'name_asc' | 'balance_desc'
 
-  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  // a member opens on their own page; stopPropagation keeps a nested click from opening it twice
+  const navigate = useNavigate();
+  const openMember = (id, e) => { e?.stopPropagation(); navigate(`/members/${id}`); };
   const [collectModal, setCollectModal] = useState(null);
   const [reminderModal, setReminderModal] = useState(null);
   const [bulk, setBulk] = useState(null); // "Remind all": { title, people }
@@ -84,41 +92,78 @@ export default function Members() {
   });
 
   const now = new Date();
-  const filterCounts = {
-    all: (members || []).length,
-    owing: (members || []).filter((m) => m.status === 'active' && m.balance > 0).length,
-    soon: (members || []).filter((m) => {
-      if (m.status !== 'active' || !m.nextRenewal) return false;
-      const diff = Math.ceil((new Date(m.nextRenewal) - now) / (1000 * 60 * 60 * 24));
-      return diff >= 0 && diff <= 7;
-    }).length,
-    clear: (members || []).filter((m) => m.status === 'active' && m.balance <= 0).length,
-    left: (members || []).filter((m) => m.status === 'left').length,
+  const attendanceOn = biz.attendanceEnabled !== false;
+  const DAY = 1000 * 60 * 60 * 24;
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysUntil = (d) => Math.ceil((new Date(d) - now) / DAY);
+  const isPaused = (m) => m.subscription?.status === 'paused';
+  // days since the member was last marked present (or since joining, if never); null when attendance is off
+  const daysAway = (m) => {
+    if (!attendanceOn || m.lastVisit === undefined) return null;
+    const since = m.lastVisit ? new Date(`${m.lastVisit}T00:00:00`) : new Date(m.joinDate);
+    return Math.max(0, Math.floor((startOfToday - since) / DAY));
   };
+  // days since the oldest unpaid fee fell due (0 when nothing is overdue)
+  const daysLate = (m) => (m.balance > 0 && m.owingSince
+    ? Math.max(0, Math.floor((startOfToday - new Date(new Date(m.owingSince).toDateString())) / DAY))
+    : 0);
+  const live = (m) => m.status === 'active' && !isPaused(m);
+  const renewIn = (m, from, to) => {
+    if (!live(m) || !m.nextRenewal) return false;
+    const d = daysUntil(m.nextRenewal);
+    return d >= from && d <= to;
+  };
+  // which members each status (the dropdown, the summary cards and ?filter=) shows
+  const inTab = {
+    all: (m) => m.status !== 'left',
+    expired: (m) => live(m) && daysLate(m) > 0, // plan ended and the fee is still unpaid
+    owing: (m) => m.status === 'active' && m.balance > 0,
+    today: (m) => renewIn(m, 0, 0),
+    e3: (m) => renewIn(m, 1, 3),
+    e7: (m) => renewIn(m, 4, 7),
+    e30: (m) => renewIn(m, 8, 30),
+    away30: (m) => live(m) && (daysAway(m) ?? 0) >= 30,
+    never: (m) => attendanceOn && live(m) && m.lastVisit === null,
+    new: (m) => {
+      const j = new Date(m.joinDate);
+      return m.status !== 'left' && j.getMonth() === now.getMonth() && j.getFullYear() === now.getFullYear();
+    },
+    soon: (m) => {
+      if (m.status !== 'active' || isPaused(m) || !m.nextRenewal) return false;
+      const d = daysUntil(m.nextRenewal);
+      return d >= 0 && d <= 7;
+    },
+    away: (m) => m.status === 'active' && !isPaused(m) && (daysAway(m) ?? 0) >= 7,
+    clear: (m) => m.status === 'active' && m.balance <= 0,
+    paused: (m) => m.status === 'active' && isPaused(m),
+    renewing: (m) => {
+      if (m.status !== 'active' || !m.nextRenewal) return false;
+      const d = daysUntil(m.nextRenewal);
+      return d >= 0 && d <= 30;
+    },
+    left: (m) => m.status === 'left',
+  };
+  const filterCounts = Object.fromEntries(Object.entries(inTab).map(([k, fn]) => [k, (members || []).filter(fn).length]));
+  const sumOf = (fn, field) => (members || []).filter(fn).reduce((s, m) => s + (m[field] || 0), 0);
+  const [selected, setSelected] = useState(() => new Set());
+  const toggleSelected = (id) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  // header clicks: a second click on the same column flips the direction
+  const sortOn = (col, firstDir) => setSortBy((cur) => (cur === `${col}_${firstDir}` ? `${col}_${firstDir === 'asc' ? 'desc' : 'asc'}` : `${col}_${firstDir}`));
 
   const isFilterActive = Boolean(
-    q ||
-    filter !== 'all' ||
-    planFilter !== 'all' ||
-    renewalFilter !== 'all' ||
-    groupFilter !== 'all' ||
-    floorFilter !== 'all' ||
-    roomFilter !== 'all' ||
-    sortBy !== 'renewal_asc'
+    q || filter !== 'all' || planFilter !== 'all' || renewalFilter !== 'all' ||
+    groupFilter !== 'all' || floorFilter !== 'all' || roomFilter !== 'all'
   );
-
-  const advancedFilterCount = [planFilter !== 'all', renewalFilter !== 'all', groupFilter !== 'all', floorFilter !== 'all', roomFilter !== 'all', sortBy !== 'renewal_asc'].filter(Boolean).length;
-
-  const resetAllFilters = () => {
-    setQ('');
-    setFilter('all');
-    setPlanFilter('all');
-    setRenewalFilter('all');
-    setGroupFilter('all');
-    setFloorFilter('all');
-    setRoomFilter('all');
-    setSortBy('renewal_asc');
+  const clearAdvanced = () => {
+    setFilter('all'); setPlanFilter('all'); setRenewalFilter('all');
+    setGroupFilter('all'); setFloorFilter('all'); setRoomFilter('all');
+    setSelected(new Set());
   };
+  const resetAllFilters = () => { setQ(''); clearAdvanced(); };
 
   // hostels: building → floor → room, each list narrowed by the one before it
   const roomById = useMemo(() => new Map((rooms || []).map((r) => [r._id, r])), [rooms]);
@@ -133,110 +178,53 @@ export default function Members() {
   const chooseBuilding = (id) => { setGroupFilter(id); setFloorFilter('all'); setRoomFilter('all'); };
   const chooseFloor = (id) => { setFloorFilter(id); setRoomFilter('all'); };
 
-  const filtered = useMemo(() => {
+  const planMatch = (m, p) => (m.planName || m.planId?.name || '').toLowerCase() === p.toLowerCase();
+  const roomOf = (m) => roomById.get(m.roomId?._id || m.roomId);
+  const groupOf = (m) => { const room = roomOf(m); return room ? String(room.groupId?._id || room.groupId) : String(m.groupId?._id || m.groupId || ''); };
+  // skip: leave one dropdown out (to count that dropdown's options)
+  const passes = (m, skip) => {
     const query = q.trim().toLowerCase();
-    const currTime = new Date();
-
-    return (members || [])
-      .filter((m) => {
-        // Search by name, phone, plan or room number
-        if (query) {
-          const matchName = (m.name || '').toLowerCase().includes(query);
-          const matchPhone = (m.phone || '').includes(query);
-          const matchPlan = (m.planName || m.planId?.name || '').toLowerCase().includes(query);
-          const matchRoom = String(m.roomId?.roomNo || '').toLowerCase() === query.replace(/^room\s*/, '');
-          if (!matchName && !matchPhone && !matchPlan && !matchRoom) return false;
-        }
-
-        // Primary status tab filter
-        if (filter === 'owing') {
-          if (m.status !== 'active' || m.balance <= 0) return false;
-        } else if (filter === 'soon') {
-          if (m.status !== 'active' || !m.nextRenewal) return false;
-          const diff = Math.ceil((new Date(m.nextRenewal) - currTime) / (1000 * 60 * 60 * 24));
-          if (diff < 0 || diff > 7) return false;
-        } else if (filter === 'clear') {
-          if (m.status !== 'active' || m.balance > 0) return false;
-        } else if (filter === 'renewing') {
-          // the same people as the Upcoming Renewals list: renewing within 30 days
-          if (m.status !== 'active' || !m.nextRenewal) return false;
-          const diff = Math.ceil((new Date(m.nextRenewal) - currTime) / (1000 * 60 * 60 * 24));
-          if (diff < 0 || diff > 30) return false;
-        } else if (filter === 'left') {
-          if (m.status !== 'left') return false;
-        }
-
-        // Plan filter
-        if (planFilter !== 'all') {
-          const pName = (m.planName || m.planId?.name || '').toLowerCase();
-          if (!pName.includes(planFilter.toLowerCase())) return false;
-        }
-
-        // Group / Batch filter; a hostel tenant's building is their room's building
-        const room = roomById.get(m.roomId?._id || m.roomId);
-        if (groupFilter !== 'all') {
-          const gId = room ? String(room.groupId?._id || room.groupId) : m.groupId?._id || m.groupId;
-          if (gId !== groupFilter) return false;
-        }
-        if (floorFilter !== 'all' && room?.floorId !== floorFilter) return false;
-        if (roomFilter !== 'all' && room?._id !== roomFilter) return false;
-
-        // Renewal timeframe filter
-        if (renewalFilter !== 'all') {
-          if (!m.nextRenewal) return false;
-          const diff = Math.ceil((new Date(m.nextRenewal) - currTime) / (1000 * 60 * 60 * 24));
-          if (renewalFilter === '7d' && (diff < 0 || diff > 7)) return false;
-          if (renewalFilter === '15d' && (diff < 0 || diff > 15)) return false;
-          if (renewalFilter === '30d' && (diff < 0 || diff > 30)) return false;
-          if (renewalFilter === 'overdue' && diff >= 0) return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'renewal_asc') {
-          if (!a.nextRenewal) return 1;
-          if (!b.nextRenewal) return -1;
-          return new Date(a.nextRenewal) - new Date(b.nextRenewal);
-        }
-        if (sortBy === 'joined_desc') {
-          return new Date(b.joinDate) - new Date(a.joinDate);
-        }
-        if (sortBy === 'name_asc') {
-          return (a.name || '').localeCompare(b.name || '');
-        }
-        if (sortBy === 'balance_desc') {
-          return (b.balance || 0) - (a.balance || 0);
-        }
-        return 0;
-      });
-  }, [members, q, filter, planFilter, renewalFilter, groupFilter, floorFilter, roomFilter, roomById, sortBy]);
-
-  const totalOwingAmount = (members || [])
-    .filter((m) => m.status === 'active' && m.balance > 0)
-    .reduce((sum, m) => sum + m.balance, 0);
-
-  // FIX 3: Calculate members renewing in next 30 days
-  const showingRenewals = filter === 'renewing'; // the Renewing tab: the renewal cards instead of the table
-  // on the Renewing tab the cards follow the search and filters (filtered already keeps 30 days)
-  const renewalList = filtered;
-  const extraFilters = Boolean(q || planFilter !== 'all' || renewalFilter !== 'all' || groupFilter !== 'all' || floorFilter !== 'all' || roomFilter !== 'all' || sortBy !== 'renewal_asc');
-  const resetToRenewals = () => { resetAllFilters(); setFilter('renewing'); };
-  const upcomingRenewals = (members || [])
-    .filter((m) => {
-      if (m.status !== 'active' || !m.nextRenewal) return false;
-      const diffDays = Math.ceil((new Date(m.nextRenewal) - now) / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 30;
-    })
-    .sort((a, b) => new Date(a.nextRenewal) - new Date(b.nextRenewal));
-
-  const getPlanPillClass = (name) => {
-    const n = (name || '').toLowerCase();
-    if (n.includes('month') && !n.includes('3') && !n.includes('6') && !n.includes('12')) return 'blue';
-    if (n.includes('3 month') || n.includes('quarter')) return 'green';
-    if (n.includes('6 month') || n.includes('half')) return 'amber';
-    return 'purple';
+    if (query) {
+      const matchName = (m.name || '').toLowerCase().includes(query);
+      const matchPhone = (m.phone || '').includes(query);
+      const matchPlan = (m.planName || m.planId?.name || '').toLowerCase().includes(query);
+      const matchRoom = String(m.roomId?.roomNo || '').toLowerCase() === query.replace(/^room\s*/, '');
+      if (!matchName && !matchPhone && !matchPlan && !matchRoom) return false;
+    }
+    if (skip !== 'status' && !(inTab[filter] || inTab.all)(m)) return false;
+    if (skip !== 'plan' && planFilter !== 'all' && !planMatch(m, planFilter)) return false;
+    if (skip !== 'group' && groupFilter !== 'all' && groupOf(m) !== groupFilter) return false;
+    if (skip !== 'group' && floorFilter !== 'all' && roomOf(m)?.floorId !== floorFilter) return false;
+    if (skip !== 'group' && roomFilter !== 'all' && roomOf(m)?._id !== roomFilter) return false;
+    if (renewalFilter !== 'all') { // only from links like ?renewal=7d
+      if (!m.nextRenewal) return false;
+      const diff = daysUntil(m.nextRenewal);
+      if (renewalFilter === '7d' && (diff < 0 || diff > 7)) return false;
+      if (renewalFilter === '15d' && (diff < 0 || diff > 15)) return false;
+      if (renewalFilter === '30d' && (diff < 0 || diff > 30)) return false;
+      if (renewalFilter === 'overdue' && diff >= 0) return false;
+    }
+    return true;
   };
+
+  const filtered = useMemo(() => (members || [])
+    .filter((m) => passes(m))
+    .sort((a, b) => {
+      const [col, dir] = sortBy.split('_');
+      const sign = dir === 'desc' ? -1 : 1;
+      if (col === 'renewal') {
+        if (!a.nextRenewal) return 1; // no date always last
+        if (!b.nextRenewal) return -1;
+        return (new Date(a.nextRenewal) - new Date(b.nextRenewal)) * sign;
+      }
+      if (col === 'joined') return (new Date(a.joinDate) - new Date(b.joinDate)) * sign;
+      if (col === 'balance') return ((a.balance || 0) - (b.balance || 0)) * sign;
+      if (col === 'late') return (daysLate(a) - daysLate(b)) * sign || ((a.balance || 0) - (b.balance || 0)) * sign;
+      if (col === 'visit') return ((daysAway(a) ?? -1) - (daysAway(b) ?? -1)) * sign;
+      return 0;
+    }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [members, q, filter, planFilter, renewalFilter, groupFilter, floorFilter, roomFilter, roomById, sortBy]);
 
   const hasRooms = Boolean(rooms && rooms.length > 0);
 
@@ -253,141 +241,188 @@ export default function Members() {
     );
   }
 
+  const W = words(biz.type);
+  const shortDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const owingTotal = sumOf(inTab.owing, 'balance');
+  const soonTotal = sumOf(inTab.soon, 'planAmount');
+  const maxLate = Math.max(0, ...(members || []).filter(inTab.owing).map(daysLate));
+
+  // ---- status: one word + detail, used by the Status column, the phone cards and the row action ----
+  const statusOf = (m) => {
+    if (m.status === 'left') return { key: 'left', label: 'Left', tone: 'grey', sub: m.leftAt ? `left ${shortDate(m.leftAt)}` : 'no longer coming' };
+    if (isPaused(m)) return { key: 'paused', label: 'Paused', tone: 'grey', sub: 'no fees while paused' };
+    if (m.balance > 0) {
+      const late = daysLate(m);
+      return late > 0
+        ? { key: 'late', label: 'Expired', tone: 'red', sub: `${plural(late, 'day')} late${m.unpaidCycles > 1 ? ` · ${m.unpaidCycles} fees` : ''}` }
+        : { key: 'due', label: 'Due today', tone: 'orange', sub: `${rupees(m.balance)} due` };
+    }
+    if (m.nextRenewal) {
+      const d = daysUntil(m.nextRenewal);
+      if (d >= 0 && d <= 7) return { key: 'soon', label: 'Expiring', tone: 'amber', sub: d === 0 ? 'today' : d === 1 ? 'tomorrow' : `in ${d} days` };
+      return { key: 'ok', label: 'Active', tone: 'green', sub: d > 0 ? `renews in ${d} days` : 'renewal due' };
+    }
+    return { key: 'ok', label: 'Active', tone: 'green', sub: '' };
+  };
+  const visitInfo = (m) => {
+    const d = daysAway(m);
+    if (d === null) return null;
+    const text = !m.lastVisit ? 'No visits yet' : d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`;
+    return { text, away: d >= 7 };
+  };
+  const placeOf = (m) => {
+    if (m.roomId) return roomLabel((rooms || []).find((r) => r._id === (m.roomId._id || m.roomId)) || m.roomId, groups || []);
+    return m.groupId?.name || '';
+  };
+  const lastPaidText = (m) => (m.lastPaidAt ? `Last paid ${shortDate(m.lastPaidAt)}${m.lastPaidMode ? ` · ${m.lastPaidMode.toUpperCase() === 'UPI' ? 'UPI' : m.lastPaidMode[0].toUpperCase() + m.lastPaidMode.slice(1)}` : ''}` : 'No payments yet');
+  const missYouMsg = (m) => `Hi ${m.name}, we haven't seen you at ${biz.name} for a few days. Hope all is well. See you soon!`;
+  const collect = (m) => setCollectModal({ member: m, balance: m.balance > 0 ? m.balance : m.planAmount });
+  const remind = (m) => setReminderModal({ member: m, balance: m.balance, nextRenewalDate: m.nextRenewal ? new Date(m.nextRenewal) : null });
+  // the one button a row needs: collect what's owed, remind before expiry, call someone who stopped coming
+  const ctaFor = (m, st, visit) => {
+    if (st.key === 'late' || st.key === 'due') return <button type="button" className="mx-paid" onClick={() => collect(m)}>Collect</button>;
+    if (st.key === 'soon') return <button type="button" className="mx-ghost" onClick={() => remind(m)}>Remind</button>;
+    if (st.key === 'ok' && visit?.away && m.phone) return <a className="mx-ghost" href={`tel:${m.phone}`}><PhoneIcon size={14} /> Call</a>;
+    return null;
+  };
+  const waFor = (m, st, visit) => {
+    if (!m.phone || m.status === 'left') return null;
+    if (st.key === 'late' || st.key === 'due') return waLink(m.phone, owingMessage(biz, m));
+    if (st.key === 'soon') return waLink(m.phone, renewalMessage(biz, m));
+    if (visit?.away) return waLink(m.phone, missYouMsg(m));
+    return waLink(m.phone, `Hi ${m.name}, `);
+  };
+
+  // labels for statuses reached from links or summary cards (?filter=e7 etc.)
+  const STATUS_LABELS = {
+    all: `All ${W.member}s`, expired: 'Expired', owing: 'Owe money', today: 'Expiring today', e3: 'Expiring in 1–3 days', e7: 'Expiring in 4–7 days',
+    e30: 'Expiring in 8–30 days', away: 'Not coming 7+ days', away30: 'Not coming 30+ days', never: 'Never came', clear: 'Paid up',
+    paused: 'Paused', left: 'Left', new: 'Joined this month', soon: 'Expiring this week', renewing: 'Renewing in 30 days',
+  };
+  const countWhere = (skip, fn) => (members || []).filter((m) => passes(m, skip) && fn(m)).length;
+  // status tabs, like "Follow up today" on Collect
+  const TABS = [
+    { id: 'all', label: 'All', dot: '#94A3B8', hint: `Everyone active, most urgent first` },
+    { id: 'owing', label: 'Expired', dot: '#DC2626', hint: 'Plan ended and the fee is still unpaid' },
+    { id: 'soon', label: 'Expiring', dot: '#D97706', hint: 'Plan ends in the next 7 days' },
+    attendanceOn && { id: 'away', label: 'Not coming', dot: '#7C3AED', hint: 'Away 7+ days: a quick call keeps them coming' },
+    { id: 'clear', label: 'Paid up', dot: '#16A34A', hint: 'Nothing due right now' },
+    (filterCounts.paused > 0 || filter === 'paused') && { id: 'paused', label: 'Paused', dot: '#64748B', hint: 'No fees while paused; the days are added back' },
+    (filterCounts.left > 0 || filter === 'left') && { id: 'left', label: 'Left', dot: '#64748B', hint: 'No longer coming; their history is kept' },
+  ].filter(Boolean).map((t) => ({ ...t, count: countWhere('status', inTab[t.id]) }));
+  const tabHit = TABS.find((t) => t.id === filter);
+  const pickTab = (id) => { setFilter(id); setSelected(new Set()); };
+
+  // the same small icon cards as Collect; each opens its tab
+  const cards = [
+    { id: 'owing', icon: RupeeIcon, tone: 'red', label: 'Owe money', value: rupees(owingTotal), note: filterCounts.owing ? `${filterCounts.owing}${maxLate > 0 ? ` · up to ${maxLate}d late` : ''}` : 'nobody', valueTone: filterCounts.owing ? 'red' : '' },
+    { id: 'soon', icon: CalendarClockIcon, tone: 'amber', label: 'Expiring this week', value: rupees(soonTotal), note: plural(filterCounts.soon, W.member) },
+    attendanceOn && { id: 'away', icon: AlertIcon, tone: 'violet', label: 'Not coming', value: String(filterCounts.away), note: 'away 7+ days' },
+    { id: 'all', icon: CheckIcon, tone: 'green', label: `Active ${W.member}s`, value: String(filterCounts.all), note: filterCounts.new ? `+${filterCounts.new} this month` : 'this month' },
+  ].filter(Boolean);
+
+  const planOptions = [
+    { value: 'all', label: 'All plans', count: countWhere('plan', () => true) },
+    ...(plans || []).map((p) => ({ value: p.name, label: `${p.name} · ${rupees(p.amount)}`, count: countWhere('plan', (m) => planMatch(m, p.name)) })),
+  ];
+  const groupOptions = [
+    { value: 'all', label: `All ${W.groups.toLowerCase()}`, count: countWhere('group', () => true) },
+    ...(groups || []).map((g) => ({ value: g._id, label: g.name, count: countWhere('group', (m) => groupOf(m) === g._id) })),
+  ];
+  const activeChips = [
+    !tabHit && { key: 'status', label: STATUS_LABELS[filter] || filter, clear: () => setFilter('all') },
+    planFilter !== 'all' && { key: 'plan', label: planFilter, clear: () => setPlanFilter('all') },
+    groupFilter !== 'all' && { key: 'group', label: filterBuilding?.name || W.group, clear: () => chooseBuilding('all') },
+    floorFilter !== 'all' && { key: 'floor', label: filterFloors.find((x) => x._id === floorFilter)?.name || 'Floor', clear: () => chooseFloor('all') },
+    roomFilter !== 'all' && { key: 'room', label: `Room ${roomById.get(roomFilter)?.roomNo || ''}`, clear: () => setRoomFilter('all') },
+    renewalFilter !== 'all' && { key: 'renew', label: renewalFilter === 'overdue' ? 'Renewal date passed' : `Renews within ${renewalFilter.replace('d', '')} days`, clear: () => setRenewalFilter('all') },
+  ].filter(Boolean);
+
+  const chosen = filtered.filter((m) => selected.has(m._id));
+  const allChosen = filtered.length > 0 && chosen.length === filtered.length;
+  const remindChosen = () => setBulk({
+    id: Date.now(),
+    title: 'you picked',
+    people: chosen.map((m) => ({
+      _id: m._id, name: m.name, phone: m.phone,
+      note: m.balance > 0 ? `${rupees(m.balance)} due` : m.nextRenewal ? `renews ${shortDate(m.nextRenewal)}` : '',
+      message: m.balance > 0 ? owingMessage(biz, m) : renewalMessage(biz, m),
+    })),
+  });
+  const remindAllOwing = () => {
+    const owing = (members || []).filter(inTab.owing).sort((a, b) => b.balance - a.balance);
+    setBulk({ id: Date.now(), title: 'who owe', people: owing.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `${rupees(m.balance)} due`, message: owingMessage(biz, m) })) });
+  };
+  const SortHead = ({ col, first, children, align }) => {
+    const on = sortBy.startsWith(`${col}_`);
+    const dir = on ? sortBy.split('_')[1] : null;
+    return (
+      <th scope="col" aria-sort={on ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'} style={align ? { textAlign: align } : undefined}>
+        <button type="button" className={`mx-sort ${on ? 'on' : ''}`} onClick={() => sortOn(col, first)}>
+          {children}{on && <span aria-hidden="true">{dir === 'asc' ? ' ↑' : ' ↓'}</span>}
+        </button>
+      </th>
+    );
+  };
+  const openRow = (e, id) => { if (!e.target.closest('a, button, input, label, select')) openMember(id, e); };
+  const title = W.member === 'member' ? 'Members' : `${W.member[0].toUpperCase()}${W.member.slice(1)}s`;
+  const subtitle = [
+    plural(filterCounts.all, `active ${W.member}`),
+    filterCounts.new > 0 && `${filterCounts.new} joined this month`,
+  ].filter(Boolean).join(' · ');
+  const actions = [
+    { key: 'member', label: `Add ${W.member}`, short: W.member[0].toUpperCase() + W.member.slice(1), icon: PlusIcon, primary: true, onClick: () => setAdding(true) },
+    { key: 'pay', label: 'Record payment', short: 'Payment', icon: RupeeIcon, onClick: () => setPicking(true) },
+    { key: 'remind', label: 'Remind all who owe', short: 'Remind', icon: WhatsAppIcon, onClick: remindAllOwing, disabled: !filterCounts.owing },
+    { key: 'export', label: 'Export', short: 'Export', icon: DownloadIcon, onClick: () => download(`/businesses/${biz._id}/export/balances.csv`, `${biz.name}-${title.toLowerCase()}.csv`) },
+  ].filter((a) => can(biz, ADD) || !['member', 'pay'].includes(a.key)); // see-only staff
+
   return (
     <>
-      {/* Page Header */}
-      <div className="page-header members-page-header">
+      {/* header and quick actions, laid out like Collect */}
+      <div className="page-header home-header db-head">
         <div className="page-title-wrap">
-          <h1 className="page-title">
-            Members<span className="hide-sm"> Directory</span>
-          </h1>
-          {/* FIX 4: Updated subtitle without room allocations */}
-          <p className="page-subtitle">
-            Manage your active members, subscriptions, renewal dates, and balance dues.
-          </p>
+          <p className="db-date">{subtitle}</p>
+          <h1 className="db-hello">{title}</h1>
         </div>
-        <div className="page-actions members-actions">
-          <button type="button" className="btn-secondary" onClick={() => setAddingExpense(true)}>
-            <RupeeIcon size={15} /> <span className="hide-sm">Add </span>Expense
-          </button>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setAdding(true)}
-            className="btn">
-            <PlusIcon size={15} /> Add<span className="hide-sm"> {words(biz.type).member}</span>
-          </motion.button>
-        </div>
+        <nav className="db-quick" aria-label="Quick actions">
+          {actions.map((a) => (
+            <button key={a.key} type="button" className={`db-quick-btn ${a.primary ? 'pri' : ''} q-${a.key}`} onClick={a.onClick} disabled={a.disabled}>
+              <span className="db-quick-icon"><a.icon size={15} /></span>
+              <span className="db-quick-long">{a.label}</span>
+              <span className="db-quick-short">{a.short}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
       <AnimatePresence>
-        {addingExpense && (
-          <AddExpense
-            biz={biz}
-            onClose={() => setAddingExpense(false)}
-            onSaved={() => {
-              setAddingExpense(false);
-              qc.invalidateQueries({ queryKey: ['report', biz._id] });
-              qc.invalidateQueries({ queryKey: ['expenses', biz._id] });
-            }}
+        {picking && (
+          <PickMember
+            members={(members || []).filter((m) => m.status === 'active')}
+            word={W.member}
+            onClose={() => setPicking(false)}
+            onPick={(m) => { setPicking(false); collect(m); }}
           />
         )}
       </AnimatePresence>
 
-      {/* 3-Column Compact KPI Stats Grid (phones: a row of filter tabs) */}
-      <div className="compact-stat-grid members-tabs" role="tablist" aria-label="Show members">
-        {/* Tile 1 — Total Members */}
-        <Rise i={0}>
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            className={`compact-stat-card ${filter === 'all' ? 'active' : ''}`}
-            title="Click to view all members"
-            onClick={() => setFilter('all')}>
-            <span className="compact-stat-icon blue"><UsersIcon size={16} /></span>
-            <div className="compact-stat-content">
-              <span className="compact-stat-label"><span className="hide-sm">TOTAL MEMBERS</span><span className="show-sm">All</span></span>
-              <div className="compact-stat-val-row">
-                <span className="compact-stat-val">
-                  <CountUp value={filterCounts.all} duration={0.8} />
-                </span>
-                <span className="compact-stat-badge">registered</span>
-              </div>
-            </div>
-          </motion.div>
-        </Rise>
+      {members.length > 0 && (
+        <section className="db-today mx2-cards" aria-label="At a glance">
+          {cards.map((c) => (
+            <button key={c.id} type="button" className={`db-today-card mx2-card-btn ${filter === c.id ? 'on' : ''}`} aria-pressed={filter === c.id} onClick={() => pickTab(c.id)}>
+              <span className={`db-today-icon ${c.tone}`}><c.icon size={17} /></span>
+              <span className="db-today-text">
+                <span className="db-label">{c.label}</span>
+                <b className={c.valueTone || ''}>{c.value}</b>
+              </span>
+              <span className="db-today-note">{c.note}</span>
+            </button>
+          ))}
+        </section>
+      )}
 
-        {/* Tile 2 — Unpaid Dues */}
-        <Rise i={1}>
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            className={`compact-stat-card ${filter === 'owing' ? 'active' : ''}`}
-            title="Click to view unpaid members"
-            onClick={() => setFilter('owing')}>
-            <span className={`compact-stat-icon ${totalOwingAmount > 0 ? 'red' : 'green'}`}>
-              {totalOwingAmount > 0 ? <AlertIcon size={16} /> : <CheckCircleIcon size={16} />}
-            </span>
-            <div className="compact-stat-content">
-              <span className="compact-stat-label"><span className="hide-sm">UNPAID DUES</span><span className="show-sm">Owing</span></span>
-              <div className="compact-stat-val-row">
-                <span className="compact-stat-val" style={{ color: totalOwingAmount > 0 ? 'var(--red)' : undefined }}>
-                  <CountUp value={totalOwingAmount} duration={0.8} prefix="₹" />
-                </span>
-                <span className={`compact-stat-badge ${totalOwingAmount > 0 ? 'danger' : 'success'}`}>
-                  {totalOwingAmount > 0 ? `${filterCounts.owing} pending` : '✓ All dues cleared'}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        </Rise>
-
-        {/* Tile 3 — Paid Up */}
-        <Rise i={2}>
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            className={`compact-stat-card ${filter === 'clear' ? 'active' : ''}`}
-            title="Click to view paid-up members"
-            onClick={() => setFilter('clear')}>
-            <span className="compact-stat-icon green"><CheckIcon size={16} /></span>
-            <div className="compact-stat-content">
-              <span className="compact-stat-label"><span className="hide-sm">PAID UP</span><span className="show-sm">Paid</span></span>
-              <div className="compact-stat-val-row">
-                <span className="compact-stat-val" style={{ color: 'var(--green)' }}>
-                  <CountUp value={filterCounts.clear} duration={0.8} />
-                </span>
-                <span className="compact-stat-badge success">all fees cleared</span>
-              </div>
-            </div>
-          </motion.div>
-        </Rise>
-
-        {/* Tile 4 — Upcoming renewals (next 30 days) */}
-        <Rise i={3}>
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            className={`compact-stat-card ${filter === 'renewing' ? 'active' : ''}`}
-            title="Click to view members renewing in the next 30 days"
-            onClick={() => setFilter('renewing')}>
-            <span className="compact-stat-icon amber"><CalendarClockIcon size={16} /></span>
-            <div className="compact-stat-content">
-              <span className="compact-stat-label"><span className="hide-sm">UPCOMING RENEWALS</span><span className="show-sm">Renewing</span></span>
-              <div className="compact-stat-val-row">
-                <span className="compact-stat-val" style={{ color: upcomingRenewals.length ? 'var(--amber)' : undefined }}>
-                  <CountUp value={upcomingRenewals.length} duration={0.8} />
-                </span>
-                <span className="compact-stat-badge">
-                  {upcomingRenewals.length ? `${rupees(upcomingRenewals.reduce((s, m) => s + (m.planAmount || 0), 0))} in 30 days` : 'none in 30 days'}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        </Rise>
-      </div>
-
-      {/* Add Member Modal Dialog */}
       <AnimatePresence>
         {adding && (
           <AddMemberModal biz={biz} plans={plans || []} groups={groups || []} rooms={rooms || []} roomId={addToRoom}
@@ -395,506 +430,226 @@ export default function Members() {
         )}
       </AnimatePresence>
 
-      {/* Filter & Search Toolbar (the Renewing tab shows only the renewals below) */}
-      {members.length > 0 && (
-        <div className="members-toolbar-card">
-          <div className={`filters-left-group ${showFilters ? 'filters-open' : ''}`}>
-            {/* Search Input on the Left */}
-            <div className="search-input-wrap members-search" style={{ width: 250, minWidth: 180 }}>
-              <SearchIcon size={14} className="search-icon" />
-              <input
-                type="search"
-                placeholder="Search members"
-                aria-label="Search members by name, phone or plan"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                style={{ height: 32, fontSize: 12 }}
-              />
-              {q && (
-                <button
-                  type="button"
-                  className="search-clear-btn"
-                  onClick={() => setQ('')}
-                  aria-label="Clear search">
-                  <XIcon size={13} />
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              className="btn-secondary filters-toggle show-sm"
-              aria-expanded={showFilters}
-              onClick={() => setShowFilters(!showFilters)}>
-              <SlidersHorizontalIcon size={15} /> Filters{advancedFilterCount > 0 && ` (${advancedFilterCount})`}
-            </button>
-
-            {/* Plan Filter Dropdown */}
-            <div className="filter-select-item" title="Filter by plan" data-label="Plan">
-              <CreditCardIcon size={13} className="filter-select-icon" />
-              <select
-                className="filter-select-input"
-                value={planFilter}
-                onChange={(e) => setPlanFilter(e.target.value)}>
-                <option value="all">All Plans</option>
-                {(plans || []).map((p) => (
-                  <option key={p._id} value={p.name}>
-                    {p.name} ({rupees(p.amount)})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Renewal Window Filter Dropdown */}
-            <div className="filter-select-item" title="Filter by renewal timeframe" data-label="Renews">
-              <CalendarClockIcon size={13} className="filter-select-icon" />
-              <select
-                className="filter-select-input"
-                value={renewalFilter}
-                onChange={(e) => setRenewalFilter(e.target.value)}>
-                <option value="all">All Renewal Dates</option>
-                <option value="7d">Renewing in ≤ 7 days</option>
-                <option value="15d">Renewing in ≤ 15 days</option>
-                <option value="30d">Renewing in ≤ 30 days</option>
-                <option value="overdue">Overdue Renewals</option>
-              </select>
-            </div>
-
-            {/* Sort By Dropdown */}
-            <div className="filter-select-item wide" title="Sort members table" data-label="Sort by">
-              <SlidersHorizontalIcon size={13} className="filter-select-icon" />
-              <select
-                className="filter-select-input"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}>
-                <option value="renewal_asc">Renewal: Soonest first</option>
-                <option value="joined_desc">Joined: Newest first</option>
-                <option value="name_asc">Name: A → Z</option>
-                <option value="balance_desc">Balance: Highest first</option>
-              </select>
-            </div>
-
-            {/* Group / Batch Filter (if business has groups) */}
-            {(groups || []).length > 0 && (
-              <div className="filter-select-item" title={`Filter by ${words(biz.type).group.toLowerCase()}`} data-label={words(biz.type).group}>
-                {hasRooms ? <BuildingIcon size={13} className="filter-select-icon" /> : <TagIcon size={13} className="filter-select-icon" />}
-                <select
-                  className="filter-select-input"
-                  aria-label={`Filter by ${words(biz.type).group.toLowerCase()}`}
-                  value={groupFilter}
-                  onChange={(e) => chooseBuilding(e.target.value)}>
-                  <option value="all">All {words(biz.type).groups}</option>
-                  {groups.map((g) => (
-                    <option key={g._id} value={g._id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Floor: once a building with floors is chosen */}
-            {filterFloors.length > 0 && (
-              <div className="filter-select-item" title="Filter by floor" data-label="Floor">
-                <LayersIcon size={13} className="filter-select-icon" />
-                <select
-                  className="filter-select-input"
-                  aria-label="Filter by floor"
-                  value={floorFilter}
-                  onChange={(e) => chooseFloor(e.target.value)}>
-                  <option value="all">All floors</option>
-                  {filterFloors.map((f) => (
-                    <option key={f._id} value={f._id}>{f.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Room: hostels only */}
-            {hasRooms && filterRooms.length > 0 && (
-              <div className="filter-select-item wide" title="Filter by room" data-label="Room">
-                <BedIcon size={13} className="filter-select-icon" />
-                <select
-                  className="filter-select-input"
-                  aria-label="Filter by room"
-                  value={roomFilter}
-                  onChange={(e) => setRoomFilter(e.target.value)}>
-                  <option value="all">All rooms</option>
-                  {filterRooms.map((r) => (
-                    <option key={r._id} value={r._id}>
-                      {groupFilter === 'all' ? roomLabel(r, groups || []) : floorFilter === 'all' && r.floorId ? roomLabel(r, groups || []).split(' · ').slice(1).join(' · ') : `Room ${r.roomNo}`} ({r.occupied}/{r.capacity})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Reset All Filters Button (on the Renewing tab it keeps you there) */}
-            {(showingRenewals ? extraFilters : isFilterActive) && (
-              <button
-                type="button"
-                className="filter-reset-btn"
-                onClick={showingRenewals ? resetToRenewals : resetAllFilters}
-                title="Clear all active filters and search">
-                <XIcon size={12} /> Reset filters
-              </button>
-            )}
-            {showFilters && (
-              <button type="button" className="filters-done show-sm" onClick={() => setShowFilters(false)}>
-                <CheckIcon size={14} /> Done
-              </button>
-            )}
-          </div>
-
-          {/* Results count text on the Right */}
-          <div className="members-results">
-            <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-              Showing <b style={{ color: 'var(--text)' }}>{filtered.length}</b> of <b style={{ color: 'var(--text)' }}>{showingRenewals ? upcomingRenewals.length : members.length}</b> {showingRenewals ? 'renewals' : 'members'}
-            </div>
-            {filterCounts.owing > 0 && !showingRenewals && (
-              <button type="button" className="remind-all-btn" onClick={() => {
-                const owing = (members || []).filter((m) => m.status === 'active' && m.balance > 0).sort((a, b) => b.balance - a.balance);
-                setBulk({ id: Date.now(), title: 'who owe', people: owing.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `${rupees(m.balance)} due`, message: owingMessage(biz, m) })) });
-              }}>
-                <SendIcon size={12} /> Remind all who owe ({filterCounts.owing})
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {!members.length && !adding && (
         <Empty
           icon={UsersIcon}
-          title={`No ${words(biz.type).member}s yet`}
-          hint={`Add your first ${words(biz.type).member} to start tracking fees and payments.`}
+          title={`No ${W.member}s yet`}
+          hint={`Add your first ${W.member} to start tracking fees and payments.`}
           action={
             <button className="btn" onClick={() => setAdding(true)}>
-              <PlusIcon size={15} /> Add first {words(biz.type).member}
+              <PlusIcon size={15} /> Add first {W.member}
             </button>
           }
         />
       )}
 
-      {members.length > 0 && !filtered.length && !showingRenewals && (
-        <Empty
-          icon={filter === 'owing' ? CheckCircleIcon : filter === 'clear' ? CheckIcon : SearchIcon}
-          title={
-            filter === 'owing'
-              ? 'No Unpaid Dues'
-              : filter === 'clear'
-              ? 'No Paid Up Members'
-              : filter === 'renewing'
-              ? 'No renewals in the next 30 days'
-              : filter === 'left'
-              ? 'No Inactive Members'
-              : 'No matching members'
-          }
-          hint={
-            q
-              ? `Nobody matches search query “${q}”.`
-              : filter === 'owing'
-              ? 'Everyone has paid. No pending fees.'
-              : filter === 'clear'
-              ? 'No members currently have a zero balance.'
-              : filter === 'renewing'
-              ? 'Nobody’s plan renews in the next 30 days.'
-              : filter === 'left'
-              ? 'No members have left yet.'
-              : 'No members found in this filter category.'
-          }
-          action={
-            isFilterActive ? (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={resetAllFilters}>
-                View All Members ({filterCounts.all})
+      {members.length > 0 && (
+        <section className="mx-list mx2" aria-label={`${W.member} list`}>
+          {/* status tabs */}
+          <div className="db-tabs mx2-tabs" role="tablist" aria-label={`Show ${W.member}s`}>
+            {TABS.map((t) => (
+              <button key={t.id} type="button" role="tab" aria-selected={filter === t.id} aria-controls="mx2-list"
+                className={`db-tab ${filter === t.id ? 'on' : ''}`} onClick={() => pickTab(t.id)}>
+                <i className="db-dot" style={{ background: t.dot }} aria-hidden="true" />
+                {t.label}
+                <span className="db-tab-count">{t.count}</span>
               </button>
-            ) : null
-          }
-        />
-      )}
-
-      {/* Modern Data Table for Members */}
-      {filtered.length > 0 && !showingRenewals && (
-        <div className="analytics-card" style={{ padding: '0 16px 10px', marginBottom: 16 }}>
-          <div className="analytics-table-wrap">
-            <table className="analytics-table members-table">
-              <thead>
-                <tr>
-                  <th>MEMBER</th>
-                  <th>{hasRooms ? 'PLAN / ROOM' : 'PLAN'}</th>
-                  <th>JOINED</th>
-                  <th>NEXT RENEWAL</th>
-                  <th style={{ textAlign: 'right' }}>BALANCE</th>
-                  <th style={{ textAlign: 'right' }}>STATUS</th>
-                  <th style={{ textAlign: 'right' }}>ACTION</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((m, idx) => {
-                  const planName = m.planName || m.planId?.name || (m.roomId ? null : 'Standard Plan'); // the room line below says where they stay
-                  const pEnd = m.nextRenewal ? new Date(m.nextRenewal) : null;
-                  const diffDays = pEnd ? Math.ceil((pEnd - new Date()) / (1000 * 60 * 60 * 24)) : null;
-                  const isOverdue = m.balance > 0 || (diffDays !== null && diffDays < 0);
-                  const isSoon = !isOverdue && diffDays !== null && diffDays >= 0 && diffDays <= 7;
-
-                  return (
-                    <motion.tr
-                      key={m._id}
-                      className="member-row"
-                      onClick={() => setSelectedMemberId(m._id)}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, delay: idx * 0.03 }}>
-                      <td>
-                        {/* FIX 1: Clicking avatar or name opens MemberProfileSheet */}
-                        <div
-                          className="table-member-cell"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => setSelectedMemberId(m._id)}>
-                          <Avatar name={m.name} />
-                          <div>
-                            <div className="table-member-name">{m.name}</div>
-                            <div className="table-member-phone">{m.phone || 'No phone'}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        {planName && (
-                          <span className={`table-plan-pill ${getPlanPillClass(planName)}`}>
-                            {planName}
-                          </span>
-                        )}
-                        {m.roomId && (
-                          <div className="table-room">
-                            <BedIcon size={12} /> {roomLabel((rooms || []).find((r) => r._id === (m.roomId._id || m.roomId)) || m.roomId, groups || [])}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="small muted">
-                        {new Date(m.joinDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-
-                      <td>
-                        {pEnd ? (
-                          <span
-                            style={{
-                              fontSize: 12,
-                              fontWeight: isSoon || isOverdue ? 600 : 400,
-                              color: isOverdue ? 'var(--red)' : isSoon ? 'var(--amber)' : 'var(--text-3)',
-                            }}>
-                            {pEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        ) : (
-                          <span className="muted small">—</span>
-                        )}
-                      </td>
-
-                      <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                        {m.balance > 0 ? (
-                          <span style={{ color: 'var(--red)' }}>₹{m.balance.toLocaleString('en-IN')} Due</span>
-                        ) : (
-                          <span className="zero-due" style={{ color: 'var(--green)' }}>₹0 Due</span>
-                        )}
-                      </td>
-
-                      <td style={{ textAlign: 'right' }}>
-                        {m.balance > 0 ? (
-                          <span className="badge red badge-pulse-once">
-                            <span className="badge-dot" /> Overdue
-                          </span>
-                        ) : m.status === 'left' ? (
-                          <span className="badge gray">Left</span>
-                        ) : (
-                          <span className="badge green">
-                            <span className="badge-dot" /> Paid Up
-                          </span>
-                        )}
-                      </td>
-
-                      {/* FIX 2: Action column changes by status. Clicks here don't open the sheet. */}
-                      <td
-                        style={{ textAlign: 'right' }}
-                        className={isOverdue || isSoon ? '' : 'no-primary-action'}
-                        onClick={(e) => e.stopPropagation()}>
-                        <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
-                          {isOverdue && (
-                            <button
-                              type="button"
-                              className="btn"
-                              style={{
-                                background: 'var(--green)',
-                                color: '#FFFFFF',
-                                fontSize: 11,
-                                padding: '3px 8px',
-                                minHeight: 26,
-                              }}
-                              onClick={() => setCollectModal({ member: m, balance: m.balance > 0 ? m.balance : m.planAmount })}>
-                              <CheckIcon size={11} /> Collect ₹{(m.balance > 0 ? m.balance : m.planAmount || 1500).toLocaleString('en-IN')}
-                            </button>
-                          )}
-
-                          {isSoon && (
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              style={{
-                                fontSize: 11,
-                                padding: '3px 8px',
-                                minHeight: 26,
-                                borderColor: 'var(--amber-border)',
-                                color: 'var(--amber)',
-                              }}
-                              onClick={() =>
-                                setReminderModal({
-                                  member: m,
-                                  balance: m.balance,
-                                  nextRenewalDate: pEnd,
-                                })
-                              }>
-                              <SendIcon size={11} /> Send reminder
-                            </button>
-                          )}
-
-                          {/* FIX 1: View → opens Sheet (phones: the whole card does) */}
-                          <button
-                            type="button"
-                            className="btn-secondary view-btn"
-                            onClick={() => setSelectedMemberId(m._id)}
-                            style={{ minHeight: 26, padding: '3px 8px', fontSize: 11 }}>
-                            View →
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            ))}
           </div>
-        </div>
-      )}
 
-      {/* Upcoming Renewals: only on the Renewing tab */}
-      {showingRenewals && (
-        <div className="analytics-card renewals-focus" style={{ marginBottom: 16 }}>
-          <div className="card-header-row" style={{ marginBottom: 12 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <h3 className="analytics-card-title">Upcoming Renewals</h3>
-                <span className="badge blue" style={{ fontSize: 11 }}>Next 30 Days</span>
-              </div>
-              <span className="analytics-card-subtitle">
-                Members due for subscription renewal in the coming month
-              </span>
+          <div className="mx-toolbar">
+            <div className="mx-toolbar-top">
+              <label className="mx-search">
+                <SearchIcon size={15} />
+                <span className="sr-only">Search {W.member}s</span>
+                <input type="search" placeholder="Search by name, phone or plan" value={q} onChange={(e) => setQ(e.target.value)} />
+                {q && (
+                  <button type="button" className="mx-icon-btn" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>
+                )}
+              </label>
+              {(plans || []).length > 0 && (
+                <Menu label="Plan" prefix="Plan:" valueLabel={planFilter === 'all' ? 'All' : planFilter} active={planFilter !== 'all'}
+                  options={planOptions} value={planFilter} onPick={setPlanFilter} />
+              )}
+              {(groups || []).length > 0 && (
+                <Menu label={W.group} prefix={`${W.group}:`} valueLabel={groupFilter === 'all' ? 'All' : filterBuilding?.name} active={groupFilter !== 'all'}
+                  options={groupOptions} value={groupFilter} onPick={chooseBuilding} />
+              )}
+              {filterFloors.length > 0 && (
+                <Menu label="Floor" prefix="Floor:" valueLabel={floorFilter === 'all' ? 'All' : filterFloors.find((x) => x._id === floorFilter)?.name} active={floorFilter !== 'all'}
+                  options={[{ value: 'all', label: 'All floors' }, ...filterFloors.map((x) => ({ value: x._id, label: x.name }))]} value={floorFilter} onPick={chooseFloor} />
+              )}
+              {hasRooms && filterRooms.length > 0 && (
+                <Menu label="Room" prefix="Room:" valueLabel={roomFilter === 'all' ? 'All' : roomById.get(roomFilter)?.roomNo || ''} active={roomFilter !== 'all'}
+                  options={[{ value: 'all', label: 'All rooms' }, ...filterRooms.map((r) => ({ value: r._id, label: `Room ${r.roomNo}`, count: `${r.occupied}/${r.capacity}` }))]} value={roomFilter} onPick={setRoomFilter} />
+              )}
+              <Menu className="mx-menu-sort" label="Sort by" prefix="Sort:" valueLabel={SORT_LABELS[sortBy] || 'Custom'}
+                options={SORT_OPTIONS.map(([value, label]) => ({ value, label }))} value={sortBy} onPick={setSortBy} align="right" />
             </div>
-            {renewalList.length > 1 && (
-              <button type="button" className="remind-all-btn" onClick={() => setBulk({
-                id: Date.now(),
-                title: 'renewing soon',
-                people: renewalList.map((m) => ({ _id: m._id, name: m.name, phone: m.phone, note: `renews ${new Date(m.nextRenewal).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`, message: m.balance > 0 ? owingMessage(biz, m) : renewalMessage(biz, m) })),
-              })}>
-                <SendIcon size={12} /> Remind all ({renewalList.length})
-              </button>
+            <p className="mx2-hint">{tabHit ? tabHit.hint : STATUS_LABELS[filter]}</p>
+
+            {activeChips.length > 0 && (
+              <div className="mx-chips" aria-label="Active filters">
+                <span className="mx-chips-count">{filtered.length} shown ·</span>
+                {activeChips.map((c) => (
+                  <button key={c.key} type="button" className="mx-chip" onClick={c.clear} aria-label={`Remove filter: ${c.label}`}>
+                    {c.label} <XIcon size={12} />
+                  </button>
+                ))}
+                <button type="button" className="mx-link mx-chips-clear" onClick={clearAdvanced}>Clear all</button>
+              </div>
             )}
           </div>
-  
-          {renewalList.length > 0 ? (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: 12,
-              }}>
-              {renewalList.map((m) => {
-                const pEnd = new Date(m.nextRenewal);
-                const diffDays = Math.ceil((pEnd - new Date()) / (1000 * 60 * 60 * 24));
-                const daysLabel = diffDays <= 0 ? 'Today' : diffDays === 1 ? 'Tomorrow' : `in ${diffDays} days`;
-                const badgeClass = diffDays <= 1 ? 'red' : diffDays <= 7 ? 'amber' : 'green';
-  
-                return (
-                  <div
-                    key={m._id}
-                    className="renewal-card">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <div
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                        onClick={() => setSelectedMemberId(m._id)}>
-                        <Avatar name={m.name} size={32} />
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{m.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{m.phone || 'No phone'}</div>
-                        </div>
-                      </div>
-                      <span className={`badge ${badgeClass}`} style={{ fontSize: 10.5, padding: '2px 8px' }}>
-                        {daysLabel}
-                      </span>
-                    </div>
-  
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
-                      <div style={{ fontSize: 11.5, color: 'var(--text-2)' }}>
-                        <span>{pEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span>
-                        <span className="muted" style={{ margin: '0 4px' }}>·</span>
-                        <span className={`table-plan-pill ${getPlanPillClass(m.planName)}`} style={{ fontSize: 10.5, padding: '1px 6px' }}>
-                          {m.planName}
-                        </span>
-                      </div>
-  
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          minHeight: 26,
-                          borderColor: 'var(--amber-border)',
-                          color: 'var(--amber)',
-                        }}
-                        onClick={() =>
-                          setReminderModal({
-                            member: m,
-                            balance: m.balance,
-                            nextRenewalDate: pEnd,
-                          })
-                        }>
-                        <SendIcon size={11} /> Send reminder
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '28px 16px', background: 'var(--bg-subtle)', borderRadius: 8 }}>
-              <div style={{ fontSize: 18, marginBottom: 4 }}>🎉</div>
-              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{upcomingRenewals.length ? 'No renewals match these filters' : 'No renewals in next 30 days 🎉'}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-                {upcomingRenewals.length
-                  ? <button type="button" className="link-btn" style={{ background: 'none', border: 0, padding: 0, minHeight: 0, color: 'var(--primary)', fontWeight: 600, fontSize: 12 }} onClick={resetToRenewals}>Clear filters</button>
-                  : 'All active member subscriptions are paid and up-to-date.'}
+
+          <div id="mx2-list" role="tabpanel">
+            {filtered.length === 0 ? (
+              <div className="mx-empty">
+                <p>{q ? `Nobody matches “${q}”.` : filter === 'owing' ? 'Nobody owes money. Everyone is paid up.' : filter === 'away' ? `Every ${W.member} came in this week.` : filter === 'soon' ? 'No plans expire this week.' : 'Nobody here with these filters.'}</p>
+                {isFilterActive && <button type="button" className="mx-link" onClick={() => { resetAllFilters(); setSelected(new Set()); }}>Show all {W.member}s</button>}
               </div>
-            </div>
-          )}
-        </div>
+            ) : (
+              <>
+                {/* wide screens: a table */}
+                <div className="mx-table-wrap">
+                  <table className="mx-table mx2-table">
+                    <thead>
+                      <tr>
+                        <th scope="col" className="mx-check">
+                          <input type="checkbox" aria-label={`Select all ${filtered.length} shown`} checked={allChosen}
+                            onChange={() => setSelected(allChosen ? new Set() : new Set(filtered.map((m) => m._id)))} />
+                        </th>
+                        <th scope="col"><span className="mx-th">{W.member}</span></th>
+                        <SortHead col="late" first="desc">Status</SortHead>
+                        <th scope="col"><span className="mx-th">{hasRooms ? 'Plan & room' : `Plan & ${W.group.toLowerCase()}`}</span></th>
+                        {attendanceOn && <SortHead col="visit" first="desc">Last visit</SortHead>}
+                        <SortHead col="balance" first="desc" align="right">Balance</SortHead>
+                        <th scope="col" style={{ textAlign: 'right' }}><span className="mx-th">Actions</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((m) => {
+                        const st = statusOf(m);
+                        const visit = visitInfo(m);
+                        const owes = m.balance > 0;
+                        const wa = waFor(m, st, visit);
+                        return (
+                          <tr key={m._id} className={selected.has(m._id) ? 'chosen' : ''} onClick={(e) => openRow(e, m._id)}>
+                            <td className="mx-check">
+                              <input type="checkbox" aria-label={`Select ${m.name}`} checked={selected.has(m._id)} onChange={() => toggleSelected(m._id)} />
+                            </td>
+                            <td>
+                              <Link to={`/members/${m._id}`} className="mx-person">
+                                <Avatar name={m.name} />
+                                <span>
+                                  <span className="mx-name">{m.name}</span>
+                                  <span className="mx-meta">{m.phone || 'No phone'}</span>
+                                </span>
+                              </Link>
+                            </td>
+                            <td>
+                              <span className={`mx2-pill ${st.tone}`}><i aria-hidden="true" />{st.label}</span>
+                              {st.sub && <span className="mx-meta">{st.sub}</span>}
+                            </td>
+                            <td>
+                              <span className="mx-strong">{m.planName || '—'}</span>
+                              {placeOf(m) && <span className="mx-meta">{placeOf(m)}</span>}
+                            </td>
+                            {attendanceOn && (
+                              <td>
+                                {visit ? <span className={`mx-visit ${visit.away ? 'amber' : ''}`}><span className="mx-dot" />{visit.text}</span> : <span className="mx-meta">—</span>}
+                              </td>
+                            )}
+                            <td style={{ textAlign: 'right' }}>
+                              <span className={`mx-balance ${owes ? 'red' : 'green'}`}>{owes ? rupees(m.balance) : m.balance < 0 ? `+${rupees(-m.balance)}` : 'Paid up'}</span>
+                              <span className="mx-meta">{lastPaidText(m)}</span>
+                            </td>
+                            <td>
+                              <span className="mx-actions">
+                                {wa && (
+                                  <a className="mx-wa" href={wa} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${m.name}`} title="WhatsApp">
+                                    <WhatsAppIcon size={15} />
+                                  </a>
+                                )}
+                                {ctaFor(m, st, visit)}
+                                <Link to={`/members/${m._id}`} className="mx-open" aria-label={`Open ${m.name}`}><ChevronIcon size={16} /></Link>
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* phones: cards with the same columns as labelled fields */}
+                <div className="mx2-cardhead">
+                  <label>
+                    <input type="checkbox" checked={allChosen} onChange={() => setSelected(allChosen ? new Set() : new Set(filtered.map((m) => m._id)))} />
+                    {plural(filtered.length, W.member)}
+                  </label>
+                  {filter === 'owing' && filterCounts.owing > 1 && (
+                    <button type="button" className="mx-wa-text" onClick={remindAllOwing}>Remind all</button>
+                  )}
+                </div>
+                <ul className="mx-cards mx2-cardlist">
+                  {filtered.map((m) => {
+                    const st = statusOf(m);
+                    const visit = visitInfo(m);
+                    const owes = m.balance > 0;
+                    const wa = waFor(m, st, visit);
+                    const cta = ctaFor(m, st, visit);
+                    return (
+                      <li key={m._id} className={`mx-card mx2-card ${selected.has(m._id) ? 'chosen' : ''}`}>
+                        <div className="mx2-card-top">
+                          <input type="checkbox" aria-label={`Select ${m.name}`} checked={selected.has(m._id)} onChange={() => toggleSelected(m._id)} />
+                          <Link to={`/members/${m._id}`} className="mx2-card-who">
+                            <Avatar name={m.name} />
+                            <span>
+                              <span className="mx-name">{m.name}</span>
+                              <span className="mx-meta">{m.phone || 'No phone'}</span>
+                            </span>
+                          </Link>
+                          <span className="mx2-card-status">
+                            <span className={`mx2-pill ${st.tone}`}><i aria-hidden="true" />{st.label}</span>
+                            {st.sub && <span className="mx-meta">{st.sub}</span>}
+                          </span>
+                        </div>
+                        <dl className="mx2-fields">
+                          <div><dt>{hasRooms ? 'Plan & room' : `Plan & ${W.group.toLowerCase()}`}</dt><dd>{m.planName || '—'}{placeOf(m) && <span>{placeOf(m)}</span>}</dd></div>
+                          {attendanceOn && <div><dt>Last visit</dt><dd className={visit?.away ? 'amber' : ''}>{visit ? visit.text : '—'}</dd></div>}
+                          <div className="right"><dt>Balance</dt><dd className={owes ? 'red' : 'green'}><b>{owes ? rupees(m.balance) : m.balance < 0 ? `+${rupees(-m.balance)}` : 'Paid up'}</b></dd></div>
+                        </dl>
+                        <div className="mx2-card-actions">
+                          {wa && <a className="mx2-wa" href={wa} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${m.name}`}><WhatsAppIcon size={16} /></a>}
+                          {cta}
+                          <Link to={`/members/${m._id}`} className={`mx2-open ${cta ? '' : 'wide'}`} aria-label={`Open ${m.name}`}>{cta ? <ChevronIcon size={16} /> : 'Open'}</Link>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
+
+          <div className="mx-foot">
+            <span>Showing {filtered.length} of {filter === 'left' ? filterCounts.left : filterCounts.all}</span>
+            {filter !== 'left' && filterCounts.left > 0 && !TABS.some((t) => t.id === 'left') && (
+              <button type="button" className="mx-link" onClick={() => pickTab('left')}>Show {W.member}s who left ({filterCounts.left})</button>
+            )}
+          </div>
+        </section>
       )}
 
-      {/* FIX 1: PROFILE SLIDE-OVER SHEET (420px wide) */}
-      <AnimatePresence>
-        {selectedMemberId && (
-          <MemberProfileSheet
-            biz={biz}
-            memberId={selectedMemberId}
-            plans={plans || []}
-            rooms={rooms || []}
-            groups={groups || []}
-            onClose={() => setSelectedMemberId(null)}
-          />
-        )}
-      </AnimatePresence>
+      {/* selection: a floating bar, like the design */}
+      {chosen.length > 0 && (
+        <div className="mx2-bulk" role="status">
+          <b>{chosen.length} selected</b>
+          {chosen.some((m) => m.balance > 0) && <span className="mx2-bulk-due">{rupees(chosen.reduce((s, m) => s + Math.max(0, m.balance), 0))} due</span>}
+          <button type="button" className="mx2-bulk-go" onClick={remindChosen}><WhatsAppIcon size={14} /> Remind on WhatsApp</button>
+          <button type="button" className="mx2-bulk-x" onClick={() => setSelected(new Set())} aria-label="Clear selection"><XIcon size={13} /></button>
+        </div>
+      )}
 
       <AnimatePresence>
         {bulk && <BulkRemind key={bulk.id} title={bulk.title} people={bulk.people} onClose={() => setBulk(null)} />}
@@ -1081,6 +836,10 @@ export function MemberProfileSheet({ biz, memberId, plans, rooms = [], groups = 
                 <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
                   Joined {joinDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </div>
+                <Link to={`/members/${member._id}`} onClick={onClose}
+                  style={{ display: 'inline-block', marginTop: 4, fontSize: 12, fontWeight: 600, color: '#C4B8FF', textDecoration: 'none' }}>
+                  Open full profile →
+                </Link>
               </div>
             </div>
 
@@ -1657,7 +1416,8 @@ const sortRooms = (rooms, groups = []) => {
 };
 
 // The "Add member / tenant" popup, shared by the Members page and the Rooms board
-export function AddMemberModal({ biz, plans, groups, rooms, roomId, onClose, onAdded }) {
+// initial: name / phone / planId to start with (e.g. from an enquiry)
+export function AddMemberModal({ biz, plans, groups, rooms, roomId, initial, onClose, onAdded }) {
   const qc = useQueryClient();
   const add = useMutation({
     mutationFn: async (form) => {
@@ -1702,20 +1462,20 @@ export function AddMemberModal({ biz, plans, groups, rooms, roomId, onClose, onA
           </div>
         )}
 
-        <AddMemberForm plans={plans} groups={groups} rooms={rooms} roomId={roomId}
+        <AddMemberForm plans={plans} groups={groups} rooms={rooms} roomId={roomId} initial={initial}
           onClose={onClose} onSubmit={(f) => add.mutate(f)} busy={add.isPending} />
       </motion.div>
     </div>
   );
 }
 
-function AddMemberForm({ plans, groups, rooms, roomId, busy, onClose, onSubmit }) {
+function AddMemberForm({ plans, groups, rooms, roomId, initial, busy, onClose, onSubmit }) {
   const w = words(useBiz().type);
   const chosenRoom = roomId && rooms.find((r) => r._id === roomId);
   const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    planId: plans[0]?._id || '',
+    name: initial?.name || '',
+    phone: initial?.phone || '',
+    planId: initial?.planId || plans[0]?._id || '',
     groupId: (chosenRoom && String(chosenRoom.groupId?._id || chosenRoom.groupId || '')) || groups[0]?._id || '',
     roomId: roomId || rooms.find((r) => r.occupied < r.capacity)?._id || '', // the bed they tapped, else the first room with space
     startDate: new Date().toISOString().slice(0, 10),
@@ -1941,6 +1701,127 @@ export function ConfirmDeleteModal({ memberName, isPending, onClose, onConfirm }
             {isPending ? 'Removing…' : 'Delete Member'}
           </button>
         </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// A dropdown that looks the same everywhere: a button, then a list of options with
+// optional group headings, colour dots and counts. On phones the list opens as a bottom sheet.
+export function Menu({ label, prefix, valueLabel, dot, active, options, value, onPick, align = 'left', wide = false, className = '' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const btnRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); btnRef.current?.focus(); } };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    // start keyboard focus on the picked option
+    const list = ref.current?.querySelector('[role="listbox"]');
+    (list?.querySelector('[aria-selected="true"]') || list?.querySelector('[role="option"]'))?.focus();
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+  const moveFocus = (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const opts = [...e.currentTarget.querySelectorAll('[role="option"]')];
+    const i = opts.indexOf(document.activeElement);
+    opts[(i + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length]?.focus();
+  };
+  const pick = (v) => { onPick(v); setOpen(false); btnRef.current?.focus(); };
+
+  return (
+    <div className={`mx-menu ${className}`} ref={ref}>
+      <button
+        ref={btnRef}
+        type="button"
+        className={`mx-menu-btn ${active ? 'set' : ''} ${open ? 'open' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`${label}: ${valueLabel}`}
+        onClick={() => setOpen(!open)}>
+        <span className="mx-menu-val">
+          {dot && <i className="mx-dot-c" style={{ background: dot }} aria-hidden="true" />}
+          {prefix && <span className="mx-menu-prefix">{prefix}</span>}
+          <span className="mx-menu-text">{valueLabel}</span>
+        </span>
+        <ChevronDownIcon size={15} className="mx-menu-caret" />
+      </button>
+      {open && (
+        <>
+          <div className="mx-menu-scrim" aria-hidden="true" onClick={() => setOpen(false)} />
+          <div className={`mx-menu-panel ${align} ${wide ? 'wide' : ''}`} role="listbox" aria-label={label} onKeyDown={moveFocus}>
+            <div className="mx-menu-title" aria-hidden="true">{label}</div>
+            {options.map((o, i) => (o.head ? (
+              <div key={`h${i}`} className="mx-menu-head" role="presentation">{o.head}</div>
+            ) : (
+              <button
+                key={o.value}
+                type="button"
+                role="option"
+                aria-selected={o.value === value}
+                className={`mx-menu-opt ${o.value === value ? 'on' : ''}`}
+                onClick={() => pick(o.value)}>
+                {o.dot !== undefined && <i className="mx-dot-c" style={{ background: o.dot || 'transparent' }} aria-hidden="true" />}
+                <span className="mx-menu-opt-label">{o.label}</span>
+                {o.count !== undefined
+                  ? <span className="mx-menu-count">{o.count}</span>
+                  : o.value === value && <CheckIcon size={15} className="mx-menu-tick" />}
+              </button>
+            )))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// "Who paid?" Search, then tap a name. Members who owe come first.
+export function PickMember({ members, word, onClose, onPick, title = 'Who paid?' }) {
+  const [q, setQ] = useState('');
+  const query = q.trim().toLowerCase();
+  const list = members
+    .filter((m) => !query || (m.name || '').toLowerCase().includes(query) || (m.phone || '').includes(query))
+    .sort((a, b) => (b.balance > 0) - (a.balance > 0) || (a.name || '').localeCompare(b.name || ''))
+    .slice(0, 30);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        transition={{ duration: 0.18 }}
+        className="modal-content db-pick"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="db-pick-title"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="form-header" style={{ marginBottom: 12 }}>
+          <div className="form-title"><RupeeIcon size={18} style={{ color: 'var(--primary)' }} /><span id="db-pick-title">{title}</span></div>
+          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}><XIcon size={14} /></button>
+        </div>
+        <label className="mx-search db-pick-search">
+          <SearchIcon size={15} />
+          <span className="sr-only">Search {word}s</span>
+          <input autoFocus type="search" placeholder={`Search ${word} by name or phone`} value={q} onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <ul className="db-pick-list">
+          {list.map((m) => (
+            <li key={m._id}>
+              <button type="button" onClick={() => onPick(m)}>
+                <Avatar name={m.name} />
+                <span className="db-who-text">
+                  <b>{m.name}</b>
+                  <span>{m.planName}{m.phone ? ` · ${m.phone}` : ''}</span>
+                </span>
+                {m.balance > 0 ? <b className="red">{rupees(m.balance)} due</b> : <span className="db-sub">paid up</span>}
+              </button>
+            </li>
+          ))}
+          {!list.length && <li className="db-sub" style={{ padding: 16, textAlign: 'center' }}>Nobody matches “{q}”.</li>}
+        </ul>
       </motion.div>
     </div>
   );

@@ -6,6 +6,7 @@ import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
+import { Skeleton } from '../../components/Loader';
 
 export default function AddMemberModal({
   visible,
@@ -28,6 +29,7 @@ export default function AddMemberModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [optionsLoading, setOptionsLoading] = useState(false);
 
   useEffect(() => {
     if (visible && biz?._id) {
@@ -40,6 +42,7 @@ export default function AddMemberModal({
       setError('');
 
       // Fetch plans, groups, and rooms
+      setOptionsLoading(true);
       (async () => {
         try {
           const [p, g] = await Promise.all([
@@ -56,6 +59,8 @@ export default function AddMemberModal({
           }
         } catch (err) {
           console.warn('Error loading form options', err);
+        } finally {
+          setOptionsLoading(false);
         }
       })();
     }
@@ -148,6 +153,15 @@ export default function AddMemberModal({
           placeholder="YYYY-MM-DD"
           icon={<Icon name="calendar-outline" size={18} />}
         />
+
+        {optionsLoading && (
+          <View style={[styles.sectionWrap, { gap: 8 }]}>
+            <Skeleton width={130} height={13} />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {[0, 1, 2].map((i) => <Skeleton key={i} height={52} radius={10} style={{ flex: 1 }} />)}
+            </View>
+          </View>
+        )}
 
         {/* Membership Plan Selection */}
         {plans.length > 0 && (

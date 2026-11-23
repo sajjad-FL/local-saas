@@ -11,6 +11,7 @@ const memberSchema = new Schema({
   phone: String,
   joinDate: { type: Date, default: Date.now },
   status: { type: String, enum: ['active', 'left'], default: 'active' },
+  leftAt: Date, // when they were marked as left (for "left this month"); cleared if they come back
   // secret for the member's read-only statement link; rotate to revoke
   shareToken: { type: String, index: { unique: true, sparse: true } },
   // hostel: security deposit and notice, shown on the statement so both sides see the same record
