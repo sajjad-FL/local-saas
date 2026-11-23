@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api, rupees } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { confirmAction } from '../confirm.jsx';
 import { Field, PlusIcon, XIcon, BuildingIcon, UsersIcon, RupeeIcon, CheckCircleIcon, EditIcon, TrashIcon, CheckIcon } from '../ui.jsx';
 

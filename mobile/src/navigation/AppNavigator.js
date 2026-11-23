@@ -16,6 +16,7 @@ import StatementScreen from '../screens/statement/StatementScreen';
 import AttendanceScreen from '../screens/attendance/AttendanceScreen';
 import RoomsScreen from '../screens/rooms/RoomsScreen';
 import SetupScreen from '../screens/setup/SetupScreen';
+import SalesScreen from '../screens/sales/SalesScreen';
 import { NoBusinessScreen, PausedBusinessScreen } from '../screens/onboarding/NoBusinessScreen';
 
 const Stack = createNativeStackNavigator();
@@ -35,6 +36,7 @@ const linking = {
           RoomsTab: 'rooms-tab',
           AttendanceTab: 'attendance-tab',
           SetupTab: 'setup-tab',
+          Enquiries: 'enquiries',
           Settings: 'settings',
         },
       },
@@ -42,6 +44,7 @@ const linking = {
       Attendance: 'attendance',
       Rooms: 'rooms',
       Setup: 'setup',
+      Sales: 'sales',
     },
   },
 };
@@ -82,6 +85,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Attendance" component={AttendanceScreen} />
             <Stack.Screen name="Rooms" component={RoomsScreen} />
             <Stack.Screen name="Setup" component={SetupScreen} />
+            <Stack.Screen name="Sales" component={SalesScreen} />
           </>
         )}
         {/* Public statement screen can be viewed anytime via deep link or token */}

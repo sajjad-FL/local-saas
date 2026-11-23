@@ -5897,6 +5897,27 @@ i.owe, .mr-legend i.owe { background: #FCD34D; }
    ========================================================================== */
 .db-quick-icon.wa { background: #E7F8EE; color: #15803D; }
 [data-theme="dark"] .db-quick-icon.wa { background: rgba(52,211,153,.12); color: #34D399; }
+.en2-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.en2-title-row .db-hello {
+  margin: 0;
+}
+.en2-add-btn {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 .en2-cards { margin-bottom: 12px; }
 .en2-funnel { display: flex; align-items: center; gap: 14px; padding: 12px 16px; margin-bottom: 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; font-size: 13.5px; }
 .en2-funnel-month { font-size: 13px; color: var(--text-3); font-weight: 600; white-space: nowrap; }
@@ -6197,3 +6218,71 @@ i.owe, .mr-legend i.owe { background: #FCD34D; }
 
 .st-card-icon.amber { background: #FFF6E5; color: #92400E; }
 [data-theme="dark"] .st-card-icon.amber { background: rgba(251,191,36,.14); color: #FBBF24; }
+
+
+/* sales: history and by-item as two tabs in one full-width box */
+.sv-box { padding: 0 18px; gap: 0; }
+.sv-box-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 -18px; padding: 6px 18px 0; border-bottom: 1px solid var(--border); }
+.sv-parts { padding: 0; border-bottom: 0; background: transparent; }
+.sv-box-head .sv-search { margin-bottom: 6px; }
+.sv-hint { margin-bottom: 6px; font-size: 12.5px; }
+.sv-box .sv-table { margin: 4px 0 8px; }
+.sv-box .sv-sales li:first-child { border-top: 0; }
+@media (max-width: 720px) {
+  .sv-box { padding: 0 14px; }
+  .sv-box-head { margin: 0 -14px; padding: 4px 14px 0; }
+  .sv-box .sv-items-list li:first-child { border-top: 0; }
+}
+
+
+/* ==========================================================================
+   Phone filters: one button next to search, choices in a bottom sheet
+   ========================================================================== */
+.en2-filter-btn { display: none; }
+.fs-overlay { align-items: flex-end; }
+.fs-sheet { width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; box-sizing: border-box; background: var(--card-bg); border-radius: 20px 20px 0 0; padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px; box-shadow: 0 -12px 40px rgba(15, 23, 42, .18); }
+.fs-grip { align-self: center; width: 40px; height: 4px; border-radius: 99px; background: var(--border); }
+.fs-head { display: flex; align-items: center; justify-content: space-between; }
+.fs-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); }
+.fs-group { border: 0; margin: 0; padding: 0; }
+.fs-group legend { padding: 0; margin-bottom: 8px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+.fs-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fs-chips .en-choice { height: 38px; }
+.fs-count { min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 99px; background: var(--bg-subtle); color: var(--text-3); font-size: 11px; font-weight: 600; display: inline-grid; place-items: center; }
+.en-choice.on .fs-count { background: var(--card-bg); color: var(--primary-ink); }
+.fs-done { min-height: 48px; justify-content: center; font-size: 15px; position: sticky; bottom: 0; }
+
+@media (max-width: 720px) {
+  .en2-list .mx-toolbar-top { flex-wrap: nowrap; gap: 8px; }
+  .en2-list .mx-toolbar-top .mx-search { flex: 1 1 auto; min-width: 0; }
+  .en2-list .mx-toolbar-top .mx-menu { display: none !important; }
+  .en2-filter-btn { all: unset; box-sizing: border-box; cursor: pointer; position: relative; flex: none; width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); color: var(--text-2); display: grid; place-items: center; }
+  .en2-filter-btn.set { border-color: var(--primary); color: var(--primary-ink); background: var(--primary-soft); }
+  .en2-filter-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .en2-filter-count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 99px; background: var(--primary); color: #FFFFFF; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+}
+
+/* Members on phones: filter button instead of dropdowns */
+@media (max-width: 720px) {
+  .mx2 .mx-toolbar-top { flex-wrap: nowrap !important; gap: 8px; }
+  .mx2 .mx-toolbar-top .mx-search { flex: 1 1 auto; min-width: 0; }
+  .mx2 .mx-toolbar-top .mx-menu { display: none !important; }
+}
+
+
+/* phones: the summary cards (Members, Enquiries, Attendance) sit in one compact row */
+@media (max-width: 720px) {
+  .db-today.mx2-cards { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; gap: 6px; margin-bottom: 12px; }
+  .db-today.mx2-cards .mx2-card-btn { flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 10px; border-radius: 12px; min-height: 0; }
+  .db-today.mx2-cards .db-today-icon { display: none; }
+  .db-today.mx2-cards .db-today-text { min-width: 0; width: 100%; }
+  .db-today.mx2-cards .db-label { font-size: 11px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .db-today.mx2-cards .db-today-text b { font-size: 16px; line-height: 1.2; white-space: nowrap; }
+  .db-today.mx2-cards .mx2-card-btn.on { box-shadow: 0 0 0 1px var(--primary); }
+}
+
+.lbl-short { display: none; }
+@media (max-width: 720px) {
+  .db-today.mx2-cards .lbl-long { display: none; }
+  .db-today.mx2-cards .lbl-short { display: inline; }
+}

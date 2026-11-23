@@ -14,6 +14,7 @@ export default function AddMemberModal({
   onClose,
   onMemberAdded,
   initialRoomId,
+  initial, // { name, phone, planId } carried over from an enquiry
 }) {
   const { theme } = useTheme();
   const [name, setName] = useState('');
@@ -33,8 +34,8 @@ export default function AddMemberModal({
 
   useEffect(() => {
     if (visible && biz?._id) {
-      setName('');
-      setPhone('');
+      setName(initial?.name || '');
+      setPhone(initial?.phone || '');
       setPlanId('');
       setGroupId('');
       setRoomId(initialRoomId || '');
@@ -51,7 +52,8 @@ export default function AddMemberModal({
           ]);
           setPlans(Array.isArray(p) ? p : []);
           setGroups(Array.isArray(g) ? g : []);
-          if (p?.length > 0) setPlanId(p[0]._id);
+          if (initial?.planId && p?.some((x) => x._id === initial.planId)) setPlanId(initial.planId);
+          else if (p?.length > 0) setPlanId(p[0]._id);
 
           if (biz?.type === 'hostel') {
             const r = await api(`/businesses/${biz._id}/rooms`);

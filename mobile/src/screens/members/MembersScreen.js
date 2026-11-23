@@ -33,6 +33,20 @@ import SendReminderModal from '../modals/SendReminderModal';
 import BulkRemindModal from '../modals/BulkRemindModal';
 import MoveRoomModal from '../modals/MoveRoomModal';
 
+// how late an owing member is (oldest unpaid due), and when they last came in
+const DAY_MS = 86400000;
+const dayStart = (d = new Date()) => new Date(new Date(d).toDateString());
+export const daysLate = (m) =>
+  m.balance > 0 && m.owingSince ? Math.max(0, Math.round((dayStart() - dayStart(m.owingSince)) / DAY_MS)) : 0;
+const daysSinceVisit = (m) => (m.lastVisit ? Math.round((dayStart() - dayStart(m.lastVisit)) / DAY_MS) : null);
+const visitText = (m) => {
+  const d = daysSinceVisit(m);
+  if (d === null) return 'Never came';
+  if (d <= 0) return 'Came today';
+  if (d === 1) return 'Came yesterday';
+  return `Came ${d} days ago`;
+};
+
 function ChoiceRow({ label, value, options, onChange, theme }) {
   return (
     <View style={{ gap: 6 }}>
@@ -70,7 +84,7 @@ export default function MembersScreen({ navigation, route }) {
   const w = words(biz?.type);
 
   const initialFilter = route?.params?.filter || 'all';
-  const initialSort = route?.params?.sortBy || 'renewal_asc';
+  const initialSort = route?.params?.sortBy || 'late_desc';
 
   const [members, setMembers] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -87,6 +101,8 @@ export default function MembersScreen({ navigation, route }) {
   const [groupFilter, setGroupFilter] = useState('all');
   const [floorFilter, setFloorFilter] = useState('all');
   const [roomFilter, setRoomFilter] = useState('all');
+  const [lateFilter, setLateFilter] = useState('all'); // 'all' | '3' | '7' | '30': late by at least that many days
+  const [visitFilter, setVisitFilter] = useState('all'); // 'all' | '7' | '30' | 'never': not in for that long
   const [sortBy, setSortBy] = useState(initialSort);
   const [showFilterPills, setShowFilterPills] = useState(false);
 
@@ -178,12 +194,14 @@ export default function MembersScreen({ navigation, route }) {
     groupFilter !== 'all' ||
     floorFilter !== 'all' ||
     roomFilter !== 'all' ||
-    sortBy !== 'renewal_asc'
+    lateFilter !== 'all' ||
+    visitFilter !== 'all' ||
+    sortBy !== 'late_desc'
   );
 
   // the Filters button shows how many are set (search has its own box)
-  const advancedFilterCount = [planFilter, renewalFilter, groupFilter, floorFilter, roomFilter].filter((v) => v !== 'all').length
-    + (sortBy !== 'renewal_asc' ? 1 : 0);
+  const advancedFilterCount = [planFilter, renewalFilter, groupFilter, floorFilter, roomFilter, lateFilter, visitFilter].filter((v) => v !== 'all').length
+    + (sortBy !== 'late_desc' ? 1 : 0);
   // building → floor → room: each list narrowed by the one before it
   const filterBuilding = groups.find((g) => g._id === groupFilter);
   const filterFloors = filterBuilding?.floors || [];
@@ -200,7 +218,9 @@ export default function MembersScreen({ navigation, route }) {
     setGroupFilter('all');
     setFloorFilter('all');
     setRoomFilter('all');
-    setSortBy('renewal_asc');
+    setLateFilter('all');
+    setVisitFilter('all');
+    setSortBy('late_desc');
   };
 
   // Filtered members list
@@ -248,6 +268,15 @@ export default function MembersScreen({ navigation, route }) {
         if (floorFilter !== 'all' && room?.floorId !== floorFilter) return false;
         if (roomFilter !== 'all' && String(room?._id) !== roomFilter) return false;
 
+        // late by at least N days
+        if (lateFilter !== 'all' && daysLate(m) < Number(lateFilter)) return false;
+        // not in for a while (only when attendance is on: lastVisit is sent then)
+        if (visitFilter !== 'all') {
+          if (m.status !== 'active') return false;
+          const d = daysSinceVisit(m);
+          if (visitFilter === 'never' ? d !== null : d === null || d < Number(visitFilter)) return false;
+        }
+
         // Renewal filter
         if (renewalFilter !== 'all') {
           if (!m.nextRenewal) return false;
@@ -261,6 +290,9 @@ export default function MembersScreen({ navigation, route }) {
         return true;
       })
       .sort((a, b) => {
+        if (sortBy === 'late_desc') {
+          return daysLate(b) - daysLate(a) || (b.balance || 0) - (a.balance || 0);
+        }
         if (sortBy === 'renewal_asc') {
           if (!a.nextRenewal) return 1;
           if (!b.nextRenewal) return -1;
@@ -269,15 +301,12 @@ export default function MembersScreen({ navigation, route }) {
         if (sortBy === 'joined_desc') {
           return new Date(b.joinDate || b.createdAt) - new Date(a.joinDate || a.createdAt);
         }
-        if (sortBy === 'name_asc') {
-          return (a.name || '').localeCompare(b.name || '');
-        }
         if (sortBy === 'balance_desc') {
           return (b.balance || 0) - (a.balance || 0);
         }
         return 0;
       });
-  }, [members, search, activeTab, planFilter, renewalFilter, groupFilter, floorFilter, roomFilter, roomById, sortBy]);
+  }, [members, search, activeTab, planFilter, renewalFilter, groupFilter, floorFilter, roomFilter, lateFilter, visitFilter, roomById, sortBy]);
 
   // Renewal total sum in 30 days
   const renewingTotalAmount = useMemo(() => {
@@ -404,8 +433,14 @@ export default function MembersScreen({ navigation, route }) {
                 options={[['all', 'All plans'], ...plans.map((pl) => [pl.name, pl.name])]} />
               <ChoiceRow label="RENEWS" value={renewalFilter} onChange={setRenewalFilter} theme={theme}
                 options={[['all', 'Any time'], ['7d', '≤ 7 days'], ['15d', '≤ 15 days'], ['30d', '≤ 30 days'], ['overdue', 'Overdue']]} />
+              <ChoiceRow label="LATE BY" value={lateFilter} onChange={setLateFilter} theme={theme}
+                options={[['all', 'Any'], ['3', '3+ days'], ['7', '7+ days'], ['30', '30+ days']]} />
+              {biz?.attendanceEnabled !== false && (
+                <ChoiceRow label="LAST VISIT" value={visitFilter} onChange={setVisitFilter} theme={theme}
+                  options={[['all', 'Any'], ['7', 'Not in 7+ days'], ['30', 'Not in 30+ days'], ['never', 'Never came']]} />
+              )}
               <ChoiceRow label="SORT BY" value={sortBy} onChange={setSortBy} theme={theme}
-                options={[['renewal_asc', 'Renewal: soonest'], ['joined_desc', 'Newest joined'], ['name_asc', 'Name A → Z'], ['balance_desc', 'Highest balance']]} />
+                options={[['late_desc', 'Most days late'], ['balance_desc', 'Highest balance'], ['renewal_asc', 'Renewal: soonest'], ['joined_desc', 'Newest joined']]} />
               {groups.length > 0 && (
                 <ChoiceRow label={(w.group || 'Group').toUpperCase()} value={groupFilter} theme={theme}
                   onChange={(v) => { setGroupFilter(v); setFloorFilter('all'); setRoomFilter('all'); }}
@@ -585,6 +620,8 @@ export default function MembersScreen({ navigation, route }) {
               const isOverdue = m.balance > 0 || (diffDays !== null && diffDays < 0);
               const isSoon = !isOverdue && diffDays !== null && diffDays >= 0 && diffDays <= 7;
               const renewColor = isOverdue ? theme.colors.danger : isSoon ? theme.colors.warningDark : theme.colors.textMuted;
+              const late = daysLate(m);
+              const away = daysSinceVisit(m);
 
               return (
                 <TouchableOpacity
@@ -607,7 +644,7 @@ export default function MembersScreen({ navigation, route }) {
                       <View style={[styles.statusBadge, { backgroundColor: m.balance > 0 ? theme.colors.dangerSoft : theme.colors.successSoft }]}>
                         <View style={[styles.statusDot, { backgroundColor: m.balance > 0 ? '#EF4444' : '#10B981' }]} />
                         <Text style={[styles.statusBadgeText, { color: m.balance > 0 ? theme.colors.danger : theme.colors.successDark }]}>
-                          {m.balance > 0 ? 'Overdue' : 'Paid Up'}
+                          {m.balance > 0 ? (late > 0 ? `${late} day${late === 1 ? '' : 's'} late` : 'Due') : 'Paid Up'}
                         </Text>
                       </View>
                     )}
@@ -633,13 +670,16 @@ export default function MembersScreen({ navigation, route }) {
                     ) : null}
                   </View>
 
-                  {pEnd ? (
-                    <Text style={[styles.renewText, { color: theme.colors.textMuted }]}>
-                      Renews <Text style={{ color: renewColor, fontWeight: isOverdue || isSoon ? '700' : '400' }}>{formatDate(pEnd)}</Text>
-                    </Text>
-                  ) : (
-                    <Text style={[styles.renewText, { color: theme.colors.textMuted }]}>Renews —</Text>
-                  )}
+                  <Text style={[styles.renewText, { color: theme.colors.textMuted }]}>
+                    {late > 0 && m.owingSince ? (
+                      <>Owing since <Text style={{ color: theme.colors.danger, fontWeight: '700' }}>{formatDate(m.owingSince)}</Text></>
+                    ) : pEnd ? (
+                      <>Renews <Text style={{ color: renewColor, fontWeight: isOverdue || isSoon ? '700' : '400' }}>{formatDate(pEnd)}</Text></>
+                    ) : 'Renews —'}
+                    {m.lastVisit !== undefined && m.status === 'active' ? (
+                      <Text style={{ color: away === null || away >= 7 ? theme.colors.warningDark : theme.colors.textMuted }}>{'  ·  '}{visitText(m)}</Text>
+                    ) : null}
+                  </Text>
 
                   {/* one action at most: collect what's owed, or a nudge before renewal */}
                   {m.balance > 0 ? (

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
 import { api, rupees, can, ADD, EDIT, userId } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { PlusIcon, TagIcon } from '../ui.jsx';
 import SellModal from '../SellModal.jsx';
 import { KINDS, CatalogueTab, SalesView } from './Setup.jsx';

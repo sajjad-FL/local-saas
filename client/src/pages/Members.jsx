@@ -3,9 +3,10 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, rupees, waLink, remindMsg, download, can, ADD } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { words } from '../wording.js';
 import BulkRemind, { owingMessage, renewalMessage } from '../BulkRemind.jsx';
+import FilterSheet, { FilterButton } from '../FilterSheet.jsx';
 import MoveRoom, { RoomHistory } from '../MoveRoom.jsx';
 import {
   formatINR,
@@ -177,6 +178,7 @@ export default function Members() {
   );
   const chooseBuilding = (id) => { setGroupFilter(id); setFloorFilter('all'); setRoomFilter('all'); };
   const chooseFloor = (id) => { setFloorFilter(id); setRoomFilter('all'); };
+  const [filtering, setFiltering] = useState(false); // phones: the filter sheet
 
   const planMatch = (m, p) => (m.planName || m.planId?.name || '').toLowerCase() === p.toLowerCase();
   const roomOf = (m) => roomById.get(m.roomId?._id || m.roomId);
@@ -316,10 +318,10 @@ export default function Members() {
 
   // the same small icon cards as Collect; each opens its tab
   const cards = [
-    { id: 'owing', icon: RupeeIcon, tone: 'red', label: 'Owe money', value: rupees(owingTotal), note: filterCounts.owing ? `${filterCounts.owing}${maxLate > 0 ? ` · up to ${maxLate}d late` : ''}` : 'nobody', valueTone: filterCounts.owing ? 'red' : '' },
-    { id: 'soon', icon: CalendarClockIcon, tone: 'amber', label: 'Expiring this week', value: rupees(soonTotal), note: plural(filterCounts.soon, W.member) },
-    attendanceOn && { id: 'away', icon: AlertIcon, tone: 'violet', label: 'Not coming', value: String(filterCounts.away), note: 'away 7+ days' },
-    { id: 'all', icon: CheckIcon, tone: 'green', label: `Active ${W.member}s`, value: String(filterCounts.all), note: filterCounts.new ? `+${filterCounts.new} this month` : 'this month' },
+    { id: 'owing', icon: RupeeIcon, tone: 'red', label: 'Owe money', short: 'Owe', value: rupees(owingTotal), note: filterCounts.owing ? `${filterCounts.owing}${maxLate > 0 ? ` · up to ${maxLate}d late` : ''}` : 'nobody', valueTone: filterCounts.owing ? 'red' : '' },
+    { id: 'soon', icon: CalendarClockIcon, tone: 'amber', label: 'Expiring this week', short: 'Expiring', value: rupees(soonTotal), note: plural(filterCounts.soon, W.member) },
+    attendanceOn && { id: 'away', icon: AlertIcon, tone: 'violet', short: 'Away', label: 'Not coming', value: String(filterCounts.away), note: 'away 7+ days' },
+    { id: 'all', icon: CheckIcon, tone: 'green', label: `Active ${W.member}s`, short: 'Active', value: String(filterCounts.all), note: filterCounts.new ? `+${filterCounts.new} this month` : 'this month' },
   ].filter(Boolean);
 
   const planOptions = [
@@ -338,6 +340,16 @@ export default function Members() {
     roomFilter !== 'all' && { key: 'room', label: `Room ${roomById.get(roomFilter)?.roomNo || ''}`, clear: () => setRoomFilter('all') },
     renewalFilter !== 'all' && { key: 'renew', label: renewalFilter === 'overdue' ? 'Renewal date passed' : `Renews within ${renewalFilter.replace('d', '')} days`, clear: () => setRenewalFilter('all') },
   ].filter(Boolean);
+
+  // the same filters as the dropdowns, as chips in a sheet on phones
+  const sheetGroups = [
+    (plans || []).length > 0 && { label: 'Plan', value: planFilter, onPick: setPlanFilter, options: planOptions },
+    (groups || []).length > 0 && { label: W.group, value: groupFilter, onPick: chooseBuilding, options: groupOptions },
+    filterFloors.length > 0 && { label: 'Floor', value: floorFilter, onPick: chooseFloor, options: [{ value: 'all', label: 'All floors' }, ...filterFloors.map((x) => ({ value: x._id, label: x.name }))] },
+    hasRooms && filterRooms.length > 0 && { label: 'Room', value: roomFilter, onPick: setRoomFilter, options: [{ value: 'all', label: 'All rooms' }, ...filterRooms.map((r) => ({ value: r._id, label: `Room ${r.roomNo}`, count: `${r.occupied}/${r.capacity}` }))] },
+    { label: 'Sort by', value: sortBy, onPick: setSortBy, def: 'late_desc', options: SORT_OPTIONS.map(([value, label]) => ({ value, label })) },
+  ].filter(Boolean);
+  const clearSheet = () => { setPlanFilter('all'); chooseBuilding('all'); setSortBy('late_desc'); };
 
   const chosen = filtered.filter((m) => selected.has(m._id));
   const allChosen = filtered.length > 0 && chosen.length === filtered.length;
@@ -414,7 +426,7 @@ export default function Members() {
             <button key={c.id} type="button" className={`db-today-card mx2-card-btn ${filter === c.id ? 'on' : ''}`} aria-pressed={filter === c.id} onClick={() => pickTab(c.id)}>
               <span className={`db-today-icon ${c.tone}`}><c.icon size={17} /></span>
               <span className="db-today-text">
-                <span className="db-label">{c.label}</span>
+                <span className="db-label"><span className="lbl-long">{c.label}</span><span className="lbl-short">{c.short || c.label}</span></span>
                 <b className={c.valueTone || ''}>{c.value}</b>
               </span>
               <span className="db-today-note">{c.note}</span>
@@ -467,6 +479,8 @@ export default function Members() {
                   <button type="button" className="mx-icon-btn" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>
                 )}
               </label>
+              {/* phones: one filter button instead of a row of dropdowns */}
+              <FilterButton on={sheetGroups.filter((g) => g.value !== (g.def ?? 'all')).length} onClick={() => setFiltering(true)} />
               {(plans || []).length > 0 && (
                 <Menu label="Plan" prefix="Plan:" valueLabel={planFilter === 'all' ? 'All' : planFilter} active={planFilter !== 'all'}
                   options={planOptions} value={planFilter} onPick={setPlanFilter} />
@@ -487,6 +501,12 @@ export default function Members() {
                 options={SORT_OPTIONS.map(([value, label]) => ({ value, label }))} value={sortBy} onPick={setSortBy} align="right" />
             </div>
             <p className="mx2-hint">{tabHit ? tabHit.hint : STATUS_LABELS[filter]}</p>
+            <AnimatePresence>
+              {filtering && (
+                <FilterSheet groups={sheetGroups} count={filtered.length} noun={[W.member, `${W.member}s`]}
+                  onClear={clearSheet} onClose={() => setFiltering(false)} />
+              )}
+            </AnimatePresence>
 
             {activeChips.length > 0 && (
               <div className="mx-chips" aria-label="Active filters">

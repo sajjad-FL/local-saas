@@ -13,6 +13,7 @@ import AttendanceScreen from '../screens/attendance/AttendanceScreen';
 import RoomsScreen from '../screens/rooms/RoomsScreen';
 import SetupScreen from '../screens/setup/SetupScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
+import EnquiriesScreen from '../screens/enquiries/EnquiriesScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -128,6 +129,19 @@ export default function BottomTabs() {
           }}
         />
       )}
+
+      <Tab.Screen
+        name="Enquiries"
+        component={EnquiriesScreen}
+        options={{
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabel title="Enquiries" focused={focused} color={color} />
+          ),
+          tabBarIcon: ({ color }) => (
+            <Icon name="person-add-outline" size={20} color={color} />
+          ),
+        }}
+      />
 
       <Tab.Screen
         name="Settings"

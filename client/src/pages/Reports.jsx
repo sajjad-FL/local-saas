@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api, download, rupees, can, ADD } from "../api.js";
 import { words } from "../wording.js";
-import { useBiz } from "../App.jsx";
+import { useBiz } from "../contexts.js";
 import {
   Rise, CountUp, Avatar, DownloadIcon, RupeeIcon, UsersIcon,
   TrendingUpIcon, CheckCircleIcon, AlertIcon, FileSpreadsheetIcon,

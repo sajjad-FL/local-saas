@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, rupees, can, EDIT, ADD, DELETE, download } from '../api.js';
 import { confirmAction } from '../confirm.jsx';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { words } from '../wording.js';
 import HostelProperty from './HostelProperty.jsx';
 import Outlets from './Outlets.jsx';
@@ -347,6 +347,7 @@ export function SalesView({ biz }) {
   const [period, setPeriod] = useState('month');
   const [q, setQ] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [part, setPart] = useState('history'); // 'history' | 'items'
   const [from, to] = SALE_PERIODS.find((p) => p[0] === period)[2]();
   const qs = `${from ? `from=${from.toISOString()}&` : ''}to=${to.toISOString()}`;
   const { data, error } = useQuery({
@@ -408,9 +409,27 @@ export function SalesView({ biz }) {
           <p>Sell from Collect, a member's page or the Items view. Every sale shows up here with what it earned.</p>
         </section>
       ) : (
-        <div className="sv-grid">
-          <section className="mr-box sv-items" aria-label="By item">
-            <div className="mr-box-head"><h3>By item</h3><span className="mr-dim">best sellers first</span></div>
+        <section className="mr-box sv-box">
+          {/* one box, two tabs: every sale, or totals per item */}
+          <div className="sv-box-head">
+            <div className="db-tabs sv-parts" role="tablist" aria-label="Show">
+              <button type="button" role="tab" aria-selected={part === 'history'} className={`db-tab ${part === 'history' ? 'on' : ''}`} onClick={() => setPart('history')}>
+                Sales history<span className="db-tab-count">{data.sales.length}</span>
+              </button>
+              <button type="button" role="tab" aria-selected={part === 'items'} className={`db-tab ${part === 'items' ? 'on' : ''}`} onClick={() => setPart('items')}>
+                By item<span className="db-tab-count">{data.byItem.length}</span>
+              </button>
+            </div>
+            {part === 'history' ? (
+              <label className="mx-search sv-search">
+                <SearchIcon size={14} />
+                <span className="sr-only">Search sales</span>
+                <input type="search" placeholder="Member or item" value={q} onChange={(e) => setQ(e.target.value)} />
+              </label>
+            ) : <span className="mr-dim sv-hint">best sellers first</span>}
+          </div>
+          {part === 'items' && (
+          <div className="sv-items">
             <table className="mr-table sv-table">
               <thead><tr><th>Item</th><th>Sold</th><th>Revenue</th><th>Profit</th><th>Stock</th></tr></thead>
               <tbody>
@@ -431,17 +450,11 @@ export function SalesView({ biz }) {
                 <li key={String(i.itemId)}><span><b>{i.name}</b> <span className="mr-dim">· {i.qty} sold{i.stock != null ? ` · ${i.stock === 0 ? 'out' : `${i.stock} left`}` : ''}</span></span><b>{rupees(i.revenue)}</b></li>
               ))}
             </ul>
-          </section>
+          </div>
+          )}
 
-          <section className="mr-box sv-history" aria-label="Sales history">
-            <div className="mr-box-head">
-              <h3>Sales history</h3>
-              <label className="mx-search sv-search">
-                <SearchIcon size={14} />
-                <span className="sr-only">Search sales</span>
-                <input type="search" placeholder="Member or item" value={q} onChange={(e) => setQ(e.target.value)} />
-              </label>
-            </div>
+          {part === 'history' && (
+          <div className="sv-history">
             <ul className="sv-sales">
               {shown.map((x) => (
                 <li key={x._id} className="sv-sale">
@@ -464,8 +477,9 @@ export function SalesView({ biz }) {
               <button type="button" className="mr-link" onClick={() => download(`/businesses/${biz._id}/export/sales.csv?${qs}`, `${biz.name}-sales.csv`)}>Download CSV</button>
             </div>
             {undo.error && <p className="error" role="alert" style={{ margin: '0 16px 12px' }}>{undo.error.message}</p>}
-          </section>
-        </div>
+          </div>
+          )}
+        </section>
       )}
     </div>
   );

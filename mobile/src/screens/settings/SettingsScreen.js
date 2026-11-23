@@ -103,6 +103,7 @@ export default function SettingsScreen({ navigation }) {
   const [autoRemind, setAutoRemind] = useState(biz?.notifications?.renewalReminders !== false);
   const [reminderDays, setReminderDays] = useState(biz?.reminderEveryDays || 3);
   const [attendanceEnabled, setAttendanceEnabled] = useState(biz?.attendanceEnabled !== false);
+  const [salesEnabled, setSalesEnabled] = useState(biz?.salesEnabled !== false);
 
   // Staff Form & List
   const [staffList, setStaffList] = useState([]);
@@ -176,6 +177,15 @@ export default function SettingsScreen({ navigation }) {
       });
       setAutoRemind(newAuto);
       setReminderDays(newDays);
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
+  };
+
+  const handleToggleSales = async (val) => {
+    try {
+      await updateBusiness(biz._id, { salesEnabled: val });
+      setSalesEnabled(val);
     } catch (err) {
       Alert.alert('Error', err.message);
     }
@@ -669,6 +679,31 @@ export default function SettingsScreen({ navigation }) {
                     trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.primary }}
                   />
                 </View>
+              </Card>
+            )}
+
+            {isOwner && (
+              <Card style={styles.card}>
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Sell products & services</Text>
+                <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
+                  Sell PT packs, services and products to members, and see what they earned in Sales. Past sales are kept if you turn it off.
+                </Text>
+
+                <View style={[styles.switchRow, { marginTop: 10 }]}>
+                  <Text style={[styles.switchLabel, { color: theme.colors.text }]}>
+                    Turn on selling
+                  </Text>
+                  <Switch
+                    value={salesEnabled}
+                    onValueChange={handleToggleSales}
+                    trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.primary }}
+                  />
+                </View>
+                {salesEnabled ? (
+                  <TouchableOpacity onPress={() => navigation.navigate('Sales')} style={{ marginTop: 10 }}>
+                    <Text style={{ color: theme.colors.primary, fontWeight: '700', fontSize: 13 }}>Open Sales and your catalogue ›</Text>
+                  </TouchableOpacity>
+                ) : null}
               </Card>
             )}
 

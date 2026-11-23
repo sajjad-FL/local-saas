@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, rupees } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { confirmAction } from '../confirm.jsx';
 import { Field, BedIcon, DoorIcon, EditIcon, PlusIcon, XIcon, AlertIcon, BuildingIcon, SearchIcon, ChevronIcon } from '../ui.jsx';
 import { EditRoom } from './HostelProperty.jsx';
