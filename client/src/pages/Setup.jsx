@@ -2,15 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { api, rupees, can, EDIT, ADD, DELETE } from '../api.js';
+import { api, rupees, can, EDIT, ADD, DELETE, download } from '../api.js';
 import { confirmAction } from '../confirm.jsx';
-import SellModal from '../SellModal.jsx';
 import { useBiz } from '../App.jsx';
 import { words } from '../wording.js';
 import HostelProperty from './HostelProperty.jsx';
 import Outlets from './Outlets.jsx';
 import Staff from './Staff.jsx';
-import { Field, PlusIcon, XIcon, CreditCardIcon, BuildingIcon, CheckIcon, UsersIcon, SettingsIcon, EditIcon, AlertIcon, TagIcon, ActivityIcon, SparklesIcon, TrashIcon } from '../ui.jsx';
+import { Field, PlusIcon, XIcon, CreditCardIcon, BuildingIcon, CheckIcon, UsersIcon, SettingsIcon, EditIcon, AlertIcon, TagIcon, ActivityIcon, SparklesIcon, TrashIcon, SearchIcon, Avatar } from '../ui.jsx';
 
 const CYCLES = [
   [7, '7 days (weekly)'], [15, '15 days (fortnightly)'], [30, '30 days (monthly)'], [60, '60 days (2 months)'],
@@ -32,8 +31,8 @@ const mismatch = (p) => { const d = impliedDays(p.name); return d && Math.abs(d 
 const natural = (x, y) => String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' });
 
 const TABS = ['plans', 'outlets', 'staff'];
-// what a business sells: memberships bill every cycle; the rest are charged once
-const KINDS = {
+// what a business sells: memberships bill every cycle (Setup); the rest are charged once (the Sales page)
+export const KINDS = {
   membership: { label: 'Memberships', hint: 'Billed every cycle', icon: CreditCardIcon, tone: 'green', add: 'Add plan' },
   pt: { label: 'Personal training', hint: 'Session packs, charged once', icon: ActivityIcon, tone: 'blue', add: 'Add PT pack', example: 'e.g. 12 sessions · ₹6,000', detail: 'e.g. 12 sessions, use within 45 days', gymOnly: true },
   service: { label: 'Services', hint: 'Diet plan, locker, laundry…', icon: SparklesIcon, tone: 'pink', add: 'Add service', example: 'e.g. Diet plan · ₹1,500', detail: 'e.g. one-time consultation' },
@@ -50,28 +49,22 @@ export default function Setup() {
   const tab = tabs.includes(params.get('tab')) ? params.get('tab') : 'plans';
   const openTab = (t) => setParams((p) => { p.set('tab', t); return p; }, { replace: true });
   const [addKey, setAddKey] = useState({ plans: 0, outlets: 0, staff: 0 }); // bump to open that tab's add form
-  const kinds = Object.keys(KINDS).filter((k) => !KINDS[k].gymOnly || biz.type === 'gym');
-  const kind = kinds.includes(params.get('kind')) ? params.get('kind') : 'membership';
-  const setKind = (k) => { setAddKey((x) => ({ ...x, plans: 0 })); setParams((p) => { p.set('tab', 'plans'); p.set('kind', k); return p; }, { replace: true }); };
-  const [selling, setSelling] = useState(null); // {} or { start: itemId }
 
   const { data: plans } = useQuery({ queryKey: [`/businesses/${biz._id}/plans`], queryFn: () => api(`/businesses/${biz._id}/plans`) });
   const { data: groups } = useQuery({ queryKey: [`/businesses/${biz._id}/groups`], queryFn: () => api(`/businesses/${biz._id}/groups`) });
   const { data: outlets } = useQuery({ queryKey: ['outlets'], queryFn: () => api('/businesses/summary') });
   const { data: staff } = useQuery({ queryKey: ['staff-all'], queryFn: () => api('/staff'), enabled: isOwner });
-  const { data: catalogue } = useQuery({ queryKey: ['catalogue', biz._id], queryFn: () => api(`/businesses/${biz._id}/catalogue`) });
 
   const n = { plans: plans?.length, groups: groups?.length, outlets: outlets?.length, staff: staff?.length };
   const notJoined = (staff || []).filter((s) => !s.joined).length;
   const subtitle = [
     n.plans != null && `${n.plans} ${n.plans === 1 ? 'plan' : 'plans'}`,
-    catalogue?.length ? `${catalogue.length} for sale` : null,
     n.groups ? `${n.groups} ${w.group.toLowerCase()}${n.groups === 1 ? '' : (w.group.endsWith('ch') ? 'es' : 's')}` : null,
     n.outlets != null && `${n.outlets} ${n.outlets === 1 ? 'outlet' : 'outlets'}`,
     isOwner && n.staff != null && `${n.staff} staff`,
   ].filter(Boolean).join(' · ');
 
-  const addLabel = { plans: kind === 'membership' ? `Add ${w.plan.toLowerCase().replace('membership ', '')}` : KINDS[kind].add, outlets: 'Add outlet', staff: 'Add staff' }[tab];
+  const addLabel = { plans: `Add ${w.plan.toLowerCase().replace('membership ', '')}`, outlets: 'Add outlet', staff: 'Add staff' }[tab];
   const canAdd = tab === 'plans' ? can(biz, EDIT) : tab === 'staff' ? isOwner : true;
 
   const tiles = [
@@ -88,9 +81,6 @@ export default function Setup() {
           <h1 className="db-hello">Setup</h1>
         </div>
         <div className="su-head-actions">
-          {tab === 'plans' && can(biz, ADD) && catalogue?.length > 0 && (
-            <button type="button" className="btn-secondary su-sell" onClick={() => setSelling({})}><TagIcon size={15} /> <span className="su-sell-long">Sell something</span><span className="su-sell-short">Sell</span></button>
-          )}
           {canAdd && (
             <button type="button" className="btn su-add" onClick={() => setAddKey((k) => ({ ...k, [tab]: k[tab] + 1 }))}>
               <PlusIcon size={16} /> {addLabel}
@@ -115,36 +105,24 @@ export default function Setup() {
       <div className="db-tabs su-tabs" role="tablist" aria-label="Setup">
         {tabs.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={`db-tab ${tab === t ? 'on' : ''}`} onClick={() => openTab(t)}>
-            {t === 'plans' ? <><span className="su-tab-long">{biz.type === 'hostel' ? 'Rooms & plans' : 'Plans & catalogue'}</span><span className="su-tab-short">{biz.type === 'hostel' ? 'Rooms' : 'Plans'}</span></> : t === 'outlets' ? 'Outlets' : 'Staff'}
-            {(t === 'plans' ? (n.plans || 0) + (catalogue?.length || 0) : n[t]) > 0 && <span className="db-tab-count">{t === 'plans' ? (n.plans || 0) + (catalogue?.length || 0) : n[t]}</span>}
+            {t === 'plans' ? <><span className="su-tab-long">{biz.type === 'hostel' ? 'Rooms & plans' : `Plans & ${w.groups.split(' ')[0].toLowerCase()}`}</span><span className="su-tab-short">{biz.type === 'hostel' ? 'Rooms' : 'Plans'}</span></> : t === 'outlets' ? 'Outlets' : 'Staff'}
+            {n[t] > 0 && <span className="db-tab-count">{n[t]}</span>}
           </button>
         ))}
       </div>
 
       {tab === 'plans' && (
         <>
-          <div className="su-kinds" role="radiogroup" aria-label="What you sell">
-            {kinds.map((k) => {
-              const K = KINDS[k];
-              const count = k === 'membership' ? n.plans : (catalogue || []).filter((i) => i.kind === k).length;
-              return (
-                <button key={k} type="button" role="radio" aria-checked={kind === k} className={`su-kind ${kind === k ? 'on' : ''}`} onClick={() => setKind(k)}>
-                  <span className={`db-today-icon ${K.tone}`}><K.icon size={16} /></span>
-                  <span className="su-kind-text"><b>{K.label} <span className="mr-dim">· {count ?? '…'}</span></b><span>{K.hint}</span></span>
-                </button>
-              );
-            })}
-          </div>
-          {kind === 'membership'
-            ? <PlansTab biz={biz} plans={plans} groups={groups} addKey={addKey.plans} />
-            : <CatalogueTab biz={biz} kind={kind} items={catalogue} addKey={addKey.plans} onSell={(id) => setSelling({ start: id })} />}
+          <PlansTab biz={biz} plans={plans} groups={groups} addKey={addKey.plans} />
+          {biz.salesEnabled !== false && <Link to="/sales?view=items" className="su-to-sales">
+            <span className="db-today-icon amber"><TagIcon size={16} /></span>
+            <span><b>Products, PT packs and services</b><span>Things charged once now live on the Sales page</span></span>
+            <span className="st-go">Sales ›</span>
+          </Link>}
         </>
       )}
       {tab === 'outlets' && <Outlets embedded addKey={addKey.outlets} />}
       {tab === 'staff' && isOwner && <Staff embedded addKey={addKey.staff} />}
-      <AnimatePresence>
-        {selling && <SellModal biz={biz} start={selling.start} onClose={() => setSelling(null)} />}
-      </AnimatePresence>
     </div>
   );
 }
@@ -238,7 +216,7 @@ function PlansTab({ biz, plans, groups, addKey }) {
 }
 
 // PT packs, services or products: charged once when sold
-function CatalogueTab({ biz, kind, items, addKey, onSell }) {
+export function CatalogueTab({ biz, kind, items, addKey, onSell }) {
   const K = KINDS[kind];
   const qc = useQueryClient();
   const [editing, setEditing] = useState(null);
@@ -293,7 +271,7 @@ function CatalogueTab({ biz, kind, items, addKey, onSell }) {
 function ItemModal({ biz, kind, item, onClose, onDelete }) {
   const K = KINDS[kind];
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: item?.name || '', price: item ? String(item.price) : '', detail: item?.detail || '', trackStock: item?.trackStock || false, stock: item ? String(item.stock ?? 0) : '' });
+  const [form, setForm] = useState({ name: item?.name || '', price: item ? String(item.price) : '', cost: item?.cost != null ? String(item.cost) : '', detail: item?.detail || '', trackStock: item?.trackStock || false, stock: item ? String(item.stock ?? 0) : '' });
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -301,7 +279,7 @@ function ItemModal({ biz, kind, item, onClose, onDelete }) {
   }, [onClose]);
   const save = useMutation({
     mutationFn: () => {
-      const body = { kind, name: form.name.trim(), price: Number(form.price), detail: form.detail, trackStock: kind === 'product' && form.trackStock, stock: kind === 'product' && form.trackStock ? Number(form.stock || 0) : 0 };
+      const body = { kind, name: form.name.trim(), price: Number(form.price), cost: form.cost === '' ? null : Number(form.cost), detail: form.detail, trackStock: kind === 'product' && form.trackStock, stock: kind === 'product' && form.trackStock ? Number(form.stock || 0) : 0 };
       return item ? api(`/businesses/${biz._id}/catalogue/${item._id}`, { method: 'PATCH', body }) : api(`/businesses/${biz._id}/catalogue`, { method: 'POST', body });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['catalogue', biz._id] }); onClose(); },
@@ -320,6 +298,8 @@ function ItemModal({ biz, kind, item, onClose, onDelete }) {
             <Field label="Name *"><input required autoFocus maxLength={60} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={K.example.replace('e.g. ', '').split(' · ')[0]} /></Field>
             <Field label={kind === 'product' ? 'Price each (₹) *' : 'Price (₹) *'}><input type="number" inputMode="decimal" min="1" required value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></Field>
           </div>
+          <Field label={kind === 'product' ? 'Cost price each (₹, optional)' : 'Cost to you (₹, optional)'}><input type="number" inputMode="decimal" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="What you pay for it, to see profit" /></Field>
+          {form.cost !== '' && Number(form.price) > 0 && <p className="sf-hint" style={{ margin: '-6px 0 0' }}>Profit {Number(form.price) - Number(form.cost) < 0 ? '−' : ''}{rupees(Math.abs(Number(form.price) - Number(form.cost)))} {kind === 'product' ? 'each' : 'per sale'} ({Math.round(((Number(form.price) - Number(form.cost)) / Number(form.price)) * 100)}% margin)</p>}
           <Field label="Details (optional)"><input maxLength={80} value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} placeholder={K.detail} /></Field>
           {kind === 'product' && (
             <>
@@ -340,6 +320,153 @@ function ItemModal({ biz, kind, item, onClose, onDelete }) {
           </div>
         </form>
       </motion.div>
+    </div>
+  );
+}
+
+// What was sold: totals for a period, best sellers, and every sale (with undo for mistakes)
+const SALE_PERIODS = [
+  ['month', 'This month', () => { const n = new Date(); return [new Date(n.getFullYear(), n.getMonth(), 1), n]; }],
+  ['last', 'Last month', () => { const n = new Date(); return [new Date(n.getFullYear(), n.getMonth() - 1, 1), new Date(n.getFullYear(), n.getMonth(), 0, 23, 59, 59, 999)]; }],
+  ['year', 'This year', () => { const n = new Date(); return [new Date(n.getFullYear(), 0, 1), n]; }],
+  ['all', 'All time', () => [null, new Date()]],
+];
+const KIND_SHORT = { pt: 'PT pack', service: 'Service', product: 'Product' };
+const MODE_NAME = { cash: 'Cash', upi: 'UPI', other: 'Card / bank' };
+const whenText = (at) => {
+  const d = new Date(at); const now = new Date();
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return `Today ${time}`;
+  if (d.toDateString() === new Date(now - 86400000).toDateString()) return `Yesterday ${time}`;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(d.getFullYear() !== now.getFullYear() && { year: 'numeric' }) });
+};
+const linesText = (items) => items.map((l) => (l.qty > 1 ? `${l.name} ×${l.qty}` : l.name)).join(', ');
+
+export function SalesView({ biz }) {
+  const qc = useQueryClient();
+  const [period, setPeriod] = useState('month');
+  const [q, setQ] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const [from, to] = SALE_PERIODS.find((p) => p[0] === period)[2]();
+  const qs = `${from ? `from=${from.toISOString()}&` : ''}to=${to.toISOString()}`;
+  const { data, error } = useQuery({
+    queryKey: ['sales', biz._id, period],
+    queryFn: () => api(`/businesses/${biz._id}/sales?${qs}`),
+    placeholderData: (prev) => prev,
+  });
+  const undo = useMutation({
+    mutationFn: (x) => api(`/members/${x.memberId}/sales/${x._id}`, { method: 'DELETE' }),
+    onSuccess: () => ['sales', 'catalogue', 'members', 'dashboard', 'report', 'member'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })),
+  });
+  const askUndo = async (x) => {
+    if (await confirmAction({
+      title: `Undo this ${rupees(x.total)} sale?`,
+      message: `${linesText(x.items)} to ${x.memberName}. The charge${x.paid ? ' and its payment are' : ' is'} removed and any stock goes back.`,
+      confirmText: 'Undo sale', danger: true,
+    })) undo.mutate(x);
+  };
+
+  if (error) return <p className="error" role="alert">{error.status === 404 ? 'Sales need the latest server update.' : error.message}</p>;
+  if (!data) return <div className="card skeleton" style={{ minHeight: 220 }} aria-hidden="true" />;
+
+  const t = data.totals;
+  const pct = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
+  const change = t.prevRevenue != null ? pct(t.revenue, t.prevRevenue) : null;
+  const cards = [
+    { icon: TagIcon, tone: 'amber', label: 'Items sold', value: t.qty, note: `in ${t.count} sale${t.count === 1 ? '' : 's'}` },
+    { icon: CreditCardIcon, tone: 'green', ink: 'green', label: 'Revenue', value: rupees(t.revenue), note: change == null ? (t.prevRevenue === 0 && t.revenue ? 'none the period before' : '—') : `${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% vs before` },
+    { icon: ActivityIcon, tone: 'grey', label: 'Cost', value: t.cost == null ? '—' : rupees(t.cost), note: t.cost == null ? 'add cost prices to see it' : t.profitOn < t.revenue ? 'items with a cost price' : 'from your cost prices' },
+    { icon: SparklesIcon, tone: 'violet', ink: 'violet', label: 'Profit', value: t.profit == null ? '—' : rupees(t.profit), note: t.profit == null ? 'needs cost prices' : `${Math.round((t.profit / t.profitOn) * 100)}% margin` },
+    { icon: AlertIcon, tone: 'red', ink: t.unpaid ? 'red' : '', label: 'Not paid yet', value: rupees(t.unpaid), note: t.unpaid ? 'sold onto dues' : 'all sales paid' },
+  ];
+  const query = q.trim().toLowerCase();
+  const sales = data.sales.filter((x) => !query || x.memberName.toLowerCase().includes(query) || linesText(x.items).toLowerCase().includes(query));
+  const shown = showAll ? sales : sales.slice(0, 12);
+  const canUndo = can(biz, DELETE);
+
+  return (
+    <div className="sv">
+      <div className="sv-periods" role="radiogroup" aria-label="Period">
+        {SALE_PERIODS.map(([id, label]) => (
+          <button key={id} type="button" role="radio" aria-checked={period === id} className={`en-choice ${period === id ? 'on' : ''}`} onClick={() => { setPeriod(id); setShowAll(false); }}>{label}</button>
+        ))}
+      </div>
+
+      <section className="sv-totals" aria-label="Totals">
+        {cards.map((c) => (
+          <div key={c.label} className="db-today-card sv-total">
+            <span className={`db-today-icon ${c.tone}`}><c.icon size={16} /></span>
+            <span className="db-today-text"><span className="db-label">{c.label}</span><b className={c.ink || ''}>{c.value}</b><span className="su-note">{c.note}</span></span>
+          </div>
+        ))}
+      </section>
+
+      {!data.sales.length ? (
+        <section className="mx-list en-empty">
+          <span className="en-empty-icon"><TagIcon size={26} /></span>
+          <h2>No sales {period === 'all' ? 'yet' : 'in this period'}</h2>
+          <p>Sell from Collect, a member's page or the Items view. Every sale shows up here with what it earned.</p>
+        </section>
+      ) : (
+        <div className="sv-grid">
+          <section className="mr-box sv-items" aria-label="By item">
+            <div className="mr-box-head"><h3>By item</h3><span className="mr-dim">best sellers first</span></div>
+            <table className="mr-table sv-table">
+              <thead><tr><th>Item</th><th>Sold</th><th>Revenue</th><th>Profit</th><th>Stock</th></tr></thead>
+              <tbody>
+                {data.byItem.map((i) => (
+                  <tr key={String(i.itemId)}>
+                    <td><b>{i.name}</b><span className="sv-kind">{KIND_SHORT[i.kind]}{i.removed ? ' · removed' : ''}</span></td>
+                    <td>{i.qty}</td>
+                    <td className="strong">{rupees(i.revenue)}</td>
+                    <td className={i.profit == null ? 'dim' : i.profit < 0 ? 'red' : 'green'}>{i.profit == null ? '—' : `${i.profit < 0 ? '−' : ''}${rupees(Math.abs(i.profit))}`}</td>
+                    <td className={i.stock == null ? 'dim' : i.stock === 0 ? 'red' : i.stock <= 2 ? 'amber' : ''}>{i.stock == null ? '—' : i.stock === 0 ? 'Out' : `${i.stock} left`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {/* phones: a short list */}
+            <ul className="sv-items-list">
+              {data.byItem.map((i) => (
+                <li key={String(i.itemId)}><span><b>{i.name}</b> <span className="mr-dim">· {i.qty} sold{i.stock != null ? ` · ${i.stock === 0 ? 'out' : `${i.stock} left`}` : ''}</span></span><b>{rupees(i.revenue)}</b></li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="mr-box sv-history" aria-label="Sales history">
+            <div className="mr-box-head">
+              <h3>Sales history</h3>
+              <label className="mx-search sv-search">
+                <SearchIcon size={14} />
+                <span className="sr-only">Search sales</span>
+                <input type="search" placeholder="Member or item" value={q} onChange={(e) => setQ(e.target.value)} />
+              </label>
+            </div>
+            <ul className="sv-sales">
+              {shown.map((x) => (
+                <li key={x._id} className="sv-sale">
+                  <Link to={`/members/${x.memberId}`} className="sv-sale-who">
+                    <Avatar name={x.memberName} />
+                    <span><b>{x.memberName}</b><span>{linesText(x.items)}</span></span>
+                  </Link>
+                  <span className="sv-sale-amt"><b>{rupees(x.total)}</b><span>{whenText(x.at)}{x.soldBy ? ` · by ${x.soldBy}` : ''}</span></span>
+                  <span className={`sv-status ${x.paid ? 'paid' : x.stillOwed ? 'due' : 'paid'}`}>
+                    {x.paid ? `Paid · ${MODE_NAME[x.mode] || 'Paid'}` : x.stillOwed ? (x.stillOwed < x.total ? `${rupees(x.stillOwed)} owed` : 'On dues') : 'Paid later'}
+                  </span>
+                  {canUndo && <button type="button" className="mr-del" aria-label={`Undo sale to ${x.memberName}`} title="Undo sale" onClick={() => askUndo(x)}><XIcon size={14} /></button>}
+                </li>
+              ))}
+              {!sales.length && <li className="at-empty">Nothing matches “{q}”.</li>}
+            </ul>
+            <div className="sv-foot">
+              <span>Showing {shown.length} of {sales.length}</span>
+              {sales.length > shown.length && <button type="button" className="mr-link" onClick={() => setShowAll(true)}>Show all</button>}
+              <button type="button" className="mr-link" onClick={() => download(`/businesses/${biz._id}/export/sales.csv?${qs}`, `${biz.name}-sales.csv`)}>Download CSV</button>
+            </div>
+            {undo.error && <p className="error" role="alert" style={{ margin: '0 16px 12px' }}>{undo.error.message}</p>}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

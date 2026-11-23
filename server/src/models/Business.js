@@ -15,6 +15,7 @@ const businessSchema = new Schema({
   suspendedReason: String,
   adminNote: String, // only platform admins see this
   attendanceEnabled: { type: Boolean, default: true }, // owner can switch attendance off in Settings; records are kept
+  salesEnabled: { type: Boolean, default: true }, // owner can hide selling (catalogue, Sell buttons, Sales page) in Settings
   attendanceChosen: { type: Boolean, default: false }, // the owner used the switch, so defaults never override it
   timezone: { type: String, default: 'Asia/Kolkata' }, // decides which day attendance falls on
   checkinToken: { type: String, index: { unique: true, sparse: true } }, // gym QR check-in secret; rotate to revoke

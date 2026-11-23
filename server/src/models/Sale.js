@@ -11,6 +11,7 @@ const saleSchema = new Schema({
     kind: String,
     name: String,
     price: Number,
+    cost: Number, // cost price at the time of sale, if known
     qty: Number,
   }],
   total: { type: Number, required: true },

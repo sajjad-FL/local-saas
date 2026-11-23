@@ -220,7 +220,7 @@ export default function MemberDetail() {
               <CheckIcon size={15} /> Record payment
             </button>
           )}
-          {isActive && canAdd && catalogue?.length > 0 && (
+          {isActive && canAdd && biz.salesEnabled !== false && catalogue?.length > 0 && (
             <button type="button" className="btn-secondary md-sell" onClick={() => setSelling(true)}>
               <TagIcon size={15} /> Sell
             </button>

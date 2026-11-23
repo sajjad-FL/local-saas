@@ -9,6 +9,7 @@ const catalogueItemSchema = new Schema({
   kind: { type: String, enum: ['pt', 'service', 'product'], required: true },
   name: { type: String, required: true, trim: true, maxlength: 60 },
   price: { type: Number, required: true, min: 1 },
+  cost: { type: Number, min: 0 }, // what it costs the business, for profit; empty = unknown
   detail: { type: String, trim: true, maxlength: 80 }, // e.g. "12 sessions, use within 45 days"
   trackStock: { type: Boolean, default: false }, // products only
   stock: { type: Number, default: 0, min: 0 },

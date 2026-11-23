@@ -81,9 +81,10 @@ export async function updateBusiness(req, res, next) {
     if (!req.business.ownerId.equals(req.userId)) {
       return res.status(403).json({ error: 'owner only' });
     }
-    const { name, upiId, notifications, reminderEveryDays, attendanceEnabled } = req.body;
+    const { name, upiId, notifications, reminderEveryDays, attendanceEnabled, salesEnabled } = req.body;
     if (name !== undefined) req.business.name = name;
     if (typeof attendanceEnabled === 'boolean') Object.assign(req.business, { attendanceEnabled, attendanceChosen: true });
+    if (typeof salesEnabled === 'boolean') req.business.salesEnabled = salesEnabled;
     if (upiId !== undefined) req.business.upiId = upiId;
     if (reminderEveryDays !== undefined) req.business.reminderEveryDays = reminderEveryDays;
     if (notifications !== undefined) {

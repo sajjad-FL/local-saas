@@ -25,6 +25,7 @@ import {
   UserPlusIcon,
   DoorIcon,
   ShieldIcon,
+  TagIcon,
   BIZ_TYPES,
   CheckIcon,
   Loader,
@@ -38,6 +39,7 @@ const Members = lazy(() => import('./pages/Members.jsx'));
 const MemberDetail = lazy(() => import('./pages/MemberDetail.jsx'));
 const Reports = lazy(() => import('./pages/Reports.jsx'));
 const Setup = lazy(() => import('./pages/Setup.jsx'));
+const Sales = lazy(() => import('./pages/Sales.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
 const Statement = lazy(() => import('./pages/Statement.jsx'));
 const Attendance = lazy(() => import('./pages/Attendance.jsx'));
@@ -168,6 +170,7 @@ function Shell({ onLogout }) {
     if (path.startsWith('/members')) return 'Members Directory';
     if (path.startsWith('/reports')) return 'Money';
     if (path.startsWith('/setup')) return 'Setup';
+    if (path.startsWith('/sales')) return 'Sales';
     if (path.startsWith('/settings')) return 'Settings';
     if (path.startsWith('/attendance')) return 'Attendance';
     if (path.startsWith('/enquiries')) return 'Enquiries';
@@ -251,6 +254,12 @@ function Shell({ onLogout }) {
               <span>Setup</span>
               {businesses.length > 1 && <span className="sidebar-count" title={`${businesses.length} outlets`}>{businesses.length}</span>}
             </NavLink>
+            {biz.salesEnabled !== false && (
+              <NavLink to="/sales" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+                <TagIcon size={18} />
+                <span>Sales</span>
+              </NavLink>
+            )}
             <NavLink to="/settings" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
               <SettingsIcon size={18} />
               <span>Settings</span>
@@ -338,6 +347,7 @@ function Shell({ onLogout }) {
               <Route path="/members/:id" element={<MemberDetail />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/setup" element={<Setup />} />
+              <Route path="/sales" element={<Sales />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/enquiries" element={<Enquiries />} />

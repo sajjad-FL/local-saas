@@ -5,6 +5,7 @@ import { ConfirmDialog, DownloadIcon } from './ui.jsx';
 // What each export holds, so the owner knows before saving it. Every export is
 // all-time: say so, because the Reports screen may be showing a single month.
 const EXPORTS = {
+  'sales.csv': { title: 'Download sales?', text: 'Every sale in the period you picked: member, items, total, paid or on dues, and who sold it.' },
   'payments.csv': {
     title: 'Download all payments?',
     text: 'Every payment recorded since you started (date, member, amount, mode, note), not only the period on screen.',
@@ -39,7 +40,7 @@ export default function DownloadConfirm() {
     return () => window.removeEventListener('download-request', onRequest);
   }, []);
 
-  const info = request && (EXPORTS[request.path.split('/').pop()] || { title: 'Download this file?', text: '' });
+  const info = request && (EXPORTS[request.path.split('?')[0].split('/').pop()] || { title: 'Download this file?', text: '' });
 
   const confirm = async () => {
     setBusy(true);

@@ -9,7 +9,7 @@ import { words } from '../wording.js';
 import {
   Field, ShieldIcon, UserIcon, UsersIcon, PhoneIcon, DownloadIcon, CheckIcon, BuildingIcon,
   ConfirmDialog, BIZ_TYPES, AlertCircleIcon, XIcon, TrashIcon, LogOutIcon, ChevronIcon,
-  CalendarCheckIcon, EditIcon, RupeeIcon, WhatsAppIcon, SunIcon, MoonIcon, PrinterIcon, CreditCardIcon,
+  CalendarCheckIcon, EditIcon, RupeeIcon, WhatsAppIcon, SunIcon, MoonIcon, PrinterIcon, CreditCardIcon, TagIcon,
 } from '../ui.jsx';
 
 const ago = (t) => {
@@ -313,6 +313,12 @@ function OutletCard({ isOwner }) {
   const qc = useQueryClient();
   const typeConfig = BIZ_TYPES[biz.type] || BIZ_TYPES.gym;
   const [attOn, setAttOn] = useState(biz.attendanceEnabled !== false);
+  const [salesOn, setSalesOn] = useState(biz.salesEnabled !== false);
+  const saveSales = useMutation({
+    mutationFn: (on) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { salesEnabled: on } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
+    onError: (_e, on) => setSalesOn(!on),
+  });
   const saveAtt = useMutation({
     mutationFn: (on) => api(`/businesses/${biz._id}`, { method: 'PATCH', body: { attendanceEnabled: on } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
@@ -338,6 +344,14 @@ function OutletCard({ isOwner }) {
           <span className="switch-thumb" />
         </button>
       </div>
+      <div className="st-row">
+        <span className="st-card-icon amber"><TagIcon size={14} /></span>
+        <span className="st-row-text"><b>Sell products &amp; services</b><span>{salesOn ? 'Shows Sales in the menu and Sell on Collect and member pages.' : 'Hidden. Turn on to sell PT packs, supplements, diet plans and more.'}</span></span>
+        <button type="button" role="switch" aria-checked={salesOn} aria-label="Sell products and services" disabled={!isOwner || saveSales.isPending}
+          className={`switch-toggle ${salesOn ? 'active' : ''}`} onClick={() => { setSalesOn(!salesOn); saveSales.mutate(!salesOn); }}>
+          <span className="switch-thumb" />
+        </button>
+      </div>
       {isOwner && (
         <Link to="/setup?tab=staff" className="st-row st-row-link">
           <span className="st-card-icon pink"><UsersIcon size={14} /></span>
@@ -351,7 +365,7 @@ function OutletCard({ isOwner }) {
         <span className="st-go">Setup <ChevronIcon size={14} /></span>
       </Link>
       {!isOwner && <p className="st-dim" style={{ margin: '0 18px 14px' }}>Only the owner can change these.</p>}
-      {saveAtt.error && <p className="error" role="alert" style={{ margin: '0 18px 14px' }}>{saveAtt.error.message}</p>}
+      {(saveAtt.error || saveSales.error) && <p className="error" role="alert" style={{ margin: '0 18px 14px' }}>{(saveAtt.error || saveSales.error).message}</p>}
     </section>
   );
 }

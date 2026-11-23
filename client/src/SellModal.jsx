@@ -78,7 +78,7 @@ export default function SellModal({ biz, member: givenMember = null, start = nul
         {items && !list.length ? (
           <div className="sell-empty">
             <p>Nothing to sell yet. Add your PT packs, services and products first.</p>
-            <Link to="/setup?tab=plans&kind=product" className="btn" onClick={onClose}><PlusIcon size={15} /> Add to the catalogue</Link>
+            <Link to="/sales?view=product" className="btn" onClick={onClose}><PlusIcon size={15} /> Add to the catalogue</Link>
           </div>
         ) : (
           <>

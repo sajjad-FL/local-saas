@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sales – web</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 1040px; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E7E9F0; padding: 18px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; border-bottom: 1px solid #EEF0F5; font-weight: 800; font-size: 16px">
+      <span style="width: 22px; height: 22px; border-radius: 6px; background: #5B3DF5"></span>Local<span style="color: #5B3DF5; margin-left: -8px">SaaS</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Collect</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Members</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Money</a>
+      <a href="#" aria-current="page" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; background: #F1EEFF; color: #3D27B8; text-decoration: none; font-weight: 600">Setup</a>
+      <a href="#" style="height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; color: #475569; text-decoration: none; font-weight: 500">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 26px clamp(16px, 3vw, 36px) 40px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div><p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 500">Products · PT · services</p><h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Setup</h1></div>
+      <div style="display: flex; gap: 8px"><button type="button" style="height: 40px; padding: 0 14px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF; font-weight: 600; font-size: 14px">₹ Sell something</button><button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ Add product</button></div>
+    </div>
+
+    <!-- catalogue gets two views: what you sell, and what you sold -->
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+      <div role="tablist" style="display: flex; gap: 4px; padding: 4px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 12px">
+        <sc-for list="{{views}}" as="v" hint-placeholder-count="2"><button type="button" role="tab" aria-selected="{{v.on}}" onClick="{{v.pick}}" style="height: 36px; padding: 0 16px; border: 0; border-radius: 9px; background: {{v.bg}}; color: {{v.ink}}; font-weight: {{v.weight}}; font-size: 14px">{{v.label}}</button></sc-for>
+      </div>
+      <div style="display: flex; gap: 6px">
+        <sc-for list="{{periods}}" as="p" hint-placeholder-count="4"><button type="button" onClick="{{p.pick}}" style="height: 34px; padding: 0 12px; border: {{p.border}}; border-radius: 99px; background: {{p.bg}}; color: {{p.ink}}; font-size: 13px; font-weight: {{p.weight}}">{{p.label}}</button></sc-for>
+      </div>
+    </div>
+
+    <!-- totals for the period -->
+    <section aria-label="Totals" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{totals}}" as="t" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 14px">
+          <span style="width: 38px; height: 38px; flex: none; border-radius: 11px; background: {{t.bg}}; color: {{t.ink}}; display: grid; place-items: center; font-weight: 700">{{t.icon}}</span>
+          <span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 12.5px; color: #64748B; font-weight: 500">{{t.label}}</span><b style="font-size: 20px; color: {{t.valueInk}}">{{t.value}}</b><span style="font-size: 11.5px; color: #94A3B8">{{t.note}}</span></span>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 16px; align-items: start">
+      <!-- by item -->
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; overflow: hidden">
+        <div style="padding: 14px 16px; display: flex; justify-content: space-between"><b style="font-size: 15px">By item</b><span style="font-size: 12.5px; color: #64748B">best sellers first</span></div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13.5px">
+          <thead><tr style="background: #FAFBFC; color: #64748B; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; text-align: right"><th style="text-align: left; padding: 8px 16px; font-weight: 600">Item</th><th style="font-weight: 600">Sold</th><th style="font-weight: 600">Revenue</th><th style="font-weight: 600">Profit</th><th style="padding-right: 16px; font-weight: 600">Stock</th></tr></thead>
+          <tbody>
+            <sc-for list="{{byItem}}" as="i" hint-placeholder-count="5">
+              <tr style="border-top: 1px solid #EEF0F5; text-align: right"><td style="text-align: left; padding: 11px 16px"><b style="font-weight: 600">{{i.name}}</b><span style="display: block; font-size: 12px; color: #94A3B8">{{i.kind}}</span></td><td>{{i.qty}}</td><td style="font-weight: 600">{{i.revenue}}</td><td style="color: {{i.profitInk}}">{{i.profit}}</td><td style="padding-right: 16px; color: {{i.stockInk}}">{{i.stock}}</td></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- every sale -->
+      <section style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; overflow: hidden">
+        <div style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center"><b style="font-size: 15px">Sales history</b><span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid #E2E5EC; border-radius: 9px; color: #94A3B8; font-size: 13px">⌕ Member or item</span></div>
+        <sc-for list="{{sales}}" as="s" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #EEF0F5">
+            <span style="width: 34px; height: 34px; border-radius: 99px; background: {{s.avBg}}; color: {{s.avInk}}; display: grid; place-items: center; font-weight: 700; font-size: 12px">{{s.short}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">{{s.member}}</b><span style="font-size: 12.5px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.items}}</span></span>
+            <span style="display: flex; flex-direction: column; align-items: flex-end"><b style="font-size: 14px">{{s.total}}</b><span style="font-size: 12px; color: #94A3B8">{{s.when}}</span></span>
+            <span style="height: 24px; padding: 0 9px; border-radius: 99px; background: {{s.stBg}}; color: {{s.stInk}}; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap; min-width: 92px; justify-content: center">{{s.status}}</span>
+            <button type="button" aria-label="More" style="width: 32px; height: 32px; border: 1px solid #E2E5EC; border-radius: 9px; background: #FFFFFF; color: #475569">⋯</button>
+          </div>
+        </sc-for>
+        <div style="padding: 10px 16px; border-top: 1px solid #EEF0F5; font-size: 12.5px; color: #64748B; display: flex; justify-content: space-between"><span>Showing 6 of 23 this month</span><span style="color: #4A2EE6; font-weight: 600">Download CSV</span></div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { view: 1, period: 0 }; }
+  renderVals() {
+    const st = this.state;
+    return {
+      views: ['Items', 'Sales'].map((label, i) => ({ label, on: i === st.view, bg: i === st.view ? '#F1EEFF' : 'transparent', ink: i === st.view ? '#3D27B8' : '#475569', weight: i === st.view ? '600' : '500', pick: () => this.setState({ view: i }) })),
+      periods: ['This month', 'Last month', 'This year', 'All time'].map((label, i) => ({ label, border: i === st.period ? '1.5px solid #5B3DF5' : '1px solid #E2E5EC', bg: i === st.period ? '#F1EEFF' : '#FFFFFF', ink: i === st.period ? '#3D27B8' : '#475569', weight: i === st.period ? '600' : '500', pick: () => this.setState({ period: i }) })),
+      totals: [
+        { icon: '▣', bg: '#FFF6E5', ink: '#92400E', label: 'Items sold', value: '38', valueInk: '#0F172A', note: 'in 23 sales' },
+        { icon: '₹', bg: '#ECFDF3', ink: '#066B3F', label: 'Revenue', value: '₹41,250', valueInk: '#066B3F', note: '▲ 18% vs last month' },
+        { icon: '↓', bg: '#F1F3F7', ink: '#475569', label: 'Cost', value: '₹24,100', valueInk: '#0F172A', note: 'from your cost prices' },
+        { icon: '↑', bg: '#F1EEFF', ink: '#3D27B8', label: 'Profit', value: '₹17,150', valueInk: '#3D27B8', note: '42% margin' },
+        { icon: '!', bg: '#FEF1F0', ink: '#B42318', label: 'Not paid yet', value: '₹4,300', valueInk: '#B42318', note: 'added to dues' },
+      ],
+      byItem: [
+        { name: 'Whey protein 1 kg', kind: 'Product', qty: '9', revenue: '₹25,200', profit: '₹8,100', profitInk: '#066B3F', stock: '3 left', stockInk: '#B45309' },
+        { name: '12 sessions', kind: 'PT pack', qty: '2', revenue: '₹12,000', profit: '—', profitInk: '#94A3B8', stock: '—', stockInk: '#94A3B8' },
+        { name: 'Diet plan', kind: 'Service', qty: '4', revenue: '₹6,000', profit: '—', profitInk: '#94A3B8', stock: '—', stockInk: '#94A3B8' },
+        { name: 'Shaker', kind: 'Product', qty: '14', revenue: '₹5,600', profit: '₹2,800', profitInk: '#066B3F', stock: 'not tracked', stockInk: '#94A3B8' },
+        { name: 'Energy bar', kind: 'Product', qty: '9', revenue: '₹720', profit: '₹270', profitInk: '#066B3F', stock: 'Out', stockInk: '#B42318' },
+      ],
+      sales: [
+        { member: 'Rohit Kumar', short: 'RK', items: 'Whey protein 1 kg ×2, Shaker', total: '₹6,000', when: 'Today 6:40 PM · by Imran', status: 'Paid · UPI', stBg: '#ECFDF3', stInk: '#066B3F', avBg: '#E8F6FF', avInk: '#0B5E8A' },
+        { member: 'Neha Singh', short: 'NS', items: 'Diet plan', total: '₹1,500', when: 'Today 11:05 AM', status: 'On dues', stBg: '#FFF6E5', stInk: '#92400E', avBg: '#FCEEF6', avInk: '#9D1C5E' },
+        { member: 'Aman Gupta', short: 'AG', items: '12 sessions', total: '₹6,000', when: 'Yesterday', status: 'Paid · Cash', stBg: '#ECFDF3', stInk: '#066B3F', avBg: '#EEF4FF', avInk: '#1D4ED8' },
+        { member: 'Pooja Rao', short: 'PR', items: 'Energy bar ×4', total: '₹320', when: '21 Nov', status: 'Paid · Cash', stBg: '#ECFDF3', stInk: '#066B3F', avBg: '#ECFDF3', avInk: '#066B3F' },
+        { member: 'Karan Mehta', short: 'KM', items: 'Whey protein 1 kg', total: '₹2,800', when: '20 Nov', status: 'On dues', stBg: '#FFF6E5', stInk: '#92400E', avBg: '#FFF1E6', avInk: '#9A3412' },
+        { member: 'Vikram Shah', short: 'VS', items: 'Shaker ×2', total: '₹800', when: '19 Nov', status: 'Paid · UPI', stBg: '#ECFDF3', stInk: '#066B3F', avBg: '#F1EEFF', avInk: '#3D27B8' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

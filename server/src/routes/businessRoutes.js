@@ -19,7 +19,7 @@ import { getDashboardData } from '../controllers/dashboardController.js';
 import { getReport } from '../controllers/reportController.js';
 import { getAttendanceDay, markAttendance, markAllPresent, checkinLink, importAttendance, getNotComing } from '../controllers/attendanceController.js';
 import { getExpenses, createExpense, deleteExpense } from '../controllers/expenseController.js';
-import { getCatalogue, createCatalogueItem, updateCatalogueItem, deleteCatalogueItem } from '../controllers/catalogueController.js';
+import { getCatalogue, createCatalogueItem, updateCatalogueItem, deleteCatalogueItem, getSales, exportSalesCsv } from '../controllers/catalogueController.js';
 import { getEnquiries, createEnquiry, updateEnquiry, deleteEnquiry } from '../controllers/enquiryController.js';
 import { exportPaymentsCsv, exportBalancesCsv, exportDuesCsv, exportExpensesCsv, exportBackupJson } from '../controllers/exportController.js';
 
@@ -86,6 +86,8 @@ businessRoutes.get('/:bizId/catalogue', getCatalogue);
 businessRoutes.post('/:bizId/catalogue', createCatalogueItem);
 businessRoutes.patch('/:bizId/catalogue/:itemId', updateCatalogueItem);
 businessRoutes.delete('/:bizId/catalogue/:itemId', deleteCatalogueItem);
+businessRoutes.get('/:bizId/sales', getSales);
+businessRoutes.get('/:bizId/export/sales.csv', exportSalesCsv);
 
 // Enquiries: people who asked about joining
 businessRoutes.get('/:bizId/enquiries', getEnquiries);

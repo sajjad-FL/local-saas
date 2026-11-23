@@ -37,7 +37,7 @@ export default function Dashboard() {
   // the things done most, one tap each (big tiles on phones)
   const actions = [
     { key: 'pay', label: 'Record payment', short: 'Payment', icon: RupeeIcon, primary: true, onClick: () => setPicking(true) },
-    catalogue?.length > 0 && { key: 'sell', label: 'Sell', short: 'Sell', icon: TagIcon, onClick: () => setSelling(true) },
+    biz.salesEnabled !== false && catalogue?.length > 0 && { key: 'sell', label: 'Sell', short: 'Sell', icon: TagIcon, onClick: () => setSelling(true) },
     { key: 'member', label: `Add ${w.member}`, short: w.member[0].toUpperCase() + w.member.slice(1), icon: PlusIcon, onClick: () => navigate('/members?add=1') },
     { key: 'enquiry', label: 'Add enquiry', short: 'Enquiry', icon: UserPlusIcon, onClick: () => navigate('/enquiries?add=1') },
     { key: 'expense', label: 'Add expense', short: 'Expense', icon: RupeeIcon, onClick: () => setAddingExpense(true) },
