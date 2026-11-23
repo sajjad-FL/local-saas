@@ -6,7 +6,8 @@ import { api, rupees, waLink, can, DELETE } from '../api.js';
 import { useBiz } from '../App.jsx';
 import { words } from '../wording.js';
 import { confirmAction } from '../confirm.jsx';
-import { Avatar, Field, PlusIcon, SearchIcon, XIcon, PhoneIcon, WhatsAppIcon, EditIcon, UserPlusIcon, CalendarIcon, TrashIcon } from '../ui.jsx';
+import { Avatar, Field, PlusIcon, SearchIcon, XIcon, PhoneIcon, WhatsAppIcon, EditIcon, UserPlusIcon, CalendarIcon, TrashIcon, AlertIcon, UsersIcon, CheckIcon } from '../ui.jsx';
+import BulkRemind from '../BulkRemind.jsx';
 import { AddMemberModal, Menu } from './Members.jsx';
 
 const DAY = 86400000;
@@ -25,6 +26,8 @@ const STATUS = {
 };
 const SOURCES = { walk_in: 'Walk-in', call: 'Phone call', whatsapp: 'WhatsApp', instagram: 'Instagram', referral: 'Referred by someone', other: 'Other' };
 const open = (e) => e.status === 'new' || e.status === 'follow_up';
+const fmtPhone = (p) => (p && p.length === 10 ? `${p.slice(0, 5)} ${p.slice(5)}` : p);
+const TABS = ['today', 'overdue', 'open', 'joined', 'lost'];
 
 // People who asked about joining. The owner follows up until they join (then they
 // become a member, details carried over) or says they're not interested.
@@ -33,7 +36,9 @@ export default function Enquiries() {
   const qc = useQueryClient();
   const W = words(biz.type);
   const [q, setQ] = useState('');
-  const [view, setView] = useState('open');
+  const [view, setView] = useState(null); // null: start on whatever needs doing first
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [bulk, setBulk] = useState(null); // "Message today's" one-by-one sender
   const [planFilter, setPlanFilter] = useState('all');
   const [period, setPeriod] = useState('all');
   const [editing, setEditing] = useState(null); // {} for a new one, or the enquiry
@@ -69,13 +74,13 @@ export default function Enquiries() {
   const now = new Date();
   const thisMonth = (d) => { const x = new Date(d); return x.getMonth() === now.getMonth() && x.getFullYear() === now.getFullYear(); };
   const VIEWS = {
-    open: { label: 'Open', dot: '#5B3DF5', fn: open },
-    today: { label: 'Follow up today', dot: '#D97706', fn: (e) => open(e) && e.followUpOn && dayDiff(e.followUpOn) === 0 },
-    overdue: { label: 'Follow-up missed', dot: '#DC2626', fn: (e) => open(e) && e.followUpOn && dayDiff(e.followUpOn) < 0 },
+    open: { label: 'Open', tab: 'All open', dot: '#2563EB', fn: open, empty: 'No open enquiries. Add one when someone asks about joining.' },
+    today: { label: 'Call today', tab: 'Call today', empty: 'Nobody to call back today.', dot: '#D97706', fn: (e) => open(e) && e.followUpOn && dayDiff(e.followUpOn) === 0 },
+    overdue: { label: 'Missed', tab: 'Missed', empty: 'No missed call-backs. Nice.', dot: '#DC2626', fn: (e) => open(e) && e.followUpOn && dayDiff(e.followUpOn) < 0 },
     new: { label: 'New', dot: STATUS.new.dot, fn: (e) => e.status === 'new' },
     follow_up: { label: 'Following up', dot: STATUS.follow_up.dot, fn: (e) => e.status === 'follow_up' },
-    joined: { label: 'Joined', dot: STATUS.joined.dot, fn: (e) => e.status === 'joined' },
-    lost: { label: 'Not interested', dot: STATUS.lost.dot, fn: (e) => e.status === 'lost' },
+    joined: { label: 'Joined', empty: 'Nobody has joined from an enquiry yet.', dot: STATUS.joined.dot, fn: (e) => e.status === 'joined' },
+    lost: { label: 'Not interested', empty: 'Nobody marked not interested.', dot: STATUS.lost.dot, fn: (e) => e.status === 'lost' },
     all: { label: 'All enquiries', dot: '#94A3B8', fn: () => true },
   };
   const PERIODS = {
@@ -85,10 +90,12 @@ export default function Enquiries() {
     '3m': ['Last 3 months', (e) => (now - new Date(e.createdAt)) / DAY <= 92],
   };
 
+  const curView = view || (all.some(VIEWS.today.fn) ? 'today' : all.some(VIEWS.overdue.fn) ? 'overdue' : 'open');
   const passes = (e, skip) => {
     const query = q.trim().toLowerCase();
     if (query && !(e.name || '').toLowerCase().includes(query) && !(e.phone || '').includes(query)) return false;
-    if (skip !== 'view' && !VIEWS[view].fn(e)) return false;
+    if (skip !== 'view' && !VIEWS[curView].fn(e)) return false;
+    if (skip !== 'source' && sourceFilter !== 'all' && e.source !== sourceFilter) return false;
     if (skip !== 'plan' && planFilter !== 'all' && (planFilter === 'none' ? e.planId : String(e.planId?._id) !== planFilter)) return false;
     if (skip !== 'period' && !PERIODS[period][1](e)) return false;
     return true;
@@ -98,37 +105,8 @@ export default function Enquiries() {
   const list = useMemo(
     () => all.filter((e) => passes(e)).sort((a, b) => rank(a) - rank(b) || new Date(b.createdAt) - new Date(a.createdAt)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [all, q, view, planFilter, period],
+    [all, q, curView, planFilter, period, sourceFilter],
   );
-
-  const count = (fn) => all.filter(fn).length;
-  const monthIn = all.filter((e) => thisMonth(e.createdAt));
-  const monthJoined = monthIn.filter((e) => e.status === 'joined').length;
-  const cards = [
-    { id: 'today', label: 'Follow up today', big: count(VIEWS.today.fn), small: 'calls to make', color: 'amber' },
-    { id: 'overdue', label: 'Follow-up missed', big: count(VIEWS.overdue.fn), small: 'date has passed', color: 'red' },
-    { id: 'open', label: 'Open enquiries', big: count(open), small: 'not decided yet', color: 'blue' },
-    { id: 'joined', label: `Joined · ${now.toLocaleDateString('en-IN', { month: 'long' })}`, big: monthJoined, small: monthIn.length ? `${Math.round((monthJoined / monthIn.length) * 100)}% of ${monthIn.length} enquiries` : 'no enquiries yet', color: 'green' },
-  ];
-
-  const viewOptions = [
-    ...['open', 'today', 'overdue'].map((k) => ({ value: k, label: VIEWS[k].label, dot: VIEWS[k].dot, count: all.filter((e) => passes(e, 'view') && VIEWS[k].fn(e)).length })),
-    { head: 'Status' },
-    ...['new', 'follow_up', 'joined', 'lost'].map((k) => ({ value: k, label: VIEWS[k].label, dot: VIEWS[k].dot, count: all.filter((e) => passes(e, 'view') && VIEWS[k].fn(e)).length })),
-    { head: 'Everything' },
-    { value: 'all', label: VIEWS.all.label, dot: VIEWS.all.dot, count: all.filter((e) => passes(e, 'view')).length },
-  ];
-  const planOptions = [
-    { value: 'all', label: 'Any plan' },
-    ...plans.map((p) => ({ value: p._id, label: `${p.name} · ${rupees(p.amount)}`, count: all.filter((e) => passes(e, 'plan') && String(e.planId?._id) === p._id).length })),
-    { value: 'none', label: 'Not sure yet', count: all.filter((e) => passes(e, 'plan') && !e.planId).length },
-  ];
-  const planLabel = planFilter === 'all' ? 'Any' : planFilter === 'none' ? 'Not sure' : plans.find((p) => p._id === planFilter)?.name;
-  const chips = [
-    view !== 'open' && { key: 'view', label: VIEWS[view].label, dot: VIEWS[view].dot, clear: () => setView('open') },
-    planFilter !== 'all' && { key: 'plan', label: `Plan: ${planLabel}`, clear: () => setPlanFilter('all') },
-    period !== 'all' && { key: 'period', label: PERIODS[period][0], clear: () => setPeriod('all') },
-  ].filter(Boolean);
 
   const followText = (e) => {
     if (!open(e)) return { text: '—', tone: '' }; // the Status pill already says Joined / Not interested
@@ -140,6 +118,53 @@ export default function Enquiries() {
     return { text: `in ${d} days`, tone: '', sub: shortDate(e.followUpOn) };
   };
   const hello = (e) => `Hi ${e.name}, thanks for asking about ${biz.name}.${e.planId ? ` The ${e.planId.name} plan is ${rupees(e.planId.amount)}.` : ''} Would you like to come in for a visit?`;
+
+  const count = (fn) => all.filter(fn).length;
+  const monthName = now.toLocaleDateString('en-IN', { month: 'long' });
+  const monthIn = all.filter((e) => thisMonth(e.createdAt));
+  const monthJoined = monthIn.filter((e) => e.status === 'joined').length;
+  const monthFollowed = monthIn.filter((e) => e.status !== 'new').length; // called back at least once (or decided)
+  // the source that brought the most joiners this month, else the most enquiries
+  const bestSource = (() => {
+    const tally = (arr) => arr.reduce((m, e) => ({ ...m, [e.source]: (m[e.source] || 0) + 1 }), {});
+    const pick = (t) => Object.entries(t).sort((x, y) => y[1] - x[1])[0]?.[0];
+    return pick(tally(monthIn.filter((e) => e.status === 'joined'))) || (monthIn.length > 2 ? pick(tally(monthIn)) : null);
+  })();
+  const nToday = count(VIEWS.today.fn), nMissed = count(VIEWS.overdue.fn), nOpen = count(open);
+  const cards = [
+    { id: 'today', icon: PhoneIcon, tone: 'amber', label: 'Call today', value: nToday, note: 'call-backs due' },
+    { id: 'overdue', icon: AlertIcon, tone: 'red', ink: nMissed ? 'red' : '', label: 'Missed', value: nMissed, note: 'call-back date passed' },
+    { id: 'open', icon: UsersIcon, tone: 'blue', label: 'Open', value: nOpen, note: 'not decided yet' },
+    { id: 'joined', icon: CheckIcon, tone: 'green', ink: 'green', label: `Joined · ${monthName.slice(0, 3)}`, value: monthJoined, note: monthIn.length ? `${Math.round((monthJoined / monthIn.length) * 100)}% of ${monthIn.length}` : 'none asked yet' },
+  ];
+  const subtitle = [
+    nToday && `${nToday} to call today`,
+    nMissed && `${nMissed} missed`,
+    `${nOpen} open`,
+    monthJoined && `${monthJoined} joined this month`,
+  ].filter(Boolean).join(' · ');
+  const todayList = all.filter((e) => VIEWS.today.fn(e) || VIEWS.overdue.fn(e)).sort((x, y) => rank(x) - rank(y));
+  const todayWithPhone = todayList.filter((e) => e.phone);
+  const messageToday = () => setBulk({
+    id: Date.now(), title: 'to call back',
+    people: todayList.map((e) => ({ _id: e._id, name: e.name, phone: e.phone, note: followText(e).text, message: hello(e) })),
+  });
+  const sourceOptions = [
+    { value: 'all', label: 'Anywhere' },
+    ...Object.entries(SOURCES).map(([value, label]) => ({ value, label, count: all.filter((e) => passes(e, 'source') && e.source === value).length })),
+  ];
+
+  const planOptions = [
+    { value: 'all', label: 'Any plan' },
+    ...plans.map((p) => ({ value: p._id, label: `${p.name} · ${rupees(p.amount)}`, count: all.filter((e) => passes(e, 'plan') && String(e.planId?._id) === p._id).length })),
+    { value: 'none', label: 'Not sure yet', count: all.filter((e) => passes(e, 'plan') && !e.planId).length },
+  ];
+  const planLabel = planFilter === 'all' ? 'Any' : planFilter === 'none' ? 'Not sure' : plans.find((p) => p._id === planFilter)?.name;
+  const chips = [
+    sourceFilter !== 'all' && { key: 'source', label: `From: ${SOURCES[sourceFilter]}`, clear: () => setSourceFilter('all') },
+    planFilter !== 'all' && { key: 'plan', label: `Plan: ${planLabel}`, clear: () => setPlanFilter('all') },
+    period !== 'all' && { key: 'period', label: PERIODS[period][0], clear: () => setPeriod('all') },
+  ].filter(Boolean);
 
   const askDelete = async (e) => {
     if (await confirmAction({ title: `Delete ${e.name}'s enquiry?`, message: 'It is removed for good. Use "Not interested" instead to keep a record.', confirmText: 'Delete', danger: true })) remove.mutate(e._id);
@@ -165,30 +190,52 @@ export default function Enquiries() {
   }
 
   return (
-    <>
-      <div className="page-header home-header mx-head">
+    <div className="en2">
+      <div className="page-header home-header db-head">
         <div className="page-title-wrap">
-          <h1 className="page-title">Enquiries</h1>
-          <p className="home-date">People who asked about joining · {count(open)} open {count(open) === 1 ? 'enquiry' : 'enquiries'}</p>
+          <p className="db-date">{subtitle}</p>
+          <h1 className="db-hello">Enquiries</h1>
         </div>
-        <div className="mx-head-actions">
-          <button type="button" className="btn mx-add" onClick={() => setEditing({})}>
-            <PlusIcon size={16} /> Add enquiry
+        <nav className="db-quick" aria-label="Quick actions">
+          <button type="button" className="db-quick-btn pri q-add" onClick={() => setEditing({})}>
+            <span className="db-quick-icon"><PlusIcon size={15} /></span>
+            <span className="db-quick-long">Add enquiry</span><span className="db-quick-short">Add</span>
           </button>
-        </div>
+          <button type="button" className="db-quick-btn q-msg" disabled={!todayWithPhone.length} onClick={messageToday}>
+            <span className="db-quick-icon wa"><WhatsAppIcon size={15} /></span>
+            <span className="db-quick-long">{todayWithPhone.length ? `Message ${todayWithPhone.length} to call back` : 'Nobody to call back'}</span>
+            <span className="db-quick-short">Message</span>
+          </button>
+        </nav>
       </div>
 
       {all.length > 0 && (
-        <div className="mx-kpis" role="tablist" aria-label="Show enquiries">
-          {cards.map((c) => (
-            <button key={c.id} type="button" role="tab" aria-selected={view === c.id}
-              className={`dash-kpi mx-kpi ${c.color} ${view === c.id ? 'on' : ''}`} onClick={() => setView(c.id)}>
-              <span className="dash-kpi-label">{c.label}</span>
-              <b>{c.big}</b>
-              <span className="dash-kpi-sub">{c.small}</span>
-            </button>
-          ))}
-        </div>
+        <>
+          <section className="db-today mx2-cards en2-cards" aria-label="At a glance">
+            {cards.map((c) => (
+              <button key={c.id} type="button" className={`db-today-card mx2-card-btn ${curView === c.id ? 'on' : ''}`} aria-pressed={curView === c.id} onClick={() => setView(c.id)}>
+                <span className={`db-today-icon ${c.tone}`}><c.icon size={17} /></span>
+                <span className="db-today-text">
+                  <span className="db-label">{c.label}</span>
+                  <b className={c.ink || ''}>{c.value}</b>
+                </span>
+                <span className="db-today-note">{c.note}</span>
+              </button>
+            ))}
+          </section>
+
+          {monthIn.length > 0 && (
+            <section className="en2-funnel" aria-label={`${monthName}: enquiries to members`}>
+              <b className="en2-funnel-month">{monthName}</b>
+              <div className="en2-funnel-bar">
+                <span className="asked" style={{ flexGrow: Math.max(1, monthIn.length - monthFollowed) }}>{monthIn.length} asked</span>
+                {monthFollowed - monthJoined > 0 && <span className="followed" style={{ flexGrow: monthFollowed - monthJoined }}>{monthFollowed} followed up</span>}
+                {monthJoined > 0 && <span className="joined" style={{ flexGrow: monthJoined }}>{monthJoined} joined</span>}
+              </div>
+              <span className="en2-funnel-sum"><b>{Math.round((monthJoined / monthIn.length) * 100)}%</b> joined{bestSource ? ` · best source: ${SOURCES[bestSource]}` : ''}</span>
+            </section>
+          )}
+        </>
       )}
 
       {all.length === 0 ? (
@@ -199,7 +246,16 @@ export default function Enquiries() {
           <button type="button" className="btn" onClick={() => setEditing({})}><PlusIcon size={15} /> Add first enquiry</button>
         </section>
       ) : (
-        <section className="mx-list" aria-label="Enquiry list">
+        <section className="mx-list mx2 en2-list" aria-label="Enquiry list">
+          <div className="db-tabs mx2-tabs" role="tablist" aria-label="Show enquiries">
+            {TABS.map((id) => (
+              <button key={id} type="button" role="tab" aria-selected={curView === id} className={`db-tab ${curView === id ? 'on' : ''}`} onClick={() => setView(id)}>
+                <i className="db-dot" style={{ background: VIEWS[id].dot }} aria-hidden="true" />
+                {VIEWS[id].tab || VIEWS[id].label}
+                <span className="db-tab-count">{all.filter((e) => passes(e, 'view') && VIEWS[id].fn(e)).length}</span>
+              </button>
+            ))}
+          </div>
           <div className="mx-toolbar">
             <div className="mx-toolbar-top">
               <label className="mx-search">
@@ -208,42 +264,40 @@ export default function Enquiries() {
                 <input type="search" placeholder="Search by name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
                 {q && <button type="button" className="mx-icon-btn" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>}
               </label>
-              <Menu className="mx-menu-status" label="Show enquiries" valueLabel={VIEWS[view].label} dot={VIEWS[view].dot}
-                active={view !== 'open'} options={viewOptions} value={view} onPick={setView} wide />
               {plans.length > 0 && (
                 <Menu label="Interested in" prefix="Plan:" valueLabel={planLabel} active={planFilter !== 'all'}
                   options={planOptions} value={planFilter} onPick={setPlanFilter} />
               )}
-              <Menu label="Enquired" prefix="Enquired:" valueLabel={PERIODS[period][0]} active={period !== 'all'}
+              <Menu label="Came from" prefix="Came from:" valueLabel={sourceFilter === 'all' ? 'Any' : SOURCES[sourceFilter]} active={sourceFilter !== 'all'}
+                options={sourceOptions} value={sourceFilter} onPick={setSourceFilter} />
+              <Menu label="Asked" prefix="Asked:" valueLabel={PERIODS[period][0]} active={period !== 'all'}
                 options={Object.entries(PERIODS).map(([value, [label]]) => ({ value, label }))} value={period} onPick={setPeriod} align="right" />
             </div>
             {chips.length > 0 && (
               <div className="mx-chips" aria-label="Active filters">
                 <span className="mx-chips-count">{list.length} of {all.length} ·</span>
                 {chips.map((c) => (
-                  <button key={c.key} type="button" className="mx-chip" onClick={c.clear} aria-label={`Remove filter: ${c.label}`}>
-                    {c.dot && <i className="mx-dot-c" style={{ background: c.dot }} aria-hidden="true" />}{c.label} <XIcon size={12} />
-                  </button>
+                  <button key={c.key} type="button" className="mx-chip" onClick={c.clear} aria-label={`Remove filter: ${c.label}`}>{c.label} <XIcon size={12} /></button>
                 ))}
-                <button type="button" className="mx-link mx-chips-clear" onClick={() => { setView('open'); setPlanFilter('all'); setPeriod('all'); }}>Clear all</button>
+                <button type="button" className="mx-link mx-chips-clear" onClick={() => { setPlanFilter('all'); setPeriod('all'); setSourceFilter('all'); }}>Clear all</button>
               </div>
             )}
           </div>
 
           {list.length === 0 ? (
-            <div className="mx-empty"><p>{q ? `Nobody matches “${q}”.` : view === 'today' ? 'No follow-ups due today.' : view === 'overdue' ? 'No missed follow-ups. Nice.' : 'No enquiries here.'}</p></div>
+            <div className="mx-empty"><p>{q ? `Nobody matches “${q}”.` : VIEWS[curView].empty || 'No enquiries here.'}</p></div>
           ) : (
             <>
               <div className="mx-table-wrap">
-                <table className="mx-table">
+                <table className="mx-table en2-table">
                   <thead>
                     <tr>
-                      <th scope="col" style={{ paddingLeft: 16 }}><span className="mx-th">Name</span></th>
-                      <th scope="col"><span className="mx-th">Interested in</span></th>
+                      <th scope="col" style={{ paddingLeft: 16 }}><span className="mx-th">Person</span></th>
+                      <th scope="col"><span className="mx-th">Wants</span></th>
                       <th scope="col"><span className="mx-th">Came from</span></th>
-                      <th scope="col"><span className="mx-th">Follow up</span></th>
-                      <th scope="col"><span className="mx-th">Status</span></th>
-                      <th scope="col" style={{ textAlign: 'right' }}><span className="mx-th">Actions</span></th>
+                      <th scope="col"><span className="mx-th">Call back</span></th>
+                      <th scope="col"><span className="mx-th">Note</span></th>
+                      <th scope="col" style={{ textAlign: 'right', paddingRight: 16 }}><span className="mx-th">Actions</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -256,32 +310,27 @@ export default function Enquiries() {
                             <span className="mx-person">
                               <Avatar name={e.name} />
                               <span>
-                                <span className="mx-name">{e.name}</span>
-                                <span className="mx-meta">{e.phone || 'No phone'} · asked {shortDate(e.createdAt)}</span>
+                                <span className="en2-name-row"><span className="mx-name">{e.name}</span><span className="en-pill" style={{ background: st.bg, color: st.ink }}>{st.label}</span></span>
+                                <span className="mx-meta">{e.phone ? fmtPhone(e.phone) : 'No phone'} · asked {shortDate(e.createdAt)}</span>
                               </span>
                             </span>
                           </td>
-                          <td>
-                            <span className="mx-strong">{e.planId?.name || 'Not sure yet'}</span>
-                            {e.note && <span className="mx-meta en-note" title={e.note}>{e.note}</span>}
-                          </td>
-                          <td><span className="mx-meta" style={{ fontSize: 13.5, color: 'var(--text-2)' }}>{SOURCES[e.source] || '—'}</span></td>
+                          <td><span className="mx-strong">{e.planId?.name || 'Not sure yet'}</span></td>
+                          <td><span className="en2-source">{SOURCES[e.source] || '—'}</span></td>
                           <td>
                             <span className={`mx-strong ${f.tone}`}>{f.text}</span>
                             {f.sub && <span className="mx-meta">{f.sub}</span>}
                           </td>
-                          <td><span className="en-pill" style={{ background: st.bg, color: st.ink }}><i style={{ background: st.dot }} />{st.label}</span></td>
-                          <td>
+                          <td><span className="en2-note" title={e.note || ''}>{e.note || '—'}</span></td>
+                          <td style={{ paddingRight: 16 }}>
                             <span className="mx-actions">
                               {e.phone && open(e) && (
-                                <a className="mx-wa" href={waLink(e.phone, hello(e))} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${e.name}`} title="WhatsApp">
-                                  <WhatsAppIcon size={15} />
-                                </a>
+                                <a className="mx-wa" href={waLink(e.phone, hello(e))} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${e.name}`} title="WhatsApp"><WhatsAppIcon size={15} /></a>
                               )}
                               {e.phone && open(e) && (
                                 <a className="mx-open" href={`tel:${e.phone}`} aria-label={`Call ${e.name}`} title="Call"><PhoneIcon size={15} /></a>
                               )}
-                              {open(e) && <button type="button" className="mx-paid" onClick={() => setJoining(e)}>Joined</button>}
+                              {open(e) && <button type="button" className="mx-paid" onClick={() => setJoining(e)}>They joined</button>}
                               {e.status === 'joined' && e.memberId && <Link className="mx-ghost" to={`/members/${e.memberId}`}>Open {W.member}</Link>}
                               <button type="button" className="mx-open" onClick={() => setEditing(e)} aria-label={`Edit ${e.name}`} title="Edit"><EditIcon size={14} /></button>
                             </span>
@@ -293,32 +342,30 @@ export default function Enquiries() {
                 </table>
               </div>
 
-              <ul className="mx-cards">
+              <ul className="mx-cards mx2-cardlist en2-cards-list">
                 {list.map((e) => {
                   const f = followText(e);
                   const st = STATUS[e.status];
                   return (
-                    <li key={e._id} className="mx-card">
-                      <button type="button" className="mx-card-top en-card-top" onClick={() => setEditing(e)}>
+                    <li key={e._id} className="mx-card en2-card">
+                      <button type="button" className="en2-card-top" onClick={() => setEditing(e)}>
                         <Avatar name={e.name} />
-                        <span className="mx-card-who">
-                          <span className="mx-name">{e.name}</span>
-                          <span className="mx-meta">{e.planId?.name || 'Not sure yet'} · {SOURCES[e.source]}</span>
-                        </span>
-                        <span className="en-pill" style={{ background: st.bg, color: st.ink }}><i style={{ background: st.dot }} />{st.label}</span>
+                        <span className="en2-card-who"><span className="mx-name">{e.name}</span><span className="mx-meta">{SOURCES[e.source] || '—'} · asked {shortDate(e.createdAt)}</span></span>
+                        {open(e)
+                          ? <span className="en2-card-fu"><b className={f.tone}>{f.text}</b><span>call back</span></span>
+                          : <span className="en-pill" style={{ background: st.bg, color: st.ink }}>{st.label}</span>}
                       </button>
-                      {open(e) && (
-                        <div className="mx-tags">
-                          <span className={`mx-tag ${f.tone}`}><CalendarIcon size={12} /> Follow up: {f.text.toLowerCase()}{f.sub && f.text !== 'Today' && f.text !== 'Tomorrow' ? ` (${f.sub})` : ''}</span>
+                      <p className="en2-card-note">{e.planId?.name || 'Not sure yet'}{e.note ? ` · ${e.note}` : ''}</p>
+                      {open(e) ? (
+                        <div className="mx2-card-actions">
+                          {e.phone && <a className="mx2-wa" href={waLink(e.phone, hello(e))} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${e.name}`}><WhatsAppIcon size={17} /></a>}
+                          {e.phone && <a className="mx2-open" href={`tel:${e.phone}`} aria-label={`Call ${e.name}`}><PhoneIcon size={16} /></a>}
+                          <button type="button" className="mx-paid" onClick={() => setJoining(e)}>They joined</button>
+                          <button type="button" className="mx2-open" onClick={() => setEditing(e)} aria-label={`Edit ${e.name}`}><EditIcon size={15} /></button>
                         </div>
-                      )}
-                      {open(e) && (
-                        <div className="mx-card-actions three">
-                          {e.phone ? <a href={`tel:${e.phone}`} className="mx-call" aria-label={`Call ${e.name}`}><PhoneIcon size={17} /></a> : <span />}
-                          {e.phone ? <a className="mx-wa-btn" href={waLink(e.phone, hello(e))} target="_blank" rel="noreferrer">WhatsApp</a> : <span />}
-                          <button type="button" className="mx-paid" onClick={() => setJoining(e)}>Joined</button>
-                        </div>
-                      )}
+                      ) : e.status === 'joined' && e.memberId ? (
+                        <div className="mx2-card-actions"><Link className="mx2-open wide" to={`/members/${e.memberId}`}>Open {W.member}</Link></div>
+                      ) : null}
                     </li>
                   );
                 })}
@@ -328,6 +375,8 @@ export default function Enquiries() {
           <div className="mx-foot"><span>Showing {list.length} of {all.length}</span></div>
         </section>
       )}
+
+      {bulk && <BulkRemind key={bulk.id} title={bulk.title} people={bulk.people} onClose={() => setBulk(null)} />}
 
       <AnimatePresence>
         {editing && (
@@ -352,7 +401,7 @@ export default function Enquiries() {
           />
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
 

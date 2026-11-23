@@ -13,7 +13,9 @@ apiRoutes.get('/me', async (req, res, next) => {
   try {
     const user = await User.findById(req.userId).select('name phone role');
     if (!user) return res.status(401).json({ error: 'unauthorized' });
-    res.json({ _id: user._id, name: user.name, phone: user.phone, role: user.role || 'user', supportPhone: process.env.SUPPORT_PHONE || null });
+    res.json({ _id: user._id, name: user.name, phone: user.phone, role: user.role || 'user', supportPhone: process.env.SUPPORT_PHONE || null,
+      // Settings shows whether automatic WhatsApp reminders can actually go out
+      waConnected: !!(process.env.WA_TOKEN && process.env.WA_PHONE_ID) });
   } catch (err) {
     next(err);
   }

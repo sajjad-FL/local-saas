@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Enquiries – mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F4F6FA; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <div style="height: 100%; overflow-y: auto; box-sizing: border-box; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <header style="display: flex; align-items: flex-end; justify-content: space-between">
+      <div><p style="margin: 0; font-size: 12.5px; color: #64748B; font-weight: 500">3 to call today · 7 open</p><h1 style="margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Enquiries</h1></div>
+      <button type="button" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600; font-size: 14px">+ Add</button>
+    </header>
+    <section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+        <button type="button" onClick="{{c.pick}}" style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #FFFFFF; border: 1px solid {{c.border}}; box-shadow: {{c.shadow}}; border-radius: 14px; text-align: left; color: #0F172A">
+          <span style="width: 32px; height: 32px; flex: none; border-radius: 10px; background: {{c.bg}}; color: {{c.ink}}; display: grid; place-items: center; font-weight: 700">{{c.icon}}</span>
+          <span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #64748B">{{c.label}}</span><b style="font-size: 18px; color: {{c.valueInk}}">{{c.value}}</b></span>
+        </button>
+      </sc-for>
+    </section>
+    <div style="display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px; padding: 0 16px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+        <button type="button" onClick="{{t.pick}}" style="flex: none; height: 34px; padding: 0 12px; border: {{t.border}}; border-radius: 99px; background: {{t.bg}}; color: {{t.ink}}; font-size: 13px; font-weight: {{t.weight}}">{{t.label}} · {{t.count}}</button>
+      </sc-for>
+    </div>
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+      <article style="background: #FFFFFF; border: 1px solid #E7E9F0; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 40px; height: 40px; border-radius: 99px; background: {{r.avBg}}; color: {{r.avInk}}; display: grid; place-items: center; font-weight: 700; font-size: 14px">{{r.short}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><b style="font-size: 15px">{{r.name}}</b><span style="font-size: 12px; color: #64748B">{{r.source}} · asked {{r.asked}}</span></span>
+          <span style="display: flex; flex-direction: column; align-items: flex-end"><b style="font-size: 13px; color: {{r.fuInk}}">{{r.fu}}</b><span style="font-size: 11.5px; color: #94A3B8">call back</span></span>
+        </div>
+        <p style="margin: 0; padding: 8px 10px; border-radius: 10px; background: #F8FAFC; font-size: 13px; color: #475569">{{r.plan}} · {{r.note}}</p>
+        <div style="display: flex; gap: 8px">
+          <button type="button" aria-label="WhatsApp" style="width: 46px; height: 42px; border: 1px solid #CDEFDD; border-radius: 10px; background: #F0FBF5; color: #066B3F">✆</button>
+          <button type="button" aria-label="Call" style="width: 46px; height: 42px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF">☎</button>
+          <button type="button" style="flex: 1; height: 42px; border: 0; border-radius: 10px; background: #5B3DF5; color: #FFFFFF; font-weight: 600">They joined</button>
+          <button type="button" aria-label="More" style="width: 46px; height: 42px; border: 1px solid #E2E5EC; border-radius: 10px; background: #FFFFFF">⋯</button>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 0 }; }
+  renderVals() {
+    const st = this.state;
+    return {
+      cards: [
+        { icon: '☎', bg: '#FFF6E5', ink: '#92400E', label: 'Call today', value: '3', valueInk: '#0F172A', tab: 0 },
+        { icon: '!', bg: '#FEF1F0', ink: '#B42318', label: 'Missed', value: '2', valueInk: '#B42318', tab: 1 },
+        { icon: '◎', bg: '#EEF4FF', ink: '#1D4ED8', label: 'Open', value: '7', valueInk: '#0F172A', tab: 2 },
+        { icon: '✓', bg: '#ECFDF3', ink: '#066B3F', label: 'Joined · Nov', value: '4 · 33%', valueInk: '#066B3F', tab: 3 },
+      ].map((c) => ({ ...c, border: c.tab === st.tab ? '#5B3DF5' : '#E7E9F0', shadow: c.tab === st.tab ? '0 0 0 1px #5B3DF5' : 'none', pick: () => this.setState({ tab: c.tab }) })),
+      tabs: [['Call today', 3], ['Missed', 2], ['All open', 7], ['Joined', 4], ['Not interested', 2]].map(([label, count], i) => ({ label, count: String(count), border: i === st.tab ? '1.5px solid #5B3DF5' : '1px solid #E2E5EC', bg: i === st.tab ? '#F1EEFF' : '#FFFFFF', ink: i === st.tab ? '#3D27B8' : '#475569', weight: i === st.tab ? '600' : '500', pick: () => this.setState({ tab: i }) })),
+      rows: [
+        { name: 'Sana Shaikh', short: 'SS', source: 'Instagram', asked: '20 Nov', fu: 'Today', fuInk: '#B45309', plan: '3 month', note: 'Wants evening batch', avBg: '#FCEEF6', avInk: '#9D1C5E' },
+        { name: 'Ravi Teja', short: 'RT', source: 'Walk-in', asked: '18 Nov', fu: 'Today', fuInk: '#B45309', plan: 'Monthly', note: 'Coming with a friend', avBg: '#E8F6FF', avInk: '#0B5E8A' },
+        { name: 'Farhan Ali', short: 'FA', source: 'Referral', asked: '15 Nov', fu: '2 days late', fuInk: '#B42318', plan: 'Not sure yet', note: 'Asked about student fees', avBg: '#FFF1E6', avInk: '#9A3412' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
