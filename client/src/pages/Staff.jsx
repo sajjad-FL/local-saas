@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api, waLink, ACCESS_LEVELS } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { confirmAction } from '../confirm.jsx';
 import { Field, PlusIcon, XIcon, UsersIcon, CheckIcon, WhatsAppIcon, ShieldIcon } from '../ui.jsx';
 

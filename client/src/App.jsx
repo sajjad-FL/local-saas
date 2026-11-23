@@ -48,11 +48,8 @@ const Rooms = lazy(() => import('./pages/Rooms.jsx'));
 const CheckIn = lazy(() => import('./pages/CheckIn.jsx'));
 const AdminPanel = lazy(() => import('./pages/Admin.jsx'));
 
-const BizContext = createContext(null);
-export const useBiz = () => useContext(BizContext);
-
-const ThemeContext = createContext(null);
-export const useTheme = () => useContext(ThemeContext);
+import { BizContext, ThemeContext, useBiz, useTheme } from './contexts.js';
+export { useBiz, useTheme };
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../api.js';
-import { useTheme } from '../App.jsx';
+import { useTheme } from '../contexts.js';
 import { SunIcon, MoonIcon, UserIcon, PhoneIcon, ShieldIcon, BuildingIcon, CheckIcon, EyeIcon, EyeOffIcon } from '../ui.jsx';
 import { Logo, HeroArt, TYPES, TYPE_ART } from '../brand.jsx';
 

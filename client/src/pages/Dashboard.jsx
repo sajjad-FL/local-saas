@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { api, can, ADD } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { words } from '../wording.js';
 import { PlusIcon, RupeeIcon, UserPlusIcon, TagIcon } from '../ui.jsx';
 import SellModal from '../SellModal.jsx';

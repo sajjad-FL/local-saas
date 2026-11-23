@@ -201,16 +201,42 @@ export default function DashboardScreen({ navigation }) {
               ]}
               onPress={() => setAddExpenseOpen(true)}>
               <Text style={[styles.btnActionSecondaryText, { color: theme.colors.text }]}>
-                ₹  Add expense
+                ₹  Expense
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.btnActionSecondary,
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+              ]}
+              onPress={() => navigation.navigate('Enquiries', { add: 1 })}>
+              <Text style={[styles.btnActionSecondaryText, { color: theme.colors.text }]}>
+                +  Enquiry
+              </Text>
+            </TouchableOpacity>
+
+            {biz?.salesEnabled !== false && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[
+                  styles.btnActionSecondary,
+                  { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+                ]}
+                onPress={() => navigation.navigate('Sales')}>
+                <Text style={[styles.btnActionSecondaryText, { color: theme.colors.text }]}>
+                  Sales
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.btnActionPrimary, { backgroundColor: theme.colors.primary }]}
               onPress={() => setAddMemberOpen(true)}>
               <Text style={styles.btnActionPrimaryText}>
-                + Add {w.member ? w.member.toLowerCase() : 'member'}
+                + {w.member ? w.member[0].toUpperCase() + w.member.slice(1) : 'Member'}
               </Text>
             </TouchableOpacity>
           </View>

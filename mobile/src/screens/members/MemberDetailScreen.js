@@ -28,6 +28,7 @@ import { tint, tinted } from '../../constants/theme';
 // Modals
 import MoveRoomModal from '../modals/MoveRoomModal';
 import EditMemberModal from '../modals/EditMemberModal';
+import SellModal from '../modals/SellModal';
 
 export default function MemberDetailScreen({ route, navigation }) {
   const { id } = route.params;
@@ -48,6 +49,8 @@ export default function MemberDetailScreen({ route, navigation }) {
   // Modals
   const [moveRoomOpen, setMoveRoomOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [sellOpen, setSellOpen] = useState(false);
+  const [tab, setTab] = useState(route?.params?.tab || 'overview'); // overview | payments | attendance | deposit
 
   const fetchMember = useCallback(async () => {
     if (!id) return;
@@ -261,6 +264,26 @@ export default function MemberDetailScreen({ route, navigation }) {
     }, [])
     .reverse();
 
+  // payments clear the oldest fees first: the first fee not covered is what they've owed since
+  let owingSince = null;
+  if (balance > 0) {
+    let paidLeft = totalPaid;
+    for (const d of [...dues].sort((x, y) => new Date(x.dueDate) - new Date(y.dueDate))) {
+      if (paidLeft >= d.amount) { paidLeft -= d.amount; continue; }
+      if (new Date(d.dueDate) <= new Date()) owingSince = d.dueDate;
+      break;
+    }
+  }
+  const today0 = new Date(new Date().toDateString());
+  const daysLate = owingSince ? Math.max(0, Math.floor((today0 - new Date(new Date(owingSince).toDateString())) / 86400000)) : 0;
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'payments', label: 'Payments', count: ledger.length },
+    biz?.attendanceEnabled !== false && { id: 'attendance', label: 'Attendance' },
+    biz?.type === 'hostel' && { id: 'deposit', label: 'Deposit' },
+  ].filter(Boolean);
+  const current = tabs.some((t) => t.id === tab) ? tab : 'overview';
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* TopBar */}
@@ -315,6 +338,12 @@ export default function MemberDetailScreen({ route, navigation }) {
               </Text>
             </View>
           </View>
+
+          {owingSince ? (
+            <Text style={[styles.lateLine, { color: theme.colors.danger }]}>
+              {daysLate > 0 ? `${daysLate} day${daysLate === 1 ? '' : 's'} late` : 'Due today'} · since {formatDate(owingSince)}
+            </Text>
+          ) : null}
 
           {/* Details, each box in its own colour like the web */}
           <View style={styles.metaGrid}>
@@ -390,6 +419,16 @@ export default function MemberDetailScreen({ route, navigation }) {
               </TouchableOpacity>
             )}
 
+            {member.status === 'active' && biz?.salesEnabled !== false && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.btnOutlineAction, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
+                onPress={() => setSellOpen(true)}>
+                <Icon name="pricetag-outline" size={14} color={theme.colors.text} />
+                <Text style={[styles.btnOutlineActionText, { color: theme.colors.text }]}>Sell something</Text>
+              </TouchableOpacity>
+            )}
+
             {statementUrl && (
               <View style={styles.actionRow}>
                 <TouchableOpacity
@@ -438,8 +477,26 @@ export default function MemberDetailScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Tabs, like the web: the long page split into parts */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+          {tabs.map((t) => {
+            const on = current === t.id;
+            return (
+              <TouchableOpacity
+                key={t.id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                onPress={() => setTab(t.id)}
+                style={[styles.tabBtn, { backgroundColor: on ? theme.colors.primarySoft : theme.colors.card, borderColor: on ? theme.colors.primary : theme.colors.border }]}>
+                <Text style={{ fontSize: 13, fontWeight: on ? '700' : '500', color: on ? theme.colors.primaryDark : theme.colors.textSecondary }}>{t.label}</Text>
+                {t.count > 0 ? <Text style={{ fontSize: 11.5, color: theme.colors.textMuted }}>{t.count}</Text> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
         {/* Record Payment Card */}
-        {member.status === 'active' && (
+        {current === 'overview' && member.status === 'active' && (
           <View style={[styles.recordPayCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
             <View style={styles.cardHead}>
               <View style={[styles.cardHeadIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.14)' }]}>
@@ -560,13 +617,14 @@ export default function MemberDetailScreen({ route, navigation }) {
           </View>
         )}
 
-        {biz?.type === 'hostel' && <DepositNotice key={member._id} member={member} theme={theme} onSaved={fetchMember} />}
+        {current === 'deposit' && biz?.type === 'hostel' && <DepositNotice key={member._id} member={member} theme={theme} onSaved={fetchMember} />}
 
-        {biz?.attendanceEnabled !== false && (
+        {current === 'attendance' && biz?.attendanceEnabled !== false && (
           <MemberAttendance memberId={member._id} isGym={biz?.type === 'gym'} machineId={member.biometricId} theme={theme} />
         )}
 
         {/* Transaction Ledger Timeline */}
+        {current === 'payments' && (
         <View style={[styles.ledgerCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
           <View style={styles.cardHead}>
             <View style={[styles.cardHeadIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.14)' }]}>
@@ -655,11 +713,23 @@ export default function MemberDetailScreen({ route, navigation }) {
             )}
           </View>
         </View>
+        )}
       </ScrollView>
 
       <EditMemberModal visible={editOpen} member={member} onClose={() => setEditOpen(false)} onSaved={fetchMember} />
 
       {/* Move Room Modal */}
+      {sellOpen && (
+        <SellModal
+          visible
+          biz={biz}
+          member={member}
+          onClose={() => setSellOpen(false)}
+          onSold={() => { fetchMember(); setTab('payments'); }}
+          onOpenCatalogue={() => navigation.navigate('Sales')}
+        />
+      )}
+
       <MoveRoomModal
         visible={moveRoomOpen}
         member={member}
@@ -836,6 +906,9 @@ function MemberAttendance({ memberId, isGym, machineId, theme }) {
 }
 
 const styles = StyleSheet.create({
+  lateLine: { fontSize: 12.5, fontWeight: '600', marginTop: 8 },
+  tabBar: { gap: 6, paddingVertical: 2, marginBottom: 12 },
+  tabBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1 },
   safeArea: {
     flex: 1,
   },

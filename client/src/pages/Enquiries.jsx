@@ -3,11 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api, rupees, waLink, can, DELETE } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { words } from '../wording.js';
 import { confirmAction } from '../confirm.jsx';
 import { Avatar, Field, PlusIcon, SearchIcon, XIcon, PhoneIcon, WhatsAppIcon, EditIcon, UserPlusIcon, CalendarIcon, TrashIcon, AlertIcon, UsersIcon, CheckIcon } from '../ui.jsx';
 import BulkRemind from '../BulkRemind.jsx';
+import FilterSheet, { FilterButton } from '../FilterSheet.jsx';
 import { AddMemberModal, Menu } from './Members.jsx';
 
 const DAY = 86400000;
@@ -38,6 +39,7 @@ export default function Enquiries() {
   const [q, setQ] = useState('');
   const [view, setView] = useState(null); // null: start on whatever needs doing first
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [filtering, setFiltering] = useState(false); // phones: the filter sheet
   const [bulk, setBulk] = useState(null); // "Message today's" one-by-one sender
   const [planFilter, setPlanFilter] = useState('all');
   const [period, setPeriod] = useState('all');
@@ -132,10 +134,10 @@ export default function Enquiries() {
   })();
   const nToday = count(VIEWS.today.fn), nMissed = count(VIEWS.overdue.fn), nOpen = count(open);
   const cards = [
-    { id: 'today', icon: PhoneIcon, tone: 'amber', label: 'Call today', value: nToday, note: 'call-backs due' },
+    { id: 'today', icon: PhoneIcon, tone: 'amber', label: 'Call today', short: 'Call', value: nToday, note: 'call-backs due' },
     { id: 'overdue', icon: AlertIcon, tone: 'red', ink: nMissed ? 'red' : '', label: 'Missed', value: nMissed, note: 'call-back date passed' },
     { id: 'open', icon: UsersIcon, tone: 'blue', label: 'Open', value: nOpen, note: 'not decided yet' },
-    { id: 'joined', icon: CheckIcon, tone: 'green', ink: 'green', label: `Joined · ${monthName.slice(0, 3)}`, value: monthJoined, note: monthIn.length ? `${Math.round((monthJoined / monthIn.length) * 100)}% of ${monthIn.length}` : 'none asked yet' },
+    { id: 'joined', icon: CheckIcon, tone: 'green', ink: 'green', short: 'Joined', label: `Joined · ${monthName.slice(0, 3)}`, value: monthJoined, note: monthIn.length ? `${Math.round((monthJoined / monthIn.length) * 100)}% of ${monthIn.length}` : 'none asked yet' },
   ];
   const subtitle = [
     nToday && `${nToday} to call today`,
@@ -191,22 +193,16 @@ export default function Enquiries() {
 
   return (
     <div className="en2">
-      <div className="page-header home-header db-head">
+      <div className="page-header home-header db-head en2-head">
         <div className="page-title-wrap">
           <p className="db-date">{subtitle}</p>
-          <h1 className="db-hello">Enquiries</h1>
+          <div className="en2-title-row">
+            <h1 className="db-hello">Enquiries</h1>
+            <button type="button" className="btn pri en2-add-btn" onClick={() => setEditing({})}>
+              <PlusIcon size={15} /> Add<span className="hide-sm"> enquiry</span>
+            </button>
+          </div>
         </div>
-        <nav className="db-quick" aria-label="Quick actions">
-          <button type="button" className="db-quick-btn pri q-add" onClick={() => setEditing({})}>
-            <span className="db-quick-icon"><PlusIcon size={15} /></span>
-            <span className="db-quick-long">Add enquiry</span><span className="db-quick-short">Add</span>
-          </button>
-          <button type="button" className="db-quick-btn q-msg" disabled={!todayWithPhone.length} onClick={messageToday}>
-            <span className="db-quick-icon wa"><WhatsAppIcon size={15} /></span>
-            <span className="db-quick-long">{todayWithPhone.length ? `Message ${todayWithPhone.length} to call back` : 'Nobody to call back'}</span>
-            <span className="db-quick-short">Message</span>
-          </button>
-        </nav>
       </div>
 
       {all.length > 0 && (
@@ -216,7 +212,7 @@ export default function Enquiries() {
               <button key={c.id} type="button" className={`db-today-card mx2-card-btn ${curView === c.id ? 'on' : ''}`} aria-pressed={curView === c.id} onClick={() => setView(c.id)}>
                 <span className={`db-today-icon ${c.tone}`}><c.icon size={17} /></span>
                 <span className="db-today-text">
-                  <span className="db-label">{c.label}</span>
+                  <span className="db-label"><span className="lbl-long">{c.label}</span><span className="lbl-short">{c.short || c.label}</span></span>
                   <b className={c.ink || ''}>{c.value}</b>
                 </span>
                 <span className="db-today-note">{c.note}</span>
@@ -264,6 +260,8 @@ export default function Enquiries() {
                 <input type="search" placeholder="Search by name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
                 {q && <button type="button" className="mx-icon-btn" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>}
               </label>
+              {/* phones: one filter button instead of three dropdowns */}
+              <FilterButton on={chips.length} onClick={() => setFiltering(true)} />
               {plans.length > 0 && (
                 <Menu label="Interested in" prefix="Plan:" valueLabel={planLabel} active={planFilter !== 'all'}
                   options={planOptions} value={planFilter} onPick={setPlanFilter} />
@@ -283,6 +281,22 @@ export default function Enquiries() {
               </div>
             )}
           </div>
+
+          <AnimatePresence>
+            {filtering && (
+              <FilterSheet
+                count={list.length}
+                noun={['enquiry', 'enquiries']}
+                onClose={() => setFiltering(false)}
+                onClear={() => { setPlanFilter('all'); setPeriod('all'); setSourceFilter('all'); }}
+                groups={[
+                  plans.length > 0 && { label: 'Interested in', value: planFilter, onPick: setPlanFilter, options: planOptions.map((o) => ({ ...o, label: o.value === 'all' ? 'Any plan' : o.label })) },
+                  { label: 'Came from', value: sourceFilter, onPick: setSourceFilter, options: sourceOptions },
+                  { label: 'Asked', value: period, onPick: setPeriod, options: Object.entries(PERIODS).map(([value, [label]]) => ({ value, label })) },
+                ].filter(Boolean)}
+              />
+            )}
+          </AnimatePresence>
 
           {list.length === 0 ? (
             <div className="mx-empty"><p>{q ? `Nobody matches “${q}”.` : VIEWS[curView].empty || 'No enquiries here.'}</p></div>

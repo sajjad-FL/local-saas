@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
 import { AnimatePresence } from 'framer-motion';
 import { api, userId, waLink, rupees, can, ADD } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { words } from '../wording.js';
 import { Avatar, ChevronIcon, CheckIcon, XIcon, SearchIcon, PrinterIcon, ConfirmDialog, CalendarCheckIcon, DownloadIcon, PhoneIcon, WhatsAppIcon, AlertIcon, TrendingUpIcon, ClockIcon } from '../ui.jsx';
 import { PickMember } from './Members.jsx';
@@ -131,10 +131,10 @@ function AttendanceOn({ biz }) {
     { id: 'away', label: `Not coming ${awayDays}+ days`, dot: '#DC2626', count: away?.members.length ?? '–' },
   ].filter(Boolean);
   const cards = [
-    { id: 'in', icon: CheckIcon, tone: 'green', ink: 'green', label: isGym ? 'Checked in' : 'Present', value: `${present.length} / ${members.length}`, note: `${pct}% of ${W.member}s` },
-    { id: 'notin', icon: ClockIcon, tone: 'amber', label: isGym ? 'Not in yet' : 'Not marked', value: notIn.length, note: owingNotIn ? `${owingNotIn} of them owe` : 'no dues among them' },
-    { id: 'away', icon: AlertIcon, tone: 'red', ink: away?.members.length ? 'red' : '', label: 'Not coming', value: away?.members.length ?? '–', note: `${awayDays}+ days away` },
-    { id: null, icon: TrendingUpIcon, tone: 'blue', label: 'Average day', value: avg, note: busiest?.present ? `busiest ${fmtDay(busiest.day, { weekday: 'short' })}` : 'this week' },
+    { id: 'in', icon: CheckIcon, tone: 'green', ink: 'green', short: 'In', label: isGym ? 'Checked in' : 'Present', value: `${present.length} / ${members.length}`, note: `${pct}% of ${W.member}s` },
+    { id: 'notin', icon: ClockIcon, tone: 'amber', short: 'Not in', label: isGym ? 'Not in yet' : 'Not marked', value: notIn.length, note: owingNotIn ? `${owingNotIn} of them owe` : 'no dues among them' },
+    { id: 'away', icon: AlertIcon, tone: 'red', short: 'Away', ink: away?.members.length ? 'red' : '', label: 'Not coming', value: away?.members.length ?? '–', note: `${awayDays}+ days away` },
+    { id: null, icon: TrendingUpIcon, tone: 'blue', label: 'Average day', short: 'Avg/day', value: avg, note: busiest?.present ? `busiest ${fmtDay(busiest.day, { weekday: 'short' })}` : 'this week' },
   ];
 
   const rows = tab === 'notin' ? notIn : tab === 'in' ? [...present].sort((a, b) => new Date(b.at) - new Date(a.at)) : tab === 'absent' ? absent : [];
@@ -190,7 +190,7 @@ function AttendanceOn({ biz }) {
           <button key={c.label} type="button" className={`db-today-card mx2-card-btn ${c.id && tab === c.id ? 'on' : ''}`} aria-pressed={!!c.id && tab === c.id}
             onClick={() => c.id && setTab(c.id)} disabled={!c.id}>
             <span className={`db-today-icon ${c.tone}`}><c.icon size={17} /></span>
-            <span className="db-today-text"><span className="db-label">{c.label}</span><b className={c.ink || ''}>{c.value}</b></span>
+            <span className="db-today-text"><span className="db-label"><span className="lbl-long">{c.label}</span><span className="lbl-short">{c.short || c.label}</span></span><b className={c.ink || ''}>{c.value}</b></span>
             <span className="db-today-note">{c.note}</span>
           </button>
         ))}

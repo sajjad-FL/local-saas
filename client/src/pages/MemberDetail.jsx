@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, waLink, rupees, remindMsg, can, ADD, EDIT, DELETE } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { useBiz } from '../contexts.js';
 import { confirmAction } from '../confirm.jsx';
 import { AnimatePresence } from 'framer-motion';
 import SellModal from '../SellModal.jsx';

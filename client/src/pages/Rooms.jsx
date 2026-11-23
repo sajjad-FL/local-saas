@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, rupees } from '../api.js';
-import { useBiz } from '../App.jsx';
+import { api, rupees, waLink, can, ADD } from '../api.js';
+import { useBiz } from '../contexts.js';
 import { confirmAction } from '../confirm.jsx';
-import { Field, BedIcon, DoorIcon, EditIcon, PlusIcon, XIcon, AlertIcon, BuildingIcon, SearchIcon, ChevronIcon } from '../ui.jsx';
+import { owingMessage } from '../BulkRemind.jsx';
+import { Field, BedIcon, DoorIcon, EditIcon, PlusIcon, XIcon, AlertIcon, BuildingIcon, SearchIcon, ChevronIcon, WhatsAppIcon } from '../ui.jsx';
 import { EditRoom } from './HostelProperty.jsx';
-import { AddMemberModal, MemberProfileSheet } from './Members.jsx';
+import { AddMemberModal, MemberProfileSheet, CollectPaymentModal } from './Members.jsx';
 
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -44,6 +45,14 @@ export default function Rooms() {
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(null); // { group, floor }
   const [bedError, setBedError] = useState('');
+  const [pop, setPop] = useState(null); // compact view: the bed whose card is open { roomId, n }
+  const [collecting, setCollecting] = useState(null); // a tenant to record a payment for
+  useEffect(() => {
+    if (!pop) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setPop(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [pop]);
 
   const { data: rooms } = useQuery({ queryKey: ['rooms', biz._id], queryFn: () => api(`/businesses/${biz._id}/rooms`) });
   const { data: groups = [] } = useQuery({ queryKey: ['groups', biz._id], queryFn: () => api(`/businesses/${biz._id}/groups`) });
@@ -88,10 +97,14 @@ export default function Rooms() {
   const count = (s) => placeBeds.filter((b) => b.state === s).length;
   const totals = { all: placeBeds.length, free: count('free'), taken: placeBeds.length - count('free'), overdue: count('overdue') };
 
+  // Compact is the main view now; Cards stays one click away (and remembered)
+  const mode = view || 'compact';
   const query = q.trim().toLowerCase().replace(/^room\s*/, '');
-  const matches = (r) =>
-    (show === 'all' || r.beds.some((b) => (show === 'taken' ? b.state !== 'free' : b.state === show))) &&
-    (!query || String(r.roomNo).toLowerCase().includes(query) || r.beds.some((b) => b.tenant?.name.toLowerCase().includes(query)));
+  const bedShown = (b) => show === 'all' || (show === 'taken' ? b.state !== 'free' : b.state === show);
+  const showMatch = (r) => r.beds.some(bedShown);
+  const queryMatch = (r) => !query || String(r.roomNo).toLowerCase().includes(query) || r.beds.some((b) => b.tenant?.name.toLowerCase().includes(query));
+  // compact: the count cards highlight (others fade) instead of hiding, so the floor plan keeps its shape
+  const matches = (r) => (mode === 'compact' || showMatch(r)) && queryMatch(r);
 
   // building → floor → rooms, in the order the owner set them up
   const sections = [];
@@ -111,12 +124,10 @@ export default function Rooms() {
     s.total = s.rooms;
     s.rooms = s.rooms.filter(matches).sort((a, b) => natural(a.roomNo, b.roomNo));
   }
-  const filtering = show !== 'all' || !!query;
+  const filtering = (mode !== 'compact' && show !== 'all') || !!query;
   const visible = filtering ? sections.filter((s) => s.rooms.length) : sections;
   const showBuildingName = sortedGroups.length > 1 && !activeBuilding;
 
-  // big places open in the compact view until the owner picks one
-  const mode = view || (rooms.length > 12 ? 'compact' : 'cards');
   const chooseView = (v) => { setView(v); saveView(v); };
   const toggleFold = (key) => setFolded((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
   const allFolded = visible.length > 0 && visible.every((s) => folded.has(s.key));
@@ -169,19 +180,26 @@ export default function Rooms() {
             <BuildingIcon size={13} className="filter-select-icon" />
             <select className="filter-select-input" aria-label="Building" value={activeBuilding?._id || 'all'}
               onChange={(e) => { setBuildingId(e.target.value); setFloorId('all'); }}>
-              <option value="all">All buildings</option>
+              <option value="all">All</option>
               {sortedGroups.map((g) => <option key={g._id} value={g._id}>{g.name}</option>)}
             </select>
           </div>
         )}
         <div className="rooms-search">
           <SearchIcon size={14} />
-          <input type="search" placeholder="Room or tenant" aria-label="Find a room or tenant" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input type="search" placeholder="Search" aria-label="Find a room or tenant" value={q} onChange={(e) => setQ(e.target.value)} />
           {q && <button type="button" aria-label="Clear search" onClick={() => setQ('')}><XIcon size={12} /></button>}
         </div>
+        {/* phones: icons only, so building, search and view fit on one line */}
         <div className="rooms-view" role="group" aria-label="View">
-          <button type="button" className={mode === 'cards' ? 'active' : ''} aria-pressed={mode === 'cards'} onClick={() => chooseView('cards')}>Cards</button>
-          <button type="button" className={mode === 'compact' ? 'active' : ''} aria-pressed={mode === 'compact'} onClick={() => chooseView('compact')}>Compact</button>
+          <button type="button" className={mode === 'cards' ? 'active' : ''} aria-pressed={mode === 'cards'} onClick={() => chooseView('cards')} title="Cards" aria-label="Cards view">
+            <svg className="rooms-view-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2" /><rect x="13" y="3" width="8" height="8" rx="2" /><rect x="3" y="13" width="8" height="8" rx="2" /><rect x="13" y="13" width="8" height="8" rx="2" /></svg>
+            <span className="rooms-view-label">Cards</span>
+          </button>
+          <button type="button" className={mode === 'compact' ? 'active' : ''} aria-pressed={mode === 'compact'} onClick={() => chooseView('compact')} title="Compact" aria-label="Compact view">
+            <svg className="rooms-view-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="10" y="3" width="5" height="5" rx="1" /><rect x="17" y="3" width="4" height="5" rx="1" /><rect x="3" y="10" width="5" height="5" rx="1" /><rect x="10" y="10" width="5" height="5" rx="1" /><rect x="17" y="10" width="4" height="5" rx="1" /><rect x="3" y="17" width="5" height="4" rx="1" /><rect x="10" y="17" width="5" height="4" rx="1" /></svg>
+            <span className="rooms-view-label">Compact</span>
+          </button>
         </div>
       </div>
 
@@ -218,6 +236,16 @@ export default function Rooms() {
       </div>
 
       {bedError && <p className="error" role="alert">{bedError}</p>}
+
+      {/* compact: what each square means, up front */}
+      {mode === 'compact' && (
+        <div className="rooms-key" aria-hidden="true">
+          <span className="overdue"><i />Rent overdue</span>
+          <span className="taken"><i />Paid up</span>
+          <span className="leaving"><i />Leaving</span>
+          <span className="free"><i />Free bed</span>
+        </div>
+      )}
 
       {visible.length > 0 && (
         <div className="rooms-summary">
@@ -293,7 +321,15 @@ export default function Rooms() {
                   {!isFolded && (s.rooms.length ? (
                     <div className={mode === 'compact' ? 'rooms-grid compact' : 'rooms-grid'}>
                       {s.rooms.map((r) => (mode === 'compact'
-                        ? <RoomMini key={r._id} room={r} onEdit={() => setEditing(r)} onOpen={(b) => openBed(r, b)} />
+                        ? <RoomMini key={r._id} room={r} where={s.title} biz={biz}
+                            dim={show !== 'all' && !showMatch(r)} bedShown={bedShown}
+                            openN={pop?.roomId === r._id ? pop.n : null}
+                            onPick={(b) => setPop(pop?.roomId === r._id && pop.n === b.n ? null : { roomId: r._id, n: b.n })}
+                            onClose={() => setPop(null)}
+                            onEdit={() => { setPop(null); setEditing(r); }}
+                            onAdd={() => { setPop(null); setNewIn(r._id); }}
+                            onProfile={(t) => { setPop(null); setTenantId(t._id); }}
+                            onCollect={(t) => { setPop(null); setCollecting(t); }} />
                         : <RoomCard key={r._id} room={r} onEdit={() => setEditing(r)} onOpen={(b) => openBed(r, b)}
                             onRemoveBed={() => removeBed(r)} onAddBed={() => addBed(r)} />
                       ))}
@@ -310,9 +346,18 @@ export default function Rooms() {
         );
       })}
 
-      <div className="rooms-legend" aria-hidden="true">
-        {['free', 'taken', 'leaving', 'overdue'].map((k) => <span key={k} className={k}><i />{STATE_TEXT[k]}</span>)}
-      </div>
+      {mode !== 'compact' && (
+        <div className="rooms-legend" aria-hidden="true">
+          {['free', 'taken', 'leaving', 'overdue'].map((k) => <span key={k} className={k}><i />{STATE_TEXT[k]}</span>)}
+        </div>
+      )}
+      <AnimatePresence>
+        {collecting && (
+          <CollectPaymentModal member={collecting} balance={collecting.balance > 0 ? collecting.balance : collecting.planAmount} plan={null}
+            onClose={() => setCollecting(null)}
+            onSuccess={() => { setCollecting(null); qc.invalidateQueries(); }} />
+        )}
+      </AnimatePresence>
 
       {editing && (
         <EditRoom room={editing} groups={groups} path={`/businesses/${biz._id}/rooms/${editing._id}`}
@@ -350,48 +395,105 @@ function byBuilding(sections) {
   return blocks;
 }
 
-// Compact view: a small tile per room with one square per bed, many rooms per row
-function RoomMini({ room, onEdit, onOpen }) {
+// days since the oldest unpaid rent fell due
+const daysLate = (t) => (t?.balance > 0 && t.owingSince
+  ? Math.max(0, Math.floor((new Date(new Date().toDateString()) - new Date(new Date(t.owingSince).toDateString())) / 86400000))
+  : 0);
+
+// Compact view: a small card per room, one square per bed, the room's money in words,
+// and a small card that pops up on the bed you click (a sheet from the bottom on phones)
+function RoomMini({ room, where, biz, dim, bedShown, openN, onPick, onClose, onEdit, onAdd, onProfile, onCollect }) {
   const free = room.beds.filter((b) => b.state === 'free').length;
-  const due = room.beds.some((b) => b.state === 'overdue');
+  const owing = room.beds.filter((b) => b.state === 'overdue');
+  const owed = owing.reduce((s, b) => s + (b.tenant.balance || 0), 0);
+  const full = free === 0;
+  let line; let tone; let sub = '';
+  if (owing.length) { line = `${rupees(owed)} due`; tone = 'red'; sub = full ? 'Full' : `${free} free`; }
+  else if (full) { line = 'Full · all paid'; tone = 'blue'; }
+  else { line = `${free} free`; tone = 'green'; sub = room.bedRent != null ? `${rupees(room.bedRent)} a bed` : ''; }
+  const open = openN != null ? room.beds.find((b) => b.n === openN) : null;
+  const canAct = can(biz, ADD);
+
   return (
-    <article className={`room-mini${due ? ' due' : ''}${free ? '' : ' full'}`}>
+    <article className={`room-mini${owing.length ? ' due' : ''}${full ? ' full' : ''}${dim ? ' dim' : ''}${open ? ' popped' : ''}`}>
       <header>
         <b>{room.roomNo}</b>
-        <button type="button" className="prop-edit" aria-label={`Edit room ${room.roomNo}`} title="Edit room" onClick={onEdit}>
-          <EditIcon size={12} />
-        </button>
+        <span className="room-mini-size">{plural(room.beds.length, 'bed')}</span>
       </header>
       <div className="room-mini-beds">
         {room.beds.map((b) => (
-          <button key={b.n} type="button" className={`bed-dot ${b.state}`} onClick={() => onOpen(b)}
-            title={b.tenant ? `Bed ${b.n}: ${b.tenant.name} · ${STATE_TEXT[b.state]}${b.state === 'overdue' ? ` · ${rupees(b.tenant.balance)} due` : ''}` : `Bed ${b.n}: available${room.bedRent != null ? ` · ${rupees(room.bedRent)}` : ''}`}
-            aria-label={b.tenant ? `Bed ${b.n}: ${b.tenant.name}, ${STATE_TEXT[b.state]}` : `Bed ${b.n}: available. Add a tenant`}>
+          <button key={b.n} type="button" className={`bed-dot ${b.state}${bedShown(b) ? '' : ' dim'}${openN === b.n ? ' on' : ''}`} onClick={() => onPick(b)}
+            aria-expanded={openN === b.n}
+            title={b.tenant ? `Bed ${b.n}: ${b.tenant.name} · ${STATE_TEXT[b.state]}${b.state === 'overdue' ? ` · ${rupees(b.tenant.balance)} due` : ''}` : `Bed ${b.n}: free${room.bedRent != null ? ` · ${rupees(room.bedRent)}` : ''}`}
+            aria-label={b.tenant ? `Bed ${b.n}: ${b.tenant.name}, ${STATE_TEXT[b.state]}` : `Bed ${b.n}: free`}>
             {b.tenant ? firstName(b.tenant.name).slice(0, 1).toUpperCase() : ''}
           </button>
         ))}
       </div>
-      <span className="room-mini-foot">
-        <span className={free ? 'green-text' : 'room-mini-full'}>{free ? `${free} free` : 'Full'}</span>
-        {room.bedRent != null && <b>{rupees(room.bedRent)}</b>}
-      </span>
+      <span className={`room-mini-line ${tone}`}>{line}</span>
+      {sub && <span className="room-mini-sub">{sub}</span>}
       <span className="room-mini-bar" aria-hidden="true">
         <i style={{ width: `${Math.round(((room.beds.length - free) / Math.max(room.beds.length, 1)) * 100)}%` }} />
       </span>
+
+      {open && (
+        <>
+          <div className="room-pop-scrim" onClick={onClose} aria-hidden="true" />
+          <div className="room-pop" role="dialog" aria-label={open.tenant ? open.tenant.name : `Room ${room.roomNo}, bed ${open.n}`}>
+            <div className="room-pop-head">
+              <span className={`room-pop-badge ${open.state}`}>{open.tenant ? firstName(open.tenant.name).slice(0, 1).toUpperCase() : <PlusIcon size={16} />}</span>
+              <span className="room-pop-who">
+                <b>{open.tenant ? open.tenant.name : `Bed ${open.n} is free`}</b>
+                <span>Room {room.roomNo} · Bed {open.n}{where ? ` · ${where}` : ''}</span>
+              </span>
+              <button type="button" className="room-pop-x" aria-label="Close" onClick={onClose}><XIcon size={13} /></button>
+            </div>
+            {open.tenant ? (
+              <>
+                <p className={`room-pop-line ${open.state}`}>
+                  {open.state === 'overdue'
+                    ? `Owes ${rupees(open.tenant.balance)}${daysLate(open.tenant) ? ` · ${plural(daysLate(open.tenant), 'day')} late` : ''}`
+                    : open.state === 'leaving' ? 'Leaving soon · notice given'
+                    : `Paid up${open.tenant.planAmount ? ` · ${rupees(open.tenant.planAmount)} a month` : ''}`}
+                </p>
+                <div className="room-pop-actions">
+                  {open.tenant.balance > 0 && canAct
+                    ? <button type="button" className="btn" onClick={() => onCollect(open.tenant)}>Collect {rupees(open.tenant.balance)}</button>
+                    : <button type="button" className="btn" onClick={() => onProfile(open.tenant)}>See payments</button>}
+                  {open.tenant.phone && (
+                    <a className="room-pop-wa" href={waLink(open.tenant.phone, open.tenant.balance > 0 ? owingMessage(biz, open.tenant) : `Hi ${open.tenant.name}, `)}
+                      target="_blank" rel="noreferrer" aria-label={`WhatsApp ${open.tenant.name}`} title="WhatsApp"><WhatsAppIcon size={16} /></a>
+                  )}
+                  <button type="button" className="btn-secondary" onClick={() => onProfile(open.tenant)}>Open</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="room-pop-line free">{room.bedRent != null ? `Rent ${rupees(room.bedRent)} a month` : 'Ready for a new tenant'}</p>
+                <div className="room-pop-actions">
+                  {canAct && <button type="button" className="btn" onClick={onAdd}><PlusIcon size={14} /> Add a tenant here</button>}
+                </div>
+              </>
+            )}
+            <button type="button" className="room-pop-edit" onClick={onEdit}><EditIcon size={12} /> Edit room {room.roomNo}</button>
+          </div>
+        </>
+      )}
     </article>
   );
 }
 
 function RoomsHeader({ onAdd }) {
   return (
-    <div className="page-header home-header">
+    <div className="page-header home-header rooms-head">
       <div className="page-title-wrap">
         <h1 className="page-title">Rooms</h1>
         <p className="home-date">Tap a free bed to add a tenant there</p>
       </div>
       {onAdd && (
         <div className="home-actions">
-          <button type="button" className="btn" onClick={onAdd}><PlusIcon size={15} /> Add tenant</button>
+          {/* phones: a small button top right, next to the title */}
+          <button type="button" className="btn rooms-add-tenant" onClick={onAdd} aria-label="Add tenant"><PlusIcon size={15} /> <span className="rooms-add-long">Add tenant</span><span className="rooms-add-short">Tenant</span></button>
         </div>
       )}
     </div>

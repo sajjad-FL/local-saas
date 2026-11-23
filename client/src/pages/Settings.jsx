@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'qrcode';
 import { api, userId, download, rupees } from '../api.js';
-import { useBiz, useTheme } from '../App.jsx';
+import { useBiz, useTheme } from '../contexts.js';
 import { words } from '../wording.js';
 import {
   Field, ShieldIcon, UserIcon, UsersIcon, PhoneIcon, DownloadIcon, CheckIcon, BuildingIcon,
