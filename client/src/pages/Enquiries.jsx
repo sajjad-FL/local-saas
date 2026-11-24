@@ -45,6 +45,7 @@ export default function Enquiries() {
   const [period, setPeriod] = useState('all');
   const [editing, setEditing] = useState(null); // {} for a new one, or the enquiry
   const [joining, setJoining] = useState(null); // the enquiry becoming a member
+  const [moreOpen, setMoreOpen] = useState(false); // phones: the ⋯ menu in the header
   // ?add=1 (from the home screen's + Enquiry) opens the form once
   const [params, setParams] = useSearchParams();
   useEffect(() => {
@@ -193,7 +194,27 @@ export default function Enquiries() {
 
   return (
     <div className="en2">
-      <div className="page-header home-header db-head en2-head">
+      {/* phones: same header as Money — title, ⋯, one main button */}
+      <header className="mr-phone-head">
+        <h1>Enquiries</h1>
+        {todayList.length > 0 && (
+          <div className="mr-more">
+            <button type="button" className="mr-more-btn" aria-label="More" aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>⋯</button>
+            {moreOpen && (
+              <>
+                <div className="mr-more-scrim" onClick={() => setMoreOpen(false)} aria-hidden="true" />
+                <div className="mr-more-menu" role="menu">
+                  <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); messageToday(); }}>
+                    <span className="mr-more-icon"><WhatsAppIcon size={14} /></span>Message today's {todayList.length}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        <button type="button" className="btn mr-phone-pay" onClick={() => setEditing({})}><PlusIcon size={14} /> Enquiry</button>
+      </header>
+      <div className="page-header home-header db-head en2-head mr-desk-head">
         <div className="page-title-wrap">
           <p className="db-date">{subtitle}</p>
           <div className="en2-title-row">
@@ -247,7 +268,8 @@ export default function Enquiries() {
             {TABS.map((id) => (
               <button key={id} type="button" role="tab" aria-selected={curView === id} className={`db-tab ${curView === id ? 'on' : ''}`} onClick={() => setView(id)}>
                 <i className="db-dot" style={{ background: VIEWS[id].dot }} aria-hidden="true" />
-                {VIEWS[id].tab || VIEWS[id].label}
+                <span className="lbl-long">{VIEWS[id].tab || VIEWS[id].label}</span>
+                <span className="lbl-short">{{ today: 'Today', overdue: 'Missed', open: 'Open', joined: 'Joined', lost: 'Lost' }[id]}</span>
                 <span className="db-tab-count">{all.filter((e) => passes(e, 'view') && VIEWS[id].fn(e)).length}</span>
               </button>
             ))}
@@ -355,6 +377,34 @@ export default function Enquiries() {
                   </tbody>
                 </table>
               </div>
+
+              {/* phones: one line per person, like Money: name + tags, call-back day, one button */}
+              <ul className="who-rows">
+                {list.map((e) => {
+                  const f = followText(e);
+                  const st = STATUS[e.status];
+                  const tag = { red: 'overdue', amber: 'due', green: 'paid' }[f.tone] || 'none';
+                  return (
+                    <li key={e._id} className="who-row">
+                      <button type="button" className="who-row-main" onClick={() => setEditing(e)}>
+                        <b>{e.name}</b>
+                        <span className="who-row-tags">
+                          {open(e)
+                            ? <span className={`who-tag ${tag}`}>{f.text}</span>
+                            : <span className="who-tag" style={{ background: st.bg, color: st.ink }}>{st.label}</span>}
+                          <span className="who-row-plan">{[e.planId?.name, SOURCES[e.source]].filter(Boolean).join(' · ') || `asked ${shortDate(e.createdAt)}`}</span>
+                        </span>
+                      </button>
+                      {open(e) && e.phone
+                        ? <a className="btn who-row-btn" href={waLink(e.phone, hello(e))} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${e.name}`}><WhatsAppIcon size={14} /> Message</a>
+                        : e.status === 'joined' && e.memberId
+                          ? <Link className="btn-secondary who-row-btn" to={`/members/${e.memberId}`}>Open</Link>
+                          : <button type="button" className="btn-secondary who-row-btn" onClick={() => setEditing(e)}>Open</button>}
+                    </li>
+                  );
+                })}
+                <li className="who-key" aria-hidden="true"><span><i className="overdue" />Missed</span><span><i className="due" />Call today</span><span><i className="paid" />Joined</span></li>
+              </ul>
 
               <ul className="mx-cards mx2-cardlist en2-cards-list">
                 {list.map((e) => {
