@@ -9,7 +9,8 @@ import { PlusIcon, RupeeIcon, UserPlusIcon, TagIcon } from '../ui.jsx';
 import SellModal from '../SellModal.jsx';
 import DashboardHome from './DashboardHome.jsx';
 import { AddExpense } from './MoneyReport.jsx';
-import { CollectPaymentModal, PickMember } from './Members.jsx';
+import { CollectPaymentModal, PickMember, AddMemberModal } from './Members.jsx';
+import { EnquiryModal } from './Enquiries.jsx';
 
 export default function Dashboard() {
   const biz = useBiz();
@@ -20,6 +21,11 @@ export default function Dashboard() {
   const [selling, setSelling] = useState(false);
   const [picking, setPicking] = useState(false); // "Record payment": choose who paid
   const [paying, setPaying] = useState(null); // then the payment form for them
+  const [addingMember, setAddingMember] = useState(false); // the add form opens here; Members only after a save
+  const [addingEnquiry, setAddingEnquiry] = useState(false); // same for enquiries
+  const { data: plans } = useQuery({ queryKey: ['plans', biz._id], queryFn: () => api(`/businesses/${biz._id}/plans`) });
+  const { data: groups } = useQuery({ queryKey: ['groups', biz._id], queryFn: () => api(`/businesses/${biz._id}/groups`) });
+  const { data: rooms } = useQuery({ queryKey: ['rooms', biz._id], queryFn: () => api(`/businesses/${biz._id}/rooms`), enabled: biz.type === 'hostel' });
 
   const { data } = useQuery({
     queryKey: ['dashboard', biz._id],
@@ -38,8 +44,8 @@ export default function Dashboard() {
   const actions = [
     { key: 'pay', label: 'Record payment', short: 'Payment', icon: RupeeIcon, primary: true, onClick: () => setPicking(true) },
     biz.salesEnabled !== false && catalogue?.length > 0 && { key: 'sell', label: 'Sell', short: 'Sell', icon: TagIcon, onClick: () => setSelling(true) },
-    { key: 'member', label: `Add ${w.member}`, short: w.member[0].toUpperCase() + w.member.slice(1), icon: PlusIcon, onClick: () => navigate('/members?add=1') },
-    { key: 'enquiry', label: 'Add enquiry', short: 'Enquiry', icon: UserPlusIcon, onClick: () => navigate('/enquiries?add=1') },
+    { key: 'member', label: `Add ${w.member}`, short: w.member[0].toUpperCase() + w.member.slice(1), icon: PlusIcon, onClick: () => setAddingMember(true) },
+    { key: 'enquiry', label: 'Add enquiry', short: 'Enquiry', icon: UserPlusIcon, onClick: () => setAddingEnquiry(true) },
     { key: 'expense', label: 'Add expense', short: 'Expense', icon: RupeeIcon, onClick: () => setAddingExpense(true) },
   ].filter(Boolean).filter(() => can(biz, ADD)); // see-only staff get no add buttons
 
@@ -48,7 +54,7 @@ export default function Dashboard() {
       <div className="page-header home-header db-head">
         <div className="page-title-wrap">
           <p className="db-date">{today}</p>
-          <h1 className="db-hello">{greeting}{firstName ? `, ${firstName}` : ''}</h1>
+          <h1 className="db-hello db-hello-desk">{greeting}{firstName ? `, ${firstName}` : ''}</h1>
         </div>
         <nav className={`db-quick ${actions.length === 5 ? 'five' : ''}`} aria-label="Quick actions">
           {actions.map((a) => (
@@ -61,6 +67,20 @@ export default function Dashboard() {
         </nav>
       </div>
 
+      <AnimatePresence>
+        {addingMember && (
+          <AddMemberModal biz={biz} plans={plans || []} groups={groups || []} rooms={rooms || []}
+            onClose={() => setAddingMember(false)}
+            onAdded={() => navigate('/members')} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {addingEnquiry && (
+          <EnquiryModal biz={biz} plans={plans || []} enquiry={null}
+            onClose={() => setAddingEnquiry(false)}
+            onSaved={() => navigate('/enquiries')} />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {selling && <SellModal key="sell" biz={biz} onClose={() => setSelling(false)} />}
       </AnimatePresence>
@@ -101,7 +121,7 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {data ? (
-        <DashboardHome biz={biz} data={data} onAddMember={() => navigate('/members?add=1')} />
+        <DashboardHome biz={biz} data={data} onAddMember={() => setAddingMember(true)} />
       ) : (
         <div className="today today-grid" aria-hidden="true">
           <div className="today-main">

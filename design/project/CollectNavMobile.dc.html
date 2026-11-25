@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Collect – menu row (mobile)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #5B3DF5;outline-offset:2px}
+.navscroll::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F1F4F9; font-family: Inter, system-ui, sans-serif; color: #0F172A">
+  <!-- app bar (unchanged) -->
+  <div style="height: 56px; padding: 0 14px; display: flex; align-items: center; gap: 10px; background: #FFFFFF; border-bottom: 1px solid #E6E9EF">
+    <span style="width: 34px; height: 34px; border-radius: 10px; background: #F1F4F9; display: grid; place-items: center; font-size: 16px">≡</span>
+    <span style="width: 30px; height: 30px; border-radius: 9px; background: #5B3DF5; display: grid; place-items: center; color: #FFFFFF; font-size: 13px">⚒</span>
+    <b style="flex: 1; font-size: 14.5px">KK Fitness ⌄</b>
+    <span style="width: 32px; height: 32px; border-radius: 9px; border: 1px solid #E6E9EF; display: grid; place-items: center; font-size: 13px">☾</span>
+  </div>
+
+  <div style="height: calc(100% - 56px); overflow-y: auto; box-sizing: border-box; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 12px">
+    <!-- the date stays as one small line; "Good evening, Sajjad" is gone -->
+    <p style="margin: 0; font-size: 12.5px; color: #64748B">Tuesday, 24 November</p>
+
+    <!-- every left-menu item, styled like the Follow up today tabs; swipe for more -->
+      <nav aria-label="Go to" style="margin: -4px -14px 0; padding: 0 14px; border-bottom: 1px solid #E2E5EC; background: #F1F4F9">
+        <div class="navscroll" style="display: flex; gap: 18px; overflow-x: auto; scrollbar-width: none">
+        <button type="button" onClick="{{pick0}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line0}}; margin-bottom: -1px; background: transparent; color: {{ink0}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink0}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg></span>{{label0}}
+        </button>
+        <button type="button" onClick="{{pick1}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line1}}; margin-bottom: -1px; background: transparent; color: {{ink1}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink1}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>{{label1}}
+        </button>
+        <button type="button" onClick="{{pick2}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line2}}; margin-bottom: -1px; background: transparent; color: {{ink2}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink2}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span>{{label2}}
+        </button>
+        <button type="button" onClick="{{pick3}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line3}}; margin-bottom: -1px; background: transparent; color: {{ink3}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink3}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M19 8v6M22 11h-6"/></svg></span>{{label3}}
+        </button>
+        <button type="button" onClick="{{pick4}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line4}}; margin-bottom: -1px; background: transparent; color: {{ink4}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink4}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></span>{{label4}}
+        </button>
+        <button type="button" onClick="{{pick5}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line5}}; margin-bottom: -1px; background: transparent; color: {{ink5}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink5}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>{{label5}}
+        </button>
+        <button type="button" onClick="{{pick6}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line6}}; margin-bottom: -1px; background: transparent; color: {{ink6}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink6}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/></svg></span>{{label6}}
+        </button>
+        <button type="button" onClick="{{pick7}}" style="flex: none; height: 42px; padding: 0 2px; border: 0; border-bottom: 2px solid {{line7}}; margin-bottom: -1px; background: transparent; color: {{ink7}}; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; color: {{ink7}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>{{label7}}
+        </button>
+          <span style="flex: none; width: 4px"></span>
+        </div>
+      </nav>
+
+    <sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+      <p style="margin: 0; padding: 8px 12px; border-radius: 10px; background: #0F172A; color: #FFFFFF; font-size: 12.5px">{{toast}}</p>
+    </sc-if>
+
+    <!-- the rest of Collect stays as it is -->
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+        <span style="height: 58px; border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 11.5px; font-weight: 600">
+          <span style="width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: #5B3DF5; color: #FFFFFF; font-weight: 700">₹</span>Payment</span>
+        <span style="height: 58px; border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 11.5px; font-weight: 600">
+          <span style="width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: #F1EEFF; color: #3D27B8; font-weight: 700">◇</span>Sell</span>
+        <span style="height: 58px; border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 11.5px; font-weight: 600">
+          <span style="width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: #F1EEFF; color: #3D27B8; font-weight: 700">+</span>Member</span>
+        <span style="height: 58px; border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 11.5px; font-weight: 600">
+          <span style="width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: #F1EEFF; color: #3D27B8; font-weight: 700">+</span>Enquiry</span>
+        <span style="height: 58px; border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 11.5px; font-weight: 600">
+          <span style="width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; background: #F1EEFF; color: #3D27B8; font-weight: 700">₹</span>Expense</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+        <span style="border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; padding: 9px 9px; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="font-size: 11px; color: #64748B; line-height: 1.25">Collected today</span><b style="font-size: 15px">₹0</b></span>
+        <span style="border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; padding: 9px 9px; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="font-size: 11px; color: #64748B; line-height: 1.25">Came in today</span><b style="font-size: 15px">0</b></span>
+        <span style="border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; padding: 9px 9px; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="font-size: 11px; color: #64748B; line-height: 1.25">New enquiries</span><b style="font-size: 15px">0</b></span>
+        <span style="border: 1px solid #E6E9EF; border-radius: 13px; background: #FFFFFF; padding: 9px 9px; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="font-size: 11px; color: #64748B; line-height: 1.25">Fees due today</span><b style="font-size: 15px">₹0</b></span>
+    </div>
+    <section style="background: #FFFFFF; border: 1px solid #E6E9EF; border-radius: 14px; padding: 14px">
+      <div style="display: flex; justify-content: space-between; font-size: 12.5px; color: #64748B; font-weight: 600"><span>Collected in November</span><span style="color: #067647; background: #ECFDF3; padding: 2px 8px; border-radius: 99px">▲ 33% vs October</span></div>
+      <p style="margin: 8px 0 6px"><b style="font-size: 26px">₹2,000</b> <span style="font-size: 12.5px; color: #64748B">of ₹3,500 · 57%</span></p>
+      <div style="height: 6px; border-radius: 99px; background: #EEF1F5; overflow: hidden"><i style="display: block; width: 57%; height: 100%; background: #16A34A"></i></div>
+    </section>
+    <section style="background: #FFFFFF; border: 1px solid #E6E9EF; border-radius: 14px; padding: 14px">
+      <b style="font-size: 15px">Follow up today</b>
+      <p style="margin: 2px 0 0; font-size: 12px; color: #64748B">Plan ended and the fee is still unpaid</p>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { opt: 'A', on: 0, toast: '' }; }
+  renderVals() {
+    const st = this.state;
+    const NAV = [
+      ['Collect', null], ['Members', ['3', 'red']], ['Attendance', ['12', 'grey']], ['Enquiries', ['2', 'amber']],
+      ['Money', null], ['Setup', null], ['Sales', null], ['Settings', null],
+    ];
+    const tone = { red: ['#FEE2E2', '#B91C1C'], amber: ['#FEF3C7', '#92400E'], grey: ['#E2E5EC', '#475569'] };
+    const v = {
+      isA: st.opt === 'A', isB: st.opt === 'B', toast: st.toast,
+      pickA: () => this.setState({ opt: 'A' }), pickB: () => this.setState({ opt: 'B' }),
+      abg: st.opt === 'A' ? '#FFFFFF' : 'transparent', aink: st.opt === 'A' ? '#0F172A' : '#CBD5E1',
+      bbg: st.opt === 'B' ? '#FFFFFF' : 'transparent', bink: st.opt === 'B' ? '#0F172A' : '#CBD5E1',
+    };
+    NAV.forEach(([label, count], i) => {
+      const on = st.on === i;
+      const c = count && (on ? ['#5B3DF5', '#FFFFFF'] : tone[count[1]]);
+      Object.assign(v, {
+        ['label' + i]: label, ['has' + i]: !!count, ['count' + i]: count ? count[0] : '',
+        ['cbg' + i]: c ? c[0] : '', ['cink' + i]: c ? c[1] : '',
+        ['line' + i]: on ? '#5B3DF5' : 'transparent', ['ink' + i]: on ? '#3D27B8' : '#64748B',
+        ['gborder' + i]: on ? '#5B3DF5' : '#E6E9EF', ['gbg' + i]: on ? '#F1EEFF' : '#FFFFFF',
+        ['gibg' + i]: on ? '#5B3DF5' : '#F1F3F7', ['gink' + i]: on ? '#FFFFFF' : '#334155',
+        ['pick' + i]: () => this.setState({ toast: i === 0 ? '' : 'Opens ' + label + ' (same as the left menu)' }),
+      });
+    });
+    return v;
+  }
+}
+</script>
+</body>
+</html>

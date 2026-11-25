@@ -26,6 +26,7 @@ import TopBar from '../../components/TopBar';
 import { ScreenSkeleton, Spinner } from '../../components/Loader';
 import AddMemberModal from '../modals/AddMemberModal';
 import BulkRemindModal from '../modals/BulkRemindModal';
+import { CompactHeader, NumberStrip, ListCard, SearchFilter, ChipRow, CompactRow, ColorKey } from '../../components/Compact';
 
 // The simpler list (design: "Tenants v3", same as the web app on phones).
 // One button up top, the month's money in one card, four tabs that say what's in them,
@@ -65,7 +66,6 @@ export default function MembersScreen({ navigation, route }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [planFilter, setPlanFilter] = useState('all');
   const [sortBy, setSortBy] = useState('late');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState(() => new Set());
   const [sheet, setSheet] = useState(null); // { m, amt, mode }
@@ -154,25 +154,6 @@ export default function MembersScreen({ navigation, route }) {
   }[sortBy];
   const list = base.filter(cur.fn).sort(sorter);
 
-  const sections = (() => {
-    if (tab === 'owe' && sortBy === 'late') {
-      return [
-        { key: 'week', title: 'Over a week late', ink: c.dangerDark, rows: list.filter((m) => daysLate(m) >= 7) },
-        { key: 'now', title: 'Late this week', ink: c.warningDark, rows: list.filter((m) => daysLate(m) < 7) },
-      ];
-    }
-    if (tab === 'all') {
-      return [
-        { key: 'owe', title: 'Owe', ink: c.dangerDark, rows: list.filter(isOwe) },
-        { key: 'soon', title: 'Due soon', ink: c.warningDark, rows: list.filter(isSoon) },
-        { key: 'paid', title: 'Paid', ink: c.successDark, rows: list.filter(isPaid) },
-        { key: 'other', title: 'Paused', ink: c.textMuted, rows: list.filter((m) => !isOwe(m) && !isSoon(m) && !isPaid(m)) },
-      ];
-    }
-    const monthName = new Date().toLocaleDateString('en-IN', { month: 'long' });
-    return [{ key: tab, title: tab === 'soon' ? 'Fee due this week' : tab === 'paid' ? `Paid for ${monthName}` : 'Owe', ink: cur.ink, rows: list }];
-  })().filter((s) => s.rows.length);
-
   const freeRooms = isHostel && tab === 'all' && !picking && !query
     ? rooms.filter((r) => (r.occupied || 0) < r.capacity).filter((r) => !curChip || curChip.roomTest(r))
       .sort((a, b) => String(a.roomNo).localeCompare(String(b.roomNo), undefined, { numeric: true }))
@@ -180,8 +161,6 @@ export default function MembersScreen({ navigation, route }) {
 
   // ---- the month ----
   const owedNow = all.filter(isOwe).reduce((s, m) => s + m.balance, 0);
-  const expected = collected == null ? null : collected + owedNow;
-  const pct = expected ? Math.round((collected / expected) * 100) : 0;
 
   // ---- reminders ----
   const renewMsg = (m) => `Hi ${m.name}, your ${W.fee.toLowerCase()} of ${rupees(m.planAmount || 0)} for ${biz?.name} is due on ${shortDate(m.nextRenewal)}. Thank you!`;
@@ -228,19 +207,11 @@ export default function MembersScreen({ navigation, route }) {
     const d = m.nextRenewal ? daysUntil(m.nextRenewal) : null;
     return { amount: m.balance < 0 ? `+${rupees(-m.balance)}` : 'Paid', amtInk: c.successDark, chip: d != null && d > 0 ? `next in ${d} days` : 'paid up', chipTone: 'green' };
   };
-  const lastPaid = (m) => (m.lastPaidAt ? `Last paid ${shortDate(m.lastPaidAt)}${m.lastPaidMode ? ` · ${MODE_NAME[m.lastPaidMode] || m.lastPaidMode}` : ''}` : 'No payments yet');
   const where = (m) => {
     const r = roomOf(m);
     if (isHostel && r) return [floorName(r), m.planName].filter(Boolean).join(' · ');
     return [m.planName, m.groupId?.name].filter(Boolean).join(' · ') || m.phone || '';
   };
-
-  const RoomTile = ({ no, t, vacant }) => (
-    <View style={[styles.room, vacant ? { borderWidth: 1.5, borderStyle: 'dashed', borderColor: dark ? 'rgba(255,255,255,0.18)' : '#C7CEDB' } : { backgroundColor: tone[t].bg }]}>
-      <Text style={[styles.roomLabel, { color: vacant ? c.textMuted : tone[t].ink }]}>ROOM</Text>
-      <Text style={[styles.roomNo, { color: vacant ? c.textMuted : tone[t].ink }]} numberOfLines={1}>{no}</Text>
-    </View>
-  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
@@ -250,222 +221,135 @@ export default function MembersScreen({ navigation, route }) {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.card} />}>
 
-        {/* 1. title, one main button, everything else in ⋯ */}
-        <View style={styles.head}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[styles.h1, { color: c.text }]}>{Title}</Text>
-            <Text style={[styles.sub, { color: c.textMuted }]} numberOfLines={1}>
-              {all.filter(isAll).length} {W.members}
-              {isHostel && rooms.length > 0 ? ` · ${rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0)} of ${rooms.reduce((s, r) => s + r.capacity, 0)} beds filled` : ''}
-            </Text>
-          </View>
-          <TouchableOpacity accessibilityLabel="More" onPress={() => setMenuOpen(true)} style={[styles.more, { borderColor: line, backgroundColor: c.card }]}>
-            <Icon name="ellipsis-horizontal" size={18} color={c.textSecondary} />
-          </TouchableOpacity>
-          {canAdd ? (
-            <TouchableOpacity onPress={() => setAdding({})} style={[styles.addBtn, { backgroundColor: c.primary }]}>
-              <Icon name="add" size={17} color="#fff" />
-              <Text style={styles.addText}>{W.member[0].toUpperCase() + W.member.slice(1)}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        {/* 1. title, ⋯, one main button — same pattern as Money */}
+        <CompactHeader
+          title={Title}
+          menu={[
+            canAdd && { icon: 'cash-outline', label: 'Record a payment', go: () => { setTab('owe'); Alert.alert('Record a payment', `Tap Collect on the ${W.member} who paid.`); } },
+            { icon: 'checkbox-outline', label: `Pick several ${W.members}`, go: () => { setPicking(true); setPicked(new Set()); } },
+            isHostel && { icon: 'bed-outline', label: 'Rooms and beds', go: () => navigation.navigate('Rooms') },
+            { icon: 'download-outline', label: 'Download the list', go: () => downloadFile(`/businesses/${biz._id}/export/balances.csv`, `${biz?.name}-${W.members}.csv`).catch((e) => Alert.alert('Could not download', e.message)) },
+          ]}
+          mainLabel={W.member[0].toUpperCase() + W.member.slice(1)}
+          onMain={canAdd ? () => setAdding({}) : null}
+        />
 
-        {/* 2. the month in one card */}
-        {expected != null && expected > 0 && (
-          <View style={[styles.card, { backgroundColor: c.card, borderColor: line }]}>
-            <View style={styles.between}>
-              <Text style={[styles.cardLabel, { color: c.textMuted }]}>{new Date().toLocaleDateString('en-IN', { month: 'long' })} {isHostel ? 'rent' : 'fees'}</Text>
-              <Text style={[styles.cardLabel, { color: c.textMuted }]}>{pct}% in</Text>
-            </View>
-            <View style={styles.monthNum}>
-              <Text style={[styles.big, { color: c.successDark }]}>{rupees(collected)}</Text>
-              <Text style={{ color: c.textMuted, fontSize: 13 }}>collected of {rupees(expected)}</Text>
-            </View>
-            <View style={[styles.bar, { backgroundColor: tone.red.bg }]}>
-              <View style={{ width: `${pct}%`, backgroundColor: '#16A34A' }} />
-            </View>
-            <View style={styles.legend}>
-              <Text style={[styles.legendText, { color: c.textMuted }]}><Text style={{ color: '#16A34A' }}>●</Text> Paid</Text>
-              <Text style={[styles.legendText, { color: c.textMuted }]}><Text style={{ color: '#F4A29B' }}>●</Text> {rupees(owedNow)} still to collect</Text>
-            </View>
-          </View>
-        )}
+        {/* 2. the four numbers in one slim strip */}
+        <NumberStrip items={[
+          { label: 'Collected', value: collected == null ? '…' : rupees(collected), ink: c.successDark },
+          { label: 'To collect', value: rupees(owedNow), ink: owedNow ? c.dangerDark : undefined },
+          { label: Title, value: String(all.filter(isAll).length) },
+          isHostel && rooms.length > 0
+            ? { label: 'Beds filled', value: `${rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0)}/${rooms.reduce((s, r) => s + r.capacity, 0)}` }
+            : { label: 'Due soon', value: String(all.filter(isSoon).length), ink: all.some(isSoon) ? c.warningDark : undefined },
+        ]} />
 
-        {/* 3. four tabs that say what's in them */}
-        <View style={[styles.tabs, { backgroundColor: tone.grey.bg }]}>
-          {TABS.map((t) => {
-            const n = base.filter(t.fn).length;
-            const on = tab === t.id;
-            return (
-              <TouchableOpacity
-                key={t.id}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-                onPress={() => { setTab(t.id); setPicked(new Set()); }}
-                style={[styles.tab, on && { backgroundColor: c.card, shadowColor: '#0F172A', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 }]}>
-                <Text style={[styles.tabNum, { color: n ? t.ink : c.textMuted }]}>{n}</Text>
-                <Text style={[styles.tabLabel, { color: on ? c.text : c.textMuted }]}>{t.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* search, filters, quick chips */}
-        <View style={styles.searchRow}>
-          <View style={[styles.search, { backgroundColor: c.card, borderColor: line }]}>
-            <Icon name="search" size={16} color={c.textMuted} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder={isHostel ? 'Name, phone or room' : 'Name, phone or plan'}
-              placeholderTextColor={c.textMuted}
-              style={[styles.searchInput, { color: c.text }]}
-            />
-            {q ? <TouchableOpacity onPress={() => setQ('')} accessibilityLabel="Clear search"><Icon name="close-circle" size={17} color={c.textMuted} /></TouchableOpacity> : null}
-          </View>
-          <TouchableOpacity
-            accessibilityLabel="Filters"
-            onPress={() => setFiltersOpen((o) => !o)}
-            style={[styles.filterBtn, { borderColor: filtersOpen || planFilter !== 'all' || sortBy !== 'late' ? c.primary : line, backgroundColor: filtersOpen ? c.primarySoft : c.card }]}>
-            <Icon name="options-outline" size={18} color={filtersOpen || planFilter !== 'all' || sortBy !== 'late' ? c.primary : c.textSecondary} />
-          </TouchableOpacity>
-        </View>
-        {filtersOpen && (
-          <View style={[styles.card, { backgroundColor: c.card, borderColor: line, gap: 10 }]}>
-            {plans.length > 0 && (
-              <View>
-                <Text style={[styles.groupTitle, { color: c.textMuted, marginBottom: 6 }]}>PLAN</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {[['all', 'All plans'], ...plans.map((p) => [p.name, p.name])].map(([v, l]) => (
-                    <Chip key={v} on={planFilter === v} label={l} onPress={() => setPlanFilter(v)} c={c} line={line} />
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-            <View>
-              <Text style={[styles.groupTitle, { color: c.textMuted, marginBottom: 6 }]}>SORT</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                {SORTS.map(([v, l]) => <Chip key={v} on={sortBy === v} label={l} onPress={() => setSortBy(v)} c={c} line={line} />)}
-              </ScrollView>
+        {/* 3. search + filter, chips, one line per person */}
+        <ListCard>
+          <SearchFilter
+            value={q}
+            onChange={setQ}
+            placeholder={isHostel ? 'Name, phone or room' : 'Name, phone or plan'}
+            filterOn={(planFilter !== 'all' ? 1 : 0) + (sortBy !== 'late' ? 1 : 0)}
+            onFilter={() => setFiltersOpen((o) => !o)}
+          />
+          {filtersOpen && (
+            <View style={[styles.filterPanel, { backgroundColor: c.cardSubtle }]}>
+              {plans.length > 0 && (
+                <>
+                  <Text style={[styles.groupTitle, { color: c.textMuted }]}>PLAN</Text>
+                  <ChipRow small value={planFilter} onPick={setPlanFilter} options={[{ id: 'all', label: 'All plans' }, ...plans.map((p) => ({ id: p.name, label: p.name }))]} />
+                </>
+              )}
+              <Text style={[styles.groupTitle, { color: c.textMuted }]}>SORT</Text>
+              <ChipRow small value={sortBy} onPick={setSortBy} options={SORTS.map(([id, label]) => ({ id, label }))} />
             </View>
-          </View>
-        )}
-        {chips.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ marginTop: -2 }}>
-            {[{ id: 'all', label: oneBuilding ? 'All floors' : `All ${W.groups.split(' ')[0].toLowerCase()}` }, ...chips].map((x) => {
-              const on = chip === x.id;
-              return (
-                <TouchableOpacity key={x.id} onPress={() => { setChip(x.id); setPicked(new Set()); }} style={[styles.chip, { backgroundColor: on ? c.text : c.card, borderColor: on ? c.text : line }]}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: on ? c.card : c.textSecondary }}>{x.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
+          )}
+          <ChipRow value={tab} onPick={(id) => { setTab(id); setPicked(new Set()); }} options={TABS.map((t) => ({ id: t.id, label: t.label, count: base.filter(t.fn).length }))} />
+          {chips.length > 0 && (
+            <ChipRow small value={chip} onPick={(id) => { setChip(id); setPicked(new Set()); }}
+              options={[{ id: 'all', label: oneBuilding ? 'All floors' : `All ${W.groups.split(' ')[0].toLowerCase()}` }, ...chips]} />
+          )}
 
-        {picking && (
-          <View style={[styles.pickingBar, { backgroundColor: c.primarySoft }]}>
-            <Text style={{ color: c.primaryDark, fontWeight: '600', fontSize: 13, flex: 1 }}>Tap {W.members} to pick them · {picked.size} picked</Text>
-            <TouchableOpacity onPress={stopPicking}><Text style={{ color: c.primaryDark, fontWeight: '800', fontSize: 13.5 }}>Done</Text></TouchableOpacity>
-          </View>
-        )}
+          {picking && (
+            <View style={[styles.pickingBar, { backgroundColor: c.primarySoft }]}>
+              <Text style={{ color: c.primaryDark, fontWeight: '600', fontSize: 13, flex: 1 }}>Tap {W.members} to pick them · {picked.size} picked</Text>
+              <TouchableOpacity onPress={stopPicking}><Text style={{ color: c.primaryDark, fontWeight: '800', fontSize: 13.5 }}>Done</Text></TouchableOpacity>
+            </View>
+          )}
 
-        {/* 4. the list, grouped by what to do first */}
-        {sections.map((s) => (
-          <View key={s.key} style={{ gap: 8 }}>
-            <Text style={[styles.groupTitle, { color: s.ink }]}>{s.title.toUpperCase()}</Text>
-            {s.rows.map((m) => {
+          <View>
+            {list.map((m, i) => {
               const r = rightSide(m);
               const room = roomOf(m);
               const on = picked.has(m._id);
               const owes = m.balance > 0;
               const soon = isSoon(m);
+              const late = daysLate(m);
+              const tagTone = owes ? (late >= 7 ? 'late' : 'due') : soon ? 'due' : isPaused(m) ? 'none' : 'paid';
               return (
-                <View key={m._id} style={[styles.row, { backgroundColor: c.card, borderColor: on ? c.primary : line, borderWidth: on ? 1.5 : 1 }]}>
-                  <Pressable
-                    onPress={() => (picking ? togglePick(m._id) : navigation.navigate('MemberDetail', { id: m._id }))}
-                    onLongPress={() => { setPicking(true); setPicked(new Set([m._id])); }}
-                    delayLongPress={400}
-                    accessibilityLabel={picking ? `${on ? 'Unpick' : 'Pick'} ${m.name}` : `Open ${m.name}`}
-                    style={styles.rowMain}>
-                    {picking && (
-                      <View style={[styles.box, { borderColor: on ? c.primary : '#CBD5E1', backgroundColor: on ? c.primary : 'transparent' }]}>
-                        {on ? <Icon name="checkmark" size={14} color="#fff" /> : null}
-                      </View>
-                    )}
-                    {isHostel && room ? <RoomTile no={room.roomNo} t={owes ? 'red' : soon ? 'amber' : 'grey'} /> : <Avatar name={m.name} size={42} />}
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{m.name}</Text>
-                      <Text style={[styles.meta, { color: c.textMuted }]} numberOfLines={1}>{where(m)}</Text>
-                      <Text style={[styles.metaSmall, { color: c.textSubtle }]} numberOfLines={1}>{lastPaid(m)}</Text>
+                <CompactRow
+                  key={m._id}
+                  last={i === list.length - 1}
+                  selected={on}
+                  title={m.name}
+                  onPress={() => (picking ? togglePick(m._id) : navigation.navigate('MemberDetail', { id: m._id }))}
+                  onLongPress={() => { setPicking(true); setPicked(new Set([m._id])); }}
+                  left={picking ? (
+                    <View style={[styles.box, { borderColor: on ? c.primary : '#CBD5E1', backgroundColor: on ? c.primary : 'transparent' }]}>
+                      {on ? <Icon name="checkmark" size={14} color="#fff" /> : null}
                     </View>
-                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                      <Text style={[styles.amount, { color: r.amtInk }]}>{r.amount}</Text>
-                      <View style={[styles.statusChip, { backgroundColor: tone[r.chipTone].bg }]}>
-                        <Text style={{ fontSize: 11.5, fontWeight: '700', color: tone[r.chipTone].ink }}>{r.chip}</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                  {!picking && (owes || soon) && active(m) && (
-                    <View style={styles.actions}>
-                      {m.phone ? (
-                        <TouchableOpacity accessibilityLabel={`WhatsApp ${m.name}`} onPress={() => Linking.openURL(waLink(m.phone, msgFor(m)))}
-                          style={[styles.wa, { backgroundColor: tone.green.bg, borderColor: dark ? 'rgba(52,211,153,0.3)' : '#D5F0E2' }]}>
-                          <Icon name="logo-whatsapp" size={18} color={c.successDark} />
-                        </TouchableOpacity>
-                      ) : null}
-                      {owes && canAdd ? (
-                        <TouchableOpacity onPress={() => setSheet({ m, amt: m.balance, mode: 'upi' })} style={[styles.cta, { backgroundColor: c.primary }]}>
-                          <Text style={styles.ctaText}>Collect {rupees(m.balance)}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      {soon && m.phone ? (
-                        <TouchableOpacity onPress={() => Linking.openURL(waLink(m.phone, renewMsg(m)))} style={[styles.cta, { backgroundColor: c.card, borderWidth: 1, borderColor: dark ? 'rgba(255,255,255,0.12)' : '#E2E5EC' }]}>
-                          <Text style={[styles.ctaText, { color: c.text }]}>Send a reminder</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  )}
-                </View>
+                  ) : null}
+                  tags={[
+                    isHostel && room && { text: `Room ${room.roomNo}`, tone: 'none' },
+                    { text: tagTone === 'paid' ? `✓ ${r.chip}` : r.chip, tone: tagTone },
+                  ]}
+                  sub={where(m)}
+                  amount={r.amount}
+                  amountInk={r.amtInk}
+                  amountSub={owes ? 'owes' : soon ? 'due' : r.amtInk === c.successDark ? 'paid' : ''}
+                  button={picking ? null
+                    : owes && canAdd && active(m) ? { label: 'Collect', primary: true, onPress: () => setSheet({ m, amt: m.balance, mode: 'upi' }) }
+                    : soon && m.phone && active(m) ? { label: 'Remind', icon: 'logo-whatsapp', onPress: () => Linking.openURL(waLink(m.phone, renewMsg(m))) }
+                    : { label: 'Open', onPress: () => navigation.navigate('MemberDetail', { id: m._id }) }}
+                />
               );
             })}
+            {!list.length && (
+              <View style={{ paddingVertical: 18, alignItems: 'center', gap: 4 }}>
+                <Text style={[styles.name, { color: c.text, textAlign: 'center' }]}>
+                  {query ? `Nobody matches “${q}”` : { owe: 'Nobody owes money', soon: 'Nothing due this week', paid: 'Nobody has paid yet', all: `No ${W.members} here` }[tab]}
+                </Text>
+                <Text style={[styles.meta, { color: c.textMuted, textAlign: 'center' }]}>
+                  {query ? 'Try a name, phone number or room.' : { owe: 'Everyone here is paid up.', soon: `You'll see ${W.members} here a week before their fee is due.`, paid: 'Payments you record show up here.', all: `Add a ${W.member} to get started.` }[tab]}
+                </Text>
+              </View>
+            )}
           </View>
-        ))}
+          {list.length > 0 && <ColorKey items={[['Paid', 'paid'], ['Week+ late', 'late'], ['Due', 'due']]} />}
+        </ListCard>
 
         {freeRooms.length > 0 && (
-          <View style={{ gap: 8 }}>
+          <ListCard>
             <Text style={[styles.groupTitle, { color: c.textMuted }]}>FREE BEDS · {freeRooms.reduce((s, r) => s + r.capacity - (r.occupied || 0), 0)}</Text>
-            {freeRooms.map((r) => {
-              const free = r.capacity - (r.occupied || 0);
-              return (
-                <View key={r._id} style={[styles.free, { borderColor: dark ? 'rgba(255,255,255,0.16)' : '#D3D8E2' }]}>
-                  <RoomTile no={r.roomNo} vacant />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={[styles.name, { color: c.text, fontSize: 14 }]}>{free} bed{free === 1 ? '' : 's'} free</Text>
-                    <Text style={[styles.meta, { color: c.textMuted }]} numberOfLines={1}>
-                      {[floorName(r), r.capacity === 1 ? 'Single' : `${r.capacity} sharing`, r.bedRent ? `${rupees(r.bedRent)}/mo` : null].filter(Boolean).join(' · ')}
-                    </Text>
-                  </View>
-                  {canAdd ? (
-                    <TouchableOpacity onPress={() => setAdding({ roomId: r._id })} style={[styles.fill, { backgroundColor: c.primarySoft, borderColor: c.primaryBorder }]}>
-                      <Text style={{ color: c.primaryDark, fontWeight: '700', fontSize: 13 }}>+ Fill bed</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {!sections.length && !freeRooms.length && (
-          <View style={[styles.empty, { borderColor: dark ? 'rgba(255,255,255,0.12)' : '#E2E5EC', backgroundColor: c.card }]}>
-            <Text style={[styles.name, { color: c.text, textAlign: 'center' }]}>
-              {query ? `Nobody matches “${q}”` : { owe: 'Nobody owes money', soon: 'Nothing due this week', paid: 'Nobody has paid yet', all: `No ${W.members} here` }[tab]}
-            </Text>
-            <Text style={[styles.meta, { color: c.textMuted, textAlign: 'center', marginTop: 4 }]}>
-              {query ? 'Try a name, phone number or room.' : { owe: 'Everyone here is paid up.', soon: `You'll see ${W.members} here a week before their fee is due.`, paid: 'Payments you record show up here.', all: `Add a ${W.member} to get started.` }[tab]}
-            </Text>
-          </View>
+            <View>
+              {freeRooms.map((r, i) => {
+                const free = r.capacity - (r.occupied || 0);
+                return (
+                  <CompactRow
+                    key={r._id}
+                    last={i === freeRooms.length - 1}
+                    title={`Room ${r.roomNo}`}
+                    tags={[{ text: `${free} bed${free === 1 ? '' : 's'} free`, tone: 'paid' }]}
+                    sub={[floorName(r), r.capacity === 1 ? 'Single' : `${r.capacity} sharing`].filter(Boolean).join(' · ')}
+                    amount={r.bedRent ? rupees(r.bedRent) : null}
+                    amountSub={r.bedRent ? 'a month' : null}
+                    button={canAdd ? { label: 'Fill bed', onPress: () => setAdding({ roomId: r._id }) } : null}
+                  />
+                );
+              })}
+            </View>
+          </ListCard>
         )}
 
         <Text style={[styles.tip, { color: c.textMuted }]}>Tap a {W.member} to open · long-press to pick several</Text>
@@ -510,25 +394,6 @@ export default function MembersScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* the ⋯ menu */}
-      <RNModal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable style={styles.menuScrim} onPress={() => setMenuOpen(false)}>
-          <View style={[styles.menu, { backgroundColor: c.card, borderColor: line }]}>
-            {[
-              canAdd && { icon: 'cash-outline', bg: c.primarySoft, ink: c.primaryDark, label: 'Record a payment', go: () => { setTab('owe'); Alert.alert('Record a payment', `Tap Collect on the ${W.member} who paid.`); } },
-              { icon: 'checkbox-outline', bg: c.infoSoft, ink: c.infoDark, label: `Pick several ${W.members}`, go: () => { setPicking(true); setPicked(new Set()); } },
-              isHostel && { icon: 'bed-outline', bg: tone.green.bg, ink: c.successDark, label: 'Rooms and beds', go: () => navigation.navigate('Rooms') },
-              { icon: 'download-outline', bg: tone.grey.bg, ink: c.textSecondary, label: 'Download the list', go: () => downloadFile(`/businesses/${biz._id}/export/balances.csv`, `${biz?.name}-${W.members}.csv`).catch((e) => Alert.alert('Could not download', e.message)) },
-            ].filter(Boolean).map((it) => (
-              <TouchableOpacity key={it.label} onPress={() => { setMenuOpen(false); it.go(); }} style={styles.menuItem}>
-                <View style={[styles.menuIcon, { backgroundColor: it.bg }]}><Icon name={it.icon} size={15} color={it.ink} /></View>
-                <Text style={{ color: c.text, fontSize: 14.5, fontWeight: '500' }}>{it.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </RNModal>
-
       {sheet && (
         <CollectSheet
           sheet={sheet}
@@ -550,14 +415,6 @@ export default function MembersScreen({ navigation, route }) {
       />
       {bulk && <BulkRemindModal visible title={bulk.title} people={bulk.people} biz={biz} onClose={() => setBulk(null)} />}
     </SafeAreaView>
-  );
-}
-
-function Chip({ on, label, onPress, c, line }) {
-  return (
-    <TouchableOpacity onPress={onPress} style={[styles.chip, { backgroundColor: on ? c.primarySoft : c.card, borderColor: on ? c.primary : line }]}>
-      <Text style={{ fontSize: 13, fontWeight: on ? '700' : '500', color: on ? c.primaryDark : c.textSecondary }}>{label}</Text>
-    </TouchableOpacity>
   );
 }
 
@@ -661,6 +518,7 @@ export function CollectSheet({ sheet, setSheet, room, late, theme, tone, onDone 
 }
 
 const styles = StyleSheet.create({
+  filterPanel: { borderRadius: 10, padding: 10, gap: 6 },
   safe: { flex: 1 },
   scroll: { padding: 16, paddingBottom: 110, gap: 12 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },

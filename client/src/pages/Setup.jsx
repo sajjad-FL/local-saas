@@ -9,7 +9,8 @@ import { words } from '../wording.js';
 import HostelProperty from './HostelProperty.jsx';
 import Outlets from './Outlets.jsx';
 import Staff from './Staff.jsx';
-import { Field, PlusIcon, XIcon, CreditCardIcon, BuildingIcon, CheckIcon, UsersIcon, SettingsIcon, EditIcon, AlertIcon, TagIcon, ActivityIcon, SparklesIcon, TrashIcon, SearchIcon, Avatar } from '../ui.jsx';
+import { Field, PlusIcon, XIcon, CreditCardIcon, BuildingIcon, CheckIcon, UsersIcon, SettingsIcon, EditIcon, AlertIcon, TagIcon, ActivityIcon, SparklesIcon, TrashIcon, SearchIcon, Avatar, DownloadIcon } from '../ui.jsx';
+import FilterSheet, { FilterButton } from '../FilterSheet.jsx';
 
 const CYCLES = [
   [7, '7 days (weekly)'], [15, '15 days (fortnightly)'], [30, '30 days (monthly)'], [60, '60 days (2 months)'],
@@ -348,6 +349,11 @@ export function SalesView({ biz }) {
   const [q, setQ] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [part, setPart] = useState('history'); // 'history' | 'items'
+  // phones: quick chips, plus type and how-paid in the filter sheet
+  const [show, setShow] = useState('all'); // 'all' | 'unpaid' | 'items'
+  const [kindF, setKindF] = useState('all');
+  const [modeF, setModeF] = useState('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [from, to] = SALE_PERIODS.find((p) => p[0] === period)[2]();
   const qs = `${from ? `from=${from.toISOString()}&` : ''}to=${to.toISOString()}`;
   const { data, error } = useQuery({
@@ -384,6 +390,17 @@ export function SalesView({ biz }) {
   const sales = data.sales.filter((x) => !query || x.memberName.toLowerCase().includes(query) || linesText(x.items).toLowerCase().includes(query));
   const shown = showAll ? sales : sales.slice(0, 12);
   const canUndo = can(biz, DELETE);
+  // phones
+  const owing = (x) => !x.paid && x.stillOwed > 0;
+  const phBase = sales.filter((x) => (kindF === 'all' || x.items.some((l) => l.kind === kindF)) && (modeF === 'all' || (modeF === 'dues' ? !x.paid : x.mode === modeF)));
+  const phList = show === 'unpaid' ? phBase.filter(owing) : phBase;
+  const phShown = showAll ? phList : phList.slice(0, 12);
+  const phItems = data.byItem.filter((i) => kindF === 'all' || i.kind === kindF);
+  const kindsSold = [...new Set(data.byItem.map((i) => i.kind))];
+  const filtersOn = (kindF !== 'all') + (modeF !== 'all');
+  const saleTag = (x) => x.paid
+    ? { tone: 'paid', text: `Paid · ${MODE_NAME[x.mode] || 'Paid'}` }
+    : x.stillOwed ? { tone: 'due', text: x.stillOwed < x.total ? `${rupees(x.stillOwed)} owed` : 'On dues' } : { tone: 'paid', text: 'Paid later' };
 
   return (
     <div className="sv">
@@ -392,6 +409,20 @@ export function SalesView({ biz }) {
           <button key={id} type="button" role="radio" aria-checked={period === id} className={`en-choice ${period === id ? 'on' : ''}`} onClick={() => { setPeriod(id); setShowAll(false); }}>{label}</button>
         ))}
       </div>
+
+      {/* phones: the four numbers in one slim strip */}
+      <section className="mr-cards ph-strip sv-strip" aria-label="Totals">
+        {[
+          { label: 'Revenue', value: rupees(t.revenue), ink: 'green' },
+          { label: 'Cost', value: t.cost == null ? '—' : rupees(t.cost), ink: '' },
+          { label: 'Profit', value: t.profit == null ? '—' : rupees(t.profit), ink: 'violet' },
+          { label: 'Not paid', value: rupees(t.unpaid), ink: t.unpaid ? 'red' : '' },
+        ].map((c) => (
+          <div key={c.label} className="mr-card">
+            <span className="mr-card-main"><span className="mr-card-text"><span className="db-label">{c.label}</span><b className={c.ink}>{c.value}</b></span></span>
+          </div>
+        ))}
+      </section>
 
       <section className="sv-totals" aria-label="Totals">
         {cards.map((c) => (
@@ -409,6 +440,98 @@ export function SalesView({ biz }) {
           <p>Sell from Collect, a member's page or the Items view. Every sale shows up here with what it earned.</p>
         </section>
       ) : (
+        <>
+        {/* phones: search + filter, chips, one line per sale — same as Money's Who paid */}
+        <div className="ph-card sv-ph">
+          <div className="who-search-row">
+            <label className="mxp-search">
+              <SearchIcon size={15} />
+              <span className="sr-only">Search sales</span>
+              <input type="search" placeholder="Member or item" value={q} onChange={(e) => setQ(e.target.value)} />
+              {q && <button type="button" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>}
+            </label>
+            <span className="who-filter-btn"><FilterButton on={filtersOn} onClick={() => setFiltersOpen(true)} /></span>
+          </div>
+          <div className="who-chips" role="group" aria-label="Show">
+            {[['all', 'All', phBase.length], ['unpaid', 'Not paid', phBase.filter(owing).length], ['items', 'By item', phItems.length]].map(([id, label, n]) => (
+              <button key={id} type="button" aria-pressed={show === id} className={show === id ? 'on' : ''} onClick={() => { setShow(id); setShowAll(false); }}>
+                {label} <span>{n}</span>
+              </button>
+            ))}
+          </div>
+
+          {show === 'items' ? (
+            <ul className="who-rows">
+              {phItems.map((i) => (
+                <li key={String(i.itemId)} className="who-row">
+                  <span className="who-row-main">
+                    <b>{i.name}</b>
+                    <span className="who-row-tags">
+                      <span className="who-tag none">{KIND_SHORT[i.kind]}</span>
+                      {i.stock != null && <span className={`who-tag ${i.stock === 0 ? 'overdue' : i.stock <= 2 ? 'due' : 'paid'}`}>{i.stock === 0 ? 'Out of stock' : `${i.stock} left`}</span>}
+                      <span className="who-row-plan">{i.qty} sold{i.removed ? ' · removed' : ''}</span>
+                    </span>
+                  </span>
+                  <span className="who-row-amt">
+                    <b>{rupees(i.revenue)}</b>
+                    <span>{i.profit == null ? 'no cost price' : `${i.profit < 0 ? '−' : ''}${rupees(Math.abs(i.profit))} profit`}</span>
+                  </span>
+                </li>
+              ))}
+              {!phItems.length && <li className="who-empty"><b>Nothing sold of this type</b></li>}
+            </ul>
+          ) : (
+            <ul className="who-rows">
+              {phShown.map((x) => {
+                const tag = saleTag(x);
+                return (
+                  <li key={x._id} className="who-row">
+                    <Link to={`/members/${x.memberId}`} className="who-row-main">
+                      <b>{x.memberName}</b>
+                      <span className="who-row-tags">
+                        <span className={`who-tag ${tag.tone}`}>{tag.text}</span>
+                        <span className="who-row-plan">{linesText(x.items)}</span>
+                      </span>
+                    </Link>
+                    <span className="who-row-amt">
+                      <b className={owing(x) ? 'amber' : ''}>{rupees(x.total)}</b>
+                      <span>{whenText(x.at)}</span>
+                    </span>
+                    {canUndo && <button type="button" className="sv-undo" aria-label={`Undo sale to ${x.memberName}`} title="Undo sale" onClick={() => askUndo(x)}><XIcon size={14} /></button>}
+                  </li>
+                );
+              })}
+              {!phList.length && (
+                <li className="who-empty">
+                  <b>{q ? `Nothing matches “${q}”` : show === 'unpaid' ? 'Every sale is paid' : 'No sales match'}</b>
+                  <span>{q ? 'Try a member or item name.' : show === 'unpaid' ? 'Sales put on dues show up here.' : 'Try clearing the filters.'}</span>
+                </li>
+              )}
+            </ul>
+          )}
+
+          <div className="sv-ph-foot">
+            {show !== 'items' && <span>{phShown.length} of {phList.length}</span>}
+            {show !== 'items' && phList.length > phShown.length && <button type="button" className="mr-link" onClick={() => setShowAll(true)}>Show all</button>}
+            <button type="button" className="mr-link" onClick={() => download(`/businesses/${biz._id}/export/sales.csv?${qs}`, `${biz.name}-sales.csv`)}><DownloadIcon size={13} /> CSV</button>
+          </div>
+          {undo.error && <p className="error" role="alert">{undo.error.message}</p>}
+        </div>
+        <AnimatePresence>
+          {filtersOpen && (
+            <FilterSheet
+              count={show === 'items' ? phItems.length : phList.length}
+              noun={show === 'items' ? ['item', 'items'] : ['sale', 'sales']}
+              onClose={() => setFiltersOpen(false)}
+              onClear={() => { setKindF('all'); setModeF('all'); }}
+              groups={[
+                kindsSold.length > 1 && { label: 'Type', value: kindF, onPick: setKindF, options: [{ value: 'all', label: 'Everything' }, ...kindsSold.map((k) => ({ value: k, label: KINDS[k]?.label || k, count: sales.filter((x) => x.items.some((l) => l.kind === k)).length }))] },
+                { label: 'Paid by', value: modeF, onPick: setModeF, options: [{ value: 'all', label: 'Any' }, { value: 'cash', label: 'Cash' }, { value: 'upi', label: 'UPI' }, { value: 'other', label: 'Card / bank' }, { value: 'dues', label: 'Put on dues' }] },
+              ].filter(Boolean)}
+            />
+          )}
+        </AnimatePresence>
+
         <section className="mr-box sv-box">
           {/* one box, two tabs: every sale, or totals per item */}
           <div className="sv-box-head">
@@ -480,6 +603,7 @@ export function SalesView({ biz }) {
           </div>
           )}
         </section>
+        </>
       )}
     </div>
   );

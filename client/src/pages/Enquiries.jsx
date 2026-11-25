@@ -470,7 +470,7 @@ export default function Enquiries() {
 }
 
 // Add or edit one enquiry
-function EnquiryModal({ biz, plans, enquiry, canDelete, onDelete, onJoined, onClose }) {
+export function EnquiryModal({ biz, plans, enquiry, canDelete, onDelete, onJoined, onClose, onSaved }) {
   const qc = useQueryClient();
   const [form, setForm] = useState(() => ({
     name: enquiry?.name || '',
@@ -489,7 +489,7 @@ function EnquiryModal({ biz, plans, enquiry, canDelete, onDelete, onJoined, onCl
         ? api(`/businesses/${biz._id}/enquiries/${enquiry._id}`, { method: 'PATCH', body })
         : api(`/businesses/${biz._id}/enquiries`, { method: 'POST', body });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['enquiries', biz._id] }); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['enquiries', biz._id] }); onClose(); onSaved?.(); },
   });
   const quick = [['Tomorrow', 1], ['In 3 days', 3], ['Next week', 7]];
 

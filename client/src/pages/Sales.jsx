@@ -32,6 +32,7 @@ function SalesOn({ biz }) {
   const setView = (v) => { setAddKey(0); setParams((p) => { p.set('view', v); return p; }, { replace: true }); };
   const [addKey, setAddKey] = useState(0);
   const [selling, setSelling] = useState(null); // {} or { start: itemId }
+  const [moreOpen, setMoreOpen] = useState(false); // phones: the ⋯ menu
 
   const { data: catalogue } = useQuery({ queryKey: ['catalogue', biz._id], queryFn: () => api(`/businesses/${biz._id}/catalogue`) });
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -48,9 +49,33 @@ function SalesOn({ biz }) {
     ...kinds.map((k) => ({ id: k, label: KINDS[k].label, count: catalogue ? count(k) : undefined })),
   ];
 
+  const addItem = (k) => { setMoreOpen(false); setView(k); setAddKey((n) => n + 1); };
+
   return (
     <div className="sl">
-      <div className="page-header home-header db-head">
+      {/* phones: title, ⋯, one main button — same as Money and Members */}
+      <header className="mr-phone-head sl-phone-head">
+        <h1>Sales</h1>
+        {can(biz, EDIT) && (
+          <div className="mr-more">
+            <button type="button" className="mr-more-btn" aria-label="More" aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}>⋯</button>
+            {moreOpen && (
+              <>
+                <div className="mr-more-scrim" onClick={() => setMoreOpen(false)} aria-hidden="true" />
+                <div className="mr-more-menu" role="menu">
+                  {kinds.map((k) => {
+                    const KIcon = KINDS[k].icon;
+                    return <button key={k} type="button" role="menuitem" onClick={() => addItem(k)}><span className="mr-more-icon"><KIcon size={14} /></span>{KINDS[k].add}</button>;
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {can(biz, ADD) && <button type="button" className="btn mr-phone-pay" disabled={!catalogue?.length} onClick={() => setSelling({})}><PlusIcon size={14} /> Sell</button>}
+      </header>
+
+      <div className="page-header home-header db-head mr-desk-head">
         <div className="page-title-wrap">
           <p className="db-date">{subtitle}</p>
           <h1 className="db-hello">Sales</h1>
@@ -74,7 +99,8 @@ function SalesOn({ biz }) {
       <div className="db-tabs su-tabs sl-tabs" role="tablist" aria-label="Sales">
         {tabs.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={view === t.id} className={`db-tab ${view === t.id ? 'on' : ''}`} onClick={() => setView(t.id)}>
-            {t.label}{t.count > 0 && <span className="db-tab-count">{t.count}</span>}
+            <span className="lbl-long">{t.label}</span><span className="lbl-short">{{ pt: 'PT packs' }[t.id] || t.label}</span>
+            {t.count > 0 && <span className="db-tab-count">{t.count}</span>}
           </button>
         ))}
       </div>

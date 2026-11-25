@@ -6730,3 +6730,52 @@ i.owe, .mr-legend i.owe { background: #FCD34D; }
   .en2 .en2-list .mx2-tabs .db-tab { padding: 0 11px; }
   .en2 .en2-list .mx-search { height: 42px; }
 }
+
+/* Phones: the left-menu items in one swipeable row under the top bar, on every page
+   (design: Collect · menu row). On Collect it replaces the greeting. */
+.app-menu-row { display: none; }
+@media (max-width: 767px) {
+  .db-hello-desk { display: none; }
+  .app-menu-row {
+    display: flex; gap: 0; padding: 0 8px; background: var(--card-bg);
+    position: sticky; top: var(--header-h); z-index: 39;
+    width: 100%; max-width: 100%; box-sizing: border-box; min-width: 0;
+  }
+  .app-menu-row .db-tab { flex: none; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; }
+  .app-menu-row .db-tab svg { flex: none; }
+  .app-menu-row::-webkit-scrollbar { display: none; }
+}
+
+/* ===== Sales on phones: same pattern as Money / Members ===== */
+.sv-strip, .sv-ph { display: none; }
+.sv-undo { display: none; }
+@media (max-width: 767px) {
+  .sl .mr-phone-head { margin-bottom: 10px; }
+  .sl .mr-desk-head { display: none !important; }
+  /* type tabs: underline, like Money's Overview / Expenses / Who paid */
+  .sl .sl-tabs { display: flex; gap: 0; padding: 0; margin: 0 0 12px; background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; overflow-x: auto; scrollbar-width: none; }
+  .sl .sl-tabs .db-tab { flex: none; height: 40px; padding: 0 11px; border-radius: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 14px; background: transparent; }
+  .sl .sl-tabs .db-tab.on { background: transparent; border-bottom-color: var(--primary); }
+  .sl .sl-tabs .db-tab-count { display: inline-grid; margin-left: 6px; }
+  .sl .sl-tabs .lbl-long { display: none; }
+  .sl .sl-tabs .lbl-short { display: inline; }
+  /* period: one segmented row */
+  .sv .sv-periods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 10px; padding: 3px; overflow: visible; border-radius: 10px; background: var(--bg-subtle); }
+  .sv .sv-periods .en-choice { height: 30px; min-height: 0 !important; padding: 0 4px !important; border: 0 !important; border-radius: 7px; background: transparent; font-size: 12.5px; font-weight: 600; color: var(--text-2); justify-content: center; white-space: nowrap; box-shadow: none; }
+  .sv .sv-periods .en-choice.on { background: var(--card-bg); color: var(--text); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
+  /* the four numbers in one strip; the big cards and the desktop box go */
+  .sv .sv-strip { display: grid; margin-bottom: 12px; }
+  .sv .sv-strip b.violet { color: var(--primary-ink); }
+  .sv .sv-strip b.green { color: var(--mx-green, #067647); }
+  .sv .sv-strip b.red { color: var(--mx-red, #B42318); }
+  .sv .sv-totals, .sv .sv-box { display: none !important; }
+  .sv { display: block; }
+  .sv .sv-ph { display: block; }
+  .sv-ph .who-row-main { text-decoration: none; }
+  .sv-undo { display: grid; place-items: center; flex: none; width: 30px; height: 30px; min-height: 0 !important; padding: 0 !important; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-3); }
+  .sv-ph-foot { display: flex; align-items: center; gap: 12px; padding-top: 10px; font-size: 12.5px; color: var(--text-3); }
+  .sv-ph-foot .mr-link:last-child { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+}
+@media (max-width: 767px) {
+  .sv-ph .mxp-search { border: 1px solid var(--border); height: 42px; }
+}
