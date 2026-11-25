@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   RefreshControl,
   SafeAreaView,
@@ -20,11 +19,12 @@ import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
-import Avatar from '../../components/Avatar';
 import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import { ScreenSkeleton } from '../../components/Loader';
 import AddMemberModal from '../modals/AddMemberModal';
+import BulkRemindModal from '../modals/BulkRemindModal';
+import { CompactHeader, NumberStrip, ListCard, SearchFilter, ChipRow, CompactRow, ColorKey } from '../../components/Compact';
 
 // Same rules as the web Enquiries page (client/src/pages/Enquiries.jsx).
 const DAY = 86400000;
@@ -37,7 +37,6 @@ const isoDay = (d) => {
 };
 const inDays = (n) => isoDay(Date.now() + n * DAY);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-const fmtPhone = (p) => (p && p.length === 10 ? `${p.slice(0, 5)} ${p.slice(5)}` : p);
 
 const STATUS = {
   new: { label: 'New', dot: '#2563EB' },
@@ -82,6 +81,8 @@ export default function EnquiriesScreen({ navigation, route }) {
   const [sourceFilter, setSourceFilter] = useState('all');
   const [editing, setEditing] = useState(null); // {} new, or the enquiry
   const [joining, setJoining] = useState(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [bulk, setBulk] = useState(null); // the one-by-one WhatsApp sender
 
   const load = useCallback(async () => {
     if (!biz?._id) return;
@@ -153,16 +154,8 @@ export default function EnquiriesScreen({ navigation, route }) {
   const monthName = now.toLocaleDateString('en-IN', { month: 'long' });
   const monthIn = list0.filter((e) => thisMonth(e.createdAt));
   const monthJoined = monthIn.filter((e) => e.status === 'joined').length;
-  const monthFollowed = monthIn.filter((e) => e.status !== 'new').length;
   const nToday = count(VIEWS.today.fn), nMissed = count(VIEWS.overdue.fn), nOpen = count(isOpen);
 
-  const toneInk = { red: c.dangerDark, amber: c.warningDark, green: c.successDark, '': c.text };
-  const cards = [
-    { id: 'today', icon: 'call-outline', hex: '#D97706', label: 'Call today', value: nToday, note: 'call-backs due' },
-    { id: 'overdue', icon: 'alert-circle-outline', hex: '#DC2626', ink: nMissed ? 'red' : '', label: 'Missed', value: nMissed, note: 'date passed' },
-    { id: 'open', icon: 'people-outline', hex: '#2563EB', label: 'Open', value: nOpen, note: 'not decided yet' },
-    { id: 'joined', icon: 'checkmark-circle-outline', hex: '#16A34A', ink: 'green', label: `Joined · ${monthName.slice(0, 3)}`, value: monthJoined, note: monthIn.length ? `${Math.round((monthJoined / monthIn.length) * 100)}% of ${monthIn.length}` : 'none asked yet' },
-  ];
 
   if (!all && loadError) {
     const missing = loadError.status === 404;
@@ -191,13 +184,15 @@ export default function EnquiriesScreen({ navigation, route }) {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.card} />}>
-        <Text style={[styles.sub, { color: c.textMuted }]}>
-          {[nToday && `${nToday} to call today`, nMissed && `${nMissed} missed`, `${nOpen} open`].filter(Boolean).join(' · ')}
-        </Text>
-        <View style={styles.titleRow}>
-          <Text style={[styles.h1, { color: c.text }]}>Enquiries</Text>
-          <Button title="Add enquiry" size="sm" icon={<Icon name="add" size={16} color="#fff" />} onPress={() => setEditing({})} />
-        </View>
+        {/* 1. title, ⋯, one main button — same pattern as Money and Members */}
+        <CompactHeader
+          title="Enquiries"
+          menu={[
+            nToday + nMissed > 0 && { icon: 'logo-whatsapp', label: `Message the ${nToday + nMissed} to call`, go: () => setBulk({ title: 'to call back', people: list0.filter((e) => e.phone && (VIEWS.today.fn(e) || VIEWS.overdue.fn(e))).map((e) => ({ _id: e._id, name: e.name, phone: e.phone, balance: 0, message: hello(e) })) }) },
+          ]}
+          mainLabel="Enquiry"
+          onMain={() => setEditing({})}
+        />
 
         {list0.length === 0 ? (
           <Card style={{ alignItems: 'center', paddingVertical: 32 }}>
@@ -210,139 +205,55 @@ export default function EnquiriesScreen({ navigation, route }) {
           </Card>
         ) : (
           <>
-            <View style={styles.cardGrid}>
-              {cards.map((k) => {
-                const on = curView === k.id;
-                return (
-                  <TouchableOpacity
-                    key={k.id}
-                    activeOpacity={0.8}
-                    onPress={() => setView(k.id)}
-                    style={[styles.kpi, { backgroundColor: c.card, borderColor: on ? c.primary : c.border }]}>
-                    <View style={[styles.kpiIcon, { backgroundColor: tint(k.hex, theme.isDark ? 0.2 : 0.1, c.card) }]}>
-                      <Icon name={k.icon} size={16} color={k.hex} />
-                    </View>
-                    <Text style={[styles.kpiLabel, { color: c.textMuted }]} numberOfLines={1}>{k.label}</Text>
-                    <Text style={[styles.kpiValue, { color: toneInk[k.ink || ''] }]}>{k.value}</Text>
-                    <Text style={[styles.kpiNote, { color: c.textSubtle }]} numberOfLines={1}>{k.note}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {/* 2. the four numbers in one slim strip (tap one to show that list) */}
+            <NumberStrip items={[
+              { label: 'Call today', value: String(nToday), ink: nToday ? c.warningDark : undefined, on: curView === 'today', onPress: () => setView('today') },
+              { label: 'Missed', value: String(nMissed), ink: nMissed ? c.dangerDark : undefined, on: curView === 'overdue', onPress: () => setView('overdue') },
+              { label: 'Open', value: String(nOpen), on: curView === 'open', onPress: () => setView('open') },
+              { label: `Joined · ${monthName.slice(0, 3)}`, value: String(monthJoined), ink: monthJoined ? c.successDark : undefined, on: curView === 'joined', onPress: () => setView('joined') },
+            ]} />
 
-            {monthIn.length > 0 && (
-              <Card style={{ padding: 12 }}>
-                <Text style={[styles.funnelHead, { color: c.text }]}>{monthName}</Text>
-                <View style={styles.funnelBar}>
-                  <View style={[styles.funnelSeg, { flexGrow: Math.max(1, monthIn.length - monthFollowed), backgroundColor: c.infoSoft }]}>
-                    <Text style={[styles.funnelText, { color: c.infoDark }]} numberOfLines={1}>{monthIn.length} asked</Text>
-                  </View>
-                  {monthFollowed - monthJoined > 0 && (
-                    <View style={[styles.funnelSeg, { flexGrow: monthFollowed - monthJoined, backgroundColor: c.warningSoft }]}>
-                      <Text style={[styles.funnelText, { color: c.warningDark }]} numberOfLines={1}>{monthFollowed} followed</Text>
-                    </View>
-                  )}
-                  {monthJoined > 0 && (
-                    <View style={[styles.funnelSeg, { flexGrow: monthJoined, backgroundColor: c.successSoft }]}>
-                      <Text style={[styles.funnelText, { color: c.successDark }]} numberOfLines={1}>{monthJoined} joined</Text>
-                    </View>
-                  )}
+            {/* 3. search + filter, chips, one line per person */}
+            <ListCard>
+              <SearchFilter value={q} onChange={setQ} placeholder="Search by name or phone" filterOn={sourceFilter !== 'all' ? 1 : 0} onFilter={() => setFiltersOpen((o) => !o)} />
+              {filtersOpen && (
+                <View style={[styles.filterPanel, { backgroundColor: c.cardSubtle }]}>
+                  <Text style={[styles.filterLabel, { color: c.textMuted }]}>CAME FROM</Text>
+                  <ChipRow small value={sourceFilter} onPick={setSourceFilter} options={[{ id: 'all', label: 'Anywhere' }, ...Object.entries(SOURCES).map(([id, label]) => ({ id, label }))]} />
                 </View>
-                <Text style={[styles.funnelSum, { color: c.textMuted }]}>
-                  <Text style={{ fontWeight: '700', color: c.text }}>{Math.round((monthJoined / monthIn.length) * 100)}%</Text> joined this month
-                </Text>
-              </Card>
-            )}
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-              {TABS.map((id) => {
-                const on = curView === id;
-                const n = list0.filter((e) => passes(e, 'view') && VIEWS[id].fn(e)).length;
-                return (
-                  <TouchableOpacity
-                    key={id}
-                    onPress={() => setView(id)}
-                    style={[styles.tab, { backgroundColor: on ? c.primarySoft : c.card, borderColor: on ? c.primary : c.border }]}>
-                    <View style={[styles.dot, { backgroundColor: VIEWS[id].dot }]} />
-                    <Text style={[styles.tabText, { color: on ? c.primaryDark : c.textSecondary, fontWeight: on ? '700' : '500' }]}>{VIEWS[id].tab}</Text>
-                    <Text style={[styles.tabCount, { color: c.textMuted }]}>{n}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View style={[styles.search, { backgroundColor: c.card, borderColor: c.border }]}>
-              <Icon name="search" size={16} color={c.textMuted} />
-              <TextInput
-                value={q}
-                onChangeText={setQ}
-                placeholder="Search by name or phone"
-                placeholderTextColor={c.textMuted}
-                style={[styles.searchInput, { color: c.text }]}
-              />
-              {q ? <TouchableOpacity onPress={() => setQ('')}><Icon name="close-circle" size={16} color={c.textMuted} /></TouchableOpacity> : null}
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 12 }}>
-              {[['all', 'Came from: any'], ...Object.entries(SOURCES)].map(([v, l]) => (
-                <Pill key={v} on={sourceFilter === v} label={l} onPress={() => setSourceFilter(v)} />
-              ))}
-            </ScrollView>
-
-            {list.length === 0 ? (
-              <Text style={[styles.none, { color: c.textMuted }]}>{q ? `Nobody matches “${q}”.` : VIEWS[curView].empty}</Text>
-            ) : (
-              list.map((e) => {
-                const f = followText(e);
-                const st = STATUS[e.status] || STATUS.new;
-                return (
-                  <Card key={e._id} style={{ padding: 12 }}>
-                    <TouchableOpacity activeOpacity={0.7} onPress={() => setEditing(e)} style={styles.rowTop}>
-                      <Avatar name={e.name} size={36} />
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{e.name}</Text>
-                        <Text style={[styles.meta, { color: c.textMuted }]} numberOfLines={1}>
-                          {e.phone ? fmtPhone(e.phone) : 'No phone'} · {SOURCES[e.source] || '—'} · asked {shortDate(e.createdAt)}
-                        </Text>
-                      </View>
-                      {isOpen(e) ? (
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={[styles.follow, { color: toneInk[f.tone] }]}>{f.text}</Text>
-                          <Text style={[styles.meta, { color: c.textMuted }]}>call back</Text>
-                        </View>
-                      ) : (
-                        <View style={[styles.pill, { backgroundColor: tint(st.dot, theme.isDark ? 0.2 : 0.1, c.card) }]}>
-                          <Text style={[styles.pillText, { color: st.dot }]}>{st.label}</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                    <Text style={[styles.note, { color: c.textSecondary }]} numberOfLines={2}>
-                      {e.planId?.name || 'Not sure yet'}{e.note ? ` · ${e.note}` : ''}
-                    </Text>
-                    {isOpen(e) ? (
-                      <View style={styles.rowActions}>
-                        {e.phone ? (
-                          <TouchableOpacity style={[styles.round, { borderColor: c.successBorder, backgroundColor: c.successSoft }]} onPress={() => Linking.openURL(waLink(e.phone, hello(e)))} accessibilityLabel={`WhatsApp ${e.name}`}>
-                            <Icon name="logo-whatsapp" size={17} color={c.successDark} />
-                          </TouchableOpacity>
-                        ) : null}
-                        {e.phone ? (
-                          <TouchableOpacity style={[styles.round, { borderColor: c.border }]} onPress={() => Linking.openURL(`tel:${e.phone}`)} accessibilityLabel={`Call ${e.name}`}>
-                            <Icon name="call-outline" size={16} color={c.text} />
-                          </TouchableOpacity>
-                        ) : null}
-                        <Button title="They joined" size="sm" onPress={() => setJoining(e)} style={{ flex: 1 }} />
-                        <TouchableOpacity style={[styles.round, { borderColor: c.border }]} onPress={() => setEditing(e)} accessibilityLabel={`Edit ${e.name}`}>
-                          <Icon name="create-outline" size={16} color={c.text} />
-                        </TouchableOpacity>
-                      </View>
-                    ) : e.status === 'joined' && e.memberId ? (
-                      <Button title={`Open ${W.member}`} size="sm" variant="secondary" style={{ marginTop: 10 }} onPress={() => navigation.navigate('MemberDetail', { id: e.memberId })} />
-                    ) : null}
-                  </Card>
-                );
-              })
-            )}
-            <Text style={[styles.foot, { color: c.textMuted }]}>Showing {list.length} of {list0.length}</Text>
+              )}
+              <ChipRow value={curView} onPick={setView} options={TABS.map((id) => ({
+                id,
+                label: { today: 'Today', overdue: 'Missed', open: 'Open', joined: 'Joined', lost: 'Lost' }[id],
+                count: list0.filter((e) => passes(e, 'view') && VIEWS[id].fn(e)).length,
+              }))} />
+              <View>
+                {list.map((e, i) => {
+                  const f = followText(e);
+                  const st = STATUS[e.status] || STATUS.new;
+                  return (
+                    <CompactRow
+                      key={e._id}
+                      last={i === list.length - 1}
+                      title={e.name}
+                      onPress={() => setEditing(e)}
+                      tags={[isOpen(e)
+                        ? { text: f.text, tone: { red: 'late', amber: 'due' }[f.tone] || 'none' }
+                        : { text: st.label, bg: tint(st.dot, theme.isDark ? 0.2 : 0.12, c.card), ink: st.dot }]}
+                      sub={[e.planId?.name, SOURCES[e.source]].filter(Boolean).join(' · ') || `asked ${shortDate(e.createdAt)}`}
+                      button={isOpen(e) && e.phone
+                        ? { label: 'Message', icon: 'logo-whatsapp', primary: true, a11y: `WhatsApp ${e.name}`, onPress: () => Linking.openURL(waLink(e.phone, hello(e))) }
+                        : e.status === 'joined' && e.memberId
+                          ? { label: 'Open', onPress: () => navigation.navigate('MemberDetail', { id: e.memberId }) }
+                          : { label: 'Open', onPress: () => setEditing(e) }}
+                    />
+                  );
+                })}
+                {list.length === 0 && <Text style={[styles.none, { color: c.textMuted }]}>{q ? `Nobody matches “${q}”.` : VIEWS[curView].empty}</Text>}
+              </View>
+              {list.length > 0 && <ColorKey items={[['Missed', 'late'], ['Call today', 'due'], ['Later', 'none']]} />}
+            </ListCard>
+            <Text style={[styles.foot, { color: c.textMuted }]}>Tap a name to edit, call, or mark them joined</Text>
           </>
         )}
       </ScrollView>
@@ -366,6 +277,7 @@ export default function EnquiriesScreen({ navigation, route }) {
         onClose={() => setJoining(null)}
         onMemberAdded={(member) => { if (joining && member?._id) patch(joining._id, { status: 'joined', memberId: member._id }); }}
       />
+      {bulk && <BulkRemindModal visible title={bulk.title} people={bulk.people} biz={biz} onClose={() => setBulk(null)} />}
     </SafeAreaView>
   );
 }
@@ -479,6 +391,8 @@ function EnquiryModal({ biz, plans, enquiry, canDelete, onDelete, onJoined, onSa
 }
 
 const styles = StyleSheet.create({
+  filterPanel: { borderRadius: 10, padding: 10, gap: 6 },
+  filterLabel: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.4 },
   safe: { flex: 1 },
   scroll: { padding: 16, paddingBottom: 40 },
   sub: { fontSize: 12.5 },

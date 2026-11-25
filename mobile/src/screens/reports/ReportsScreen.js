@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   RefreshControl,
   SafeAreaView,
@@ -16,12 +15,11 @@ import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, formatDate } from '../../api/api';
 import Card from '../../components/Card';
-import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
 import { ScreenSkeleton } from '../../components/Loader';
-import { tinted } from '../../constants/theme';
 import AddExpenseModal from '../modals/AddExpenseModal';
+import { CompactHeader, NumberStrip, ListCard, SearchFilter, ChipRow, CompactRow, ColorKey } from '../../components/Compact';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MODES = { cash: 'Cash', upi: 'UPI', other: 'Bank / card' };
@@ -87,31 +85,6 @@ function periodRange(kind, step, now = new Date()) {
   };
 }
 
-const prevLabel = {
-  month: 'last month',
-  quarter: 'last quarter',
-  year: 'last year',
-  custom: 'previous period',
-};
-
-function Change({ now = 0, before = 0, kind = 'month', goodWhenUp = true }) {
-  if (!before && !now) return null;
-  const diff = (now || 0) - (before || 0);
-  if (!diff) {
-    return (
-      <Text style={[styles.changeText, { color: '#94A3B8' }]}>
-        Same as {prevLabel[kind]}
-      </Text>
-    );
-  }
-  const good = goodWhenUp ? diff > 0 : diff < 0;
-  return (
-    <Text style={[styles.changeText, { color: good ? '#10B981' : '#EF4444' }]}>
-      {diff > 0 ? '▲' : '▼'} {rupees(Math.abs(diff))} vs {prevLabel[kind]}
-    </Text>
-  );
-}
-
 export default function ReportsScreen({ navigation }) {
   const { biz, isOwner } = useBiz();
   const { theme } = useTheme();
@@ -128,6 +101,11 @@ export default function ReportsScreen({ navigation }) {
   const [exporting, setExporting] = useState(false);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  // Who paid: quick chips, plus plan and sort in the filter panel
+  const [whoShow, setWhoShow] = useState('all');
+  const [whoPlan, setWhoPlan] = useState('all');
+  const [whoSort, setWhoSort] = useState('owed');
+  const [whoFilters, setWhoFilters] = useState(false);
 
   const range = periodRange(kind, step);
 
@@ -215,9 +193,6 @@ export default function ReportsScreen({ navigation }) {
   const spent = report?.expenses ?? 0;
   const profit = report?.profit ?? 0;
   const pending = report?.pending ?? 0;
-  const billed = report?.billed ?? 0;
-  const paymentCount = report?.paymentCount ?? 0;
-  const prev = report?.previous || {};
 
   // Splits for breakdown card
   const byMode = Object.entries(report?.byMode || {});
@@ -226,12 +201,23 @@ export default function ReportsScreen({ navigation }) {
   const byCat = Object.entries(report?.byCategory || {});
   const totalCat = byCat.reduce((s, [, v]) => s + v, 0);
 
-  const memberBreakdown = dashboardData?.memberPaymentBreakdown || [];
+  // what each member still owes = their unpaid months (the server sends months, not a balance)
+  const memberBreakdown = (dashboardData?.memberPaymentBreakdown || []).map((m) => ({
+    ...m,
+    balance: m.balance ?? (m.months || []).filter((x) => x.status === 'due' || x.status === 'overdue').reduce((t, x) => t + (x.amount || 0), 0),
+  }));
+  const monthName = Object.fromEntries((dashboardData?.activeMonthsList || []).map((x) => [x.key, x.label]));
   const qLower = search.trim().toLowerCase();
-  const filteredMembers = memberBreakdown.filter((m) => {
-    if (!qLower) return true;
-    return m.name.toLowerCase().includes(qLower) || (m.phone || '').includes(qLower);
-  });
+  const searchedMembers = memberBreakdown.filter((m) => !qLower || m.name.toLowerCase().includes(qLower) || (m.phone || '').includes(qLower));
+  const WHO_SHOW = { all: () => true, owe: (m) => m.balance > 0, paid: (m) => !(m.balance > 0) };
+  const whoPlans = [...new Set(memberBreakdown.map((m) => m.planName).filter(Boolean))];
+  const whoFiltersOn = (whoPlan !== 'all' ? 1 : 0) + (whoSort !== 'owed' ? 1 : 0);
+  const filteredMembers = searchedMembers
+    .filter(WHO_SHOW[whoShow])
+    .filter((m) => whoPlan === 'all' || m.planName === whoPlan)
+    .sort(whoSort === 'owed' ? (a, b) => (b.balance || 0) - (a.balance || 0) || (b.totalPaid || 0) - (a.totalPaid || 0)
+      : whoSort === 'paid' ? (a, b) => (b.totalPaid || 0) - (a.totalPaid || 0)
+      : (a, b) => a.name.localeCompare(b.name));
 
   if (!loaded) return <ScreenSkeleton navigation={navigation} kind="reports" />;
 
@@ -249,216 +235,65 @@ export default function ReportsScreen({ navigation }) {
             tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card}
           />
         }>
-        {/* PAGE TITLE & ACTION BUTTONS */}
-        <View style={styles.headerWrap}>
-          <Text style={[styles.pageTitle, { color: theme.colors.text }]}>Reports</Text>
+        {/* 1. title, ⋯ (expense, downloads), one main button — same as the web on phones */}
+        <CompactHeader
+          title="Reports"
+          menu={[
+            { icon: 'document-text-outline', label: 'Download all payments', go: () => handleExport('payments') },
+            { icon: 'alert-circle-outline', label: 'Download unpaid dues', go: () => handleExport('dues') },
+            { icon: 'list-outline', label: 'Download balances', go: () => handleExport('balances') },
+            { icon: 'cloud-download-outline', label: 'Download a backup', go: () => handleExport('backup') },
+          ]}
+          mainLabel="Expense"
+          onMain={() => setAddExpenseOpen(true)}
+        />
 
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.btnAddExpense, { backgroundColor: theme.colors.primary }]}
-              onPress={() => setAddExpenseOpen(true)}>
-              <Text style={styles.btnAddExpenseText}>+ Add expense</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.btnDownload,
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-              ]}
-              onPress={() => setDownloadModalOpen(true)}>
-              <Icon name="download-outline" size={15} color={theme.colors.text} />
-              <Text style={[styles.btnDownloadText, { color: theme.colors.text }]}>
-                Download
-              </Text>
-              <Icon name="chevron-down" size={13} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* PERIOD PICKER CARD */}
-        <Card style={styles.periodCard}>
-          {/* Segmented Control */}
-          <View style={[styles.periodTabsWrap, { backgroundColor: theme.colors.cardSubtle }]}>
-            {[
-              ['month', 'Month'],
-              ['quarter', 'Quarter'],
-              ['year', 'Year'],
-              ['custom', 'Custom'],
-            ].map(([k, label]) => {
-              const active = kind === k;
+        {/* 2. the period in one row: ‹ Nov 2026 › and M Q Y … */}
+        <View style={styles.periodRow}>
+          <TouchableOpacity accessibilityLabel="Earlier" onPress={() => setStep((x) => x - 1)} style={[styles.stepBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <Icon name="chevron-back" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.periodLabel, { color: theme.colors.text }]} numberOfLines={1}>{range.label}</Text>
+          <TouchableOpacity accessibilityLabel="Later" disabled={step >= 0} onPress={() => setStep((x) => x + 1)} style={[styles.stepBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, opacity: step >= 0 ? 0.35 : 1 }]}>
+            <Icon name="chevron-forward" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+          <View style={[styles.seg, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}>
+            {[['month', 'M', 'Month'], ['quarter', 'Q', 'Quarter'], ['year', 'Y', 'Year'], ['custom', '…', 'This month to today']].map(([k, short, name]) => {
+              const on = kind === k;
               return (
-                <TouchableOpacity
-                  key={k}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setKind(k);
-                    setStep(0);
-                  }}
-                  style={[
-                    styles.periodTab,
-                    active && { backgroundColor: theme.colors.card },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.periodTabText,
-                      { color: active ? theme.colors.text : theme.colors.textMuted },
-                    ]}>
-                    {label}
-                  </Text>
+                <TouchableOpacity key={k} accessibilityLabel={name} accessibilityState={{ selected: on }} onPress={() => { setKind(k); setStep(0); }}
+                  style={[styles.segBtn, on && { backgroundColor: theme.colors.card, shadowColor: '#0F172A', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 }]}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: on ? theme.colors.text : theme.colors.textMuted }}>{short}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-
-          {/* Stepper Navigation Row */}
-          <View style={styles.stepperRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setStep((s) => s - 1)}
-              style={[styles.stepBtn, { backgroundColor: theme.colors.cardSubtle }]}>
-              <Icon name="chevron-back" size={16} color={theme.colors.text} />
-            </TouchableOpacity>
-
-            <View style={styles.stepperCenter}>
-              <Text style={[styles.stepperLabel, { color: theme.colors.text }]}>
-                {range.label}
-              </Text>
-              <Text style={[styles.stepperSubLabel, { color: theme.colors.textMuted }]}>
-                {range.subLabel}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              disabled={step >= 0}
-              onPress={() => setStep((s) => s + 1)}
-              style={[
-                styles.stepBtn,
-                { backgroundColor: theme.colors.cardSubtle, opacity: step >= 0 ? 0.3 : 1 },
-              ]}>
-              <Icon name="chevron-forward" size={16} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-        </Card>
-
-        {/* THE 4 FINANCIAL KPI CARDS */}
-        {/* Row 1: Received & Spent (Side by side) */}
-        <View style={styles.kpiRow}>
-          {/* Received */}
-          <Card style={[styles.kpiHalfCard, tinted(theme, '#10B981')]}>
-            <Text style={[styles.kpiLabel, { color: theme.colors.textMuted }]}>Received</Text>
-            <Text style={[styles.kpiVal, { color: received ? theme.colors.successDark : theme.colors.text }]}>
-              {rupees(received)}
-            </Text>
-            <Text style={[styles.kpiSub, { color: theme.colors.textMuted }]}>
-              from {paymentCount} payment{paymentCount === 1 ? '' : 's'}
-            </Text>
-            <Change now={received} before={prev.received} kind={kind} goodWhenUp={true} />
-          </Card>
-
-          {/* Spent */}
-          <Card style={[styles.kpiHalfCard, tinted(theme, '#EF4444')]}>
-            <Text style={[styles.kpiLabel, { color: theme.colors.textMuted }]}>Spent</Text>
-            <Text style={[styles.kpiVal, { color: spent ? theme.colors.danger : theme.colors.text }]}>
-              {rupees(spent)}
-            </Text>
-            <Text style={[styles.kpiSub, { color: theme.colors.textMuted }]}>
-              {expenses.length ? `on ${expenses.length} expense${expenses.length === 1 ? '' : 's'}` : 'no expenses'}
-            </Text>
-            <Change now={spent} before={prev.expenses} kind={kind} goodWhenUp={false} />
-          </Card>
         </View>
 
-        {/* Row 2: Profit (Full width) */}
-        <Card style={[styles.kpiFullCard, tinted(theme, profit < 0 ? '#EF4444' : '#10B981'), { borderLeftWidth: 3, borderLeftColor: profit < 0 ? '#EF4444' : '#10B981' }]}>
-          <Text style={[styles.kpiLabel, { color: theme.colors.textMuted }]}>{profit < 0 ? 'Loss' : 'Profit'}</Text>
-          <Text
-            style={[
-              styles.kpiValLarge,
-              { color: profit < 0 ? '#EF4444' : '#10B981' },
-            ]}>
-            {profit < 0 ? '−' : ''}{rupees(Math.abs(profit))}
-          </Text>
-          <Text style={[styles.kpiSub, { color: theme.colors.textMuted }]}>
-            received minus spent
-          </Text>
-          <Change now={profit} before={prev.profit} kind={kind} goodWhenUp={true} />
-        </Card>
+        {/* 3. the four numbers in one slim strip */}
+        <NumberStrip items={[
+          { label: 'Received', value: rupees(received), ink: received ? theme.colors.successDark : undefined },
+          { label: 'Spent', value: rupees(spent), ink: spent ? theme.colors.dangerDark : undefined },
+          { label: profit < 0 ? 'Loss' : 'Profit', value: `${profit < 0 ? '−' : ''}${rupees(Math.abs(profit))}`, ink: profit < 0 ? theme.colors.dangerDark : undefined },
+          { label: 'To collect', value: rupees(pending), ink: pending ? theme.colors.dangerDark : theme.colors.successDark },
+        ]} />
 
-        {/* Row 3: Still to collect (Full width) */}
-        <Card style={[styles.kpiFullCard, tinted(theme, '#F59E0B')]}>
-          <Text style={[styles.kpiLabel, { color: theme.colors.textMuted }]}>Still to collect</Text>
-          <Text style={[styles.kpiValLarge, { color: pending ? theme.colors.warningDark : theme.colors.text }]}>
-            {rupees(pending)}
-          </Text>
-          <Text style={[styles.kpiSub, { color: theme.colors.textMuted }]}>
-            {billed > 0
-              ? `of ${rupees(billed)} in fees for this period`
-              : 'no fees fell in this period'}
-          </Text>
-        </Card>
-
-        {/* DETAIL TABS SWITCHER */}
-        <View style={[styles.detailTabsWrap, { backgroundColor: theme.colors.cardSubtle }]}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setTab('breakdown')}
-            style={[
-              styles.detailTab,
-              tab === 'breakdown' && { backgroundColor: theme.colors.card },
-            ]}>
-            <Icon
-              name="bar-chart-outline"
-              size={14}
-              color={tab === 'breakdown' ? theme.colors.primary : theme.colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.detailTabText,
-                { color: tab === 'breakdown' ? theme.colors.text : theme.colors.textMuted },
-              ]}>
-              Breakdown
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setTab('expenses')}
-            style={[
-              styles.detailTab,
-              tab === 'expenses' && { backgroundColor: theme.colors.card },
-            ]}>
-            <Text
-              style={[
-                styles.detailTabText,
-                { color: tab === 'expenses' ? theme.colors.text : theme.colors.textMuted },
-              ]}>
-              ₹  Expenses ({expenses.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setTab('members')}
-            style={[
-              styles.detailTab,
-              tab === 'members' && { backgroundColor: theme.colors.card },
-            ]}>
-            <Icon
-              name="people-outline"
-              size={14}
-              color={tab === 'members' ? theme.colors.primary : theme.colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.detailTabText,
-                { color: tab === 'members' ? theme.colors.text : theme.colors.textMuted },
-              ]}>
-              Who paid
-            </Text>
-          </TouchableOpacity>
+        {/* 4. tabs */}
+        <View style={[styles.underTabs, { borderBottomColor: theme.colors.border }]}>
+          {[['breakdown', 'Overview', 0], ['expenses', 'Expenses', expenses.length], ['members', 'Who paid', memberBreakdown.length]].map(([k, label, n]) => {
+            const on = tab === k;
+            return (
+              <TouchableOpacity key={k} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => setTab(k)}
+                style={[styles.underTab, { borderBottomColor: on ? theme.colors.primary : 'transparent' }]}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: on ? theme.colors.primaryDark : theme.colors.textMuted }}>{label}</Text>
+                {n > 0 ? (
+                  <View style={[styles.tabCount, { backgroundColor: on ? theme.colors.primary : theme.colors.cardSubtle }]}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: on ? '#fff' : theme.colors.textMuted }}>{n}</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* TAB 1: BREAKDOWN */}
@@ -569,59 +404,64 @@ export default function ReportsScreen({ navigation }) {
               </View>
             ) : (
               <Text style={[styles.emptyNote, { color: theme.colors.textMuted }]}>
-                No expenses recorded in this period. Tap "+ Add expense" above to add one.
+                No expenses recorded in this period. Tap + Expense at the top to add one.
               </Text>
             )}
           </Card>
         )}
 
-        {/* TAB 3: WHO PAID */}
+        {/* TAB 3: WHO PAID — search + filter, chips, one line per member */}
         {tab === 'members' && (
-          <Card style={styles.detailCard}>
-            <Text style={[styles.breakdownHeader, { color: theme.colors.text }]}>
-              Who paid each month
-            </Text>
-            <View style={[styles.searchBox, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}>
-              <Icon name="search-outline" size={16} color={theme.colors.textMuted} />
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search member…"
-                placeholderTextColor={theme.colors.textMuted}
-                style={[styles.searchInput, { color: theme.colors.text }]}
-              />
-            </View>
-
-            {filteredMembers.length > 0 ? (
-              <View style={{ gap: 8, marginTop: 10 }}>
-                {filteredMembers.map((m) => (
-                  <TouchableOpacity
-                    key={m._id}
-                    activeOpacity={0.7}
-                    onPress={() => navigation.navigate('MemberDetail', { id: m._id })}
-                    style={[styles.memberRow, { borderBottomColor: theme.colors.borderSubtle }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.memberName, { color: theme.colors.text }]}>{m.name}</Text>
-                      <Text style={[styles.memberPhone, { color: theme.colors.textMuted }]}>
-                        {m.phone || 'No phone'}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.memberBal,
-                        { color: (m.balance || 0) <= 0 ? '#10B981' : '#EF4444' },
-                      ]}>
-                      {(m.balance || 0) <= 0 ? 'Clear' : `${rupees(m.balance)} due`}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+          <ListCard>
+            <SearchFilter value={search} onChange={setSearch} placeholder="Search name" filterOn={whoFiltersOn} onFilter={() => setWhoFilters((o) => !o)} />
+            {whoFilters && (
+              <View style={[styles.filterPanel, { backgroundColor: theme.colors.cardSubtle }]}>
+                {whoPlans.length > 1 && (
+                  <>
+                    <Text style={[styles.filterLabel, { color: theme.colors.textMuted }]}>PLAN</Text>
+                    <ChipRow small value={whoPlan} onPick={setWhoPlan} options={[{ id: 'all', label: 'All plans' }, ...whoPlans.map((p) => ({ id: p, label: p }))]} />
+                  </>
+                )}
+                <Text style={[styles.filterLabel, { color: theme.colors.textMuted }]}>SORT</Text>
+                <ChipRow small value={whoSort} onPick={setWhoSort} options={[{ id: 'owed', label: 'Most owed first' }, { id: 'paid', label: 'Most paid first' }, { id: 'name', label: 'Name A–Z' }]} />
               </View>
-            ) : (
-              <Text style={[styles.emptyNote, { color: theme.colors.textMuted }]}>
-                No members found matching "{search}".
-              </Text>
             )}
-          </Card>
+            <ChipRow value={whoShow} onPick={setWhoShow} options={[
+              { id: 'all', label: 'All', count: searchedMembers.length },
+              { id: 'owe', label: 'Owe', count: searchedMembers.filter(WHO_SHOW.owe).length },
+              { id: 'paid', label: 'Paid up', count: searchedMembers.filter(WHO_SHOW.paid).length },
+            ]} />
+            <View>
+              {filteredMembers.map((m, i) => {
+                const owes = m.balance > 0;
+                return (
+                  <CompactRow
+                    key={m._id}
+                    last={i === filteredMembers.length - 1}
+                    title={m.name}
+                    onPress={() => navigation.navigate('MemberDetail', { id: m._id })}
+                    tags={(m.months || []).filter((x) => x.status !== 'not_joined').map((x) => {
+                      const st = { paid: 'paid', overdue: 'late', due: 'due' }[x.status] || 'none';
+                      return { text: `${st === 'paid' ? '✓ ' : ''}${String(monthName[x.key] || x.key || '').split(' ')[0]}`, tone: st };
+                    })}
+                    sub={m.planName}
+                    amount={rupees(owes ? m.balance : m.totalPaid || 0)}
+                    amountInk={owes ? theme.colors.dangerDark : theme.colors.successDark}
+                    amountSub={owes ? 'owes' : 'paid'}
+                    button={owes
+                      ? { label: 'Collect', primary: true, onPress: () => navigation.navigate('MemberDetail', { id: m._id }) }
+                      : { label: 'Open', onPress: () => navigation.navigate('MemberDetail', { id: m._id }) }}
+                  />
+                );
+              })}
+              {filteredMembers.length === 0 && (
+                <Text style={[styles.emptyNote, { color: theme.colors.textMuted, textAlign: 'center', paddingVertical: 16 }]}>
+                  {search ? `No members match "${search}".` : 'Nobody here.'}
+                </Text>
+              )}
+            </View>
+            {filteredMembers.length > 0 && <ColorKey items={[['Paid', 'paid'], ['Late', 'late'], ['Due', 'due']]} />}
+          </ListCard>
         )}
       </ScrollView>
 
@@ -709,6 +549,15 @@ export default function ReportsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  periodRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  periodLabel: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700' },
+  seg: { flexDirection: 'row', padding: 3, borderRadius: 10, borderWidth: 1, gap: 2 },
+  segBtn: { height: 28, minWidth: 28, paddingHorizontal: 8, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  underTabs: { flexDirection: 'row', gap: 18, borderBottomWidth: 1, marginBottom: 12, paddingHorizontal: 2 },
+  underTab: { height: 40, flexDirection: 'row', alignItems: 'center', gap: 6, borderBottomWidth: 2, marginBottom: -1 },
+  tabCount: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
+  filterPanel: { borderRadius: 10, padding: 10, gap: 6 },
+  filterLabel: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.4 },
   safeArea: {
     flex: 1,
   },
@@ -784,9 +633,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   stepBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

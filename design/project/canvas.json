@@ -309,6 +309,14 @@
       "w": 390,
       "x": 0,
       "y": 22200
+    },
+    "CollectNavMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Collect · menu row (mobile)",
+      "w": 390,
+      "x": 0,
+      "y": 23400
     }
   },
   "createdOnFiles": {
@@ -338,7 +346,8 @@
     "tenants3",
     "home3",
     "rooms3",
-    "money3"
+    "money3",
+    "collectnav"
   ],
   "notes": {
     "attendance": {
@@ -492,6 +501,14 @@
       "w": 240,
       "x": 0,
       "y": 21940
+    },
+    "collectnav": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Collect (phone): the greeting is replaced by every left-menu item in one row, styled like the Follow up today tabs",
+      "w": 240,
+      "x": 0,
+      "y": 23140
     }
   },
   "order": [
@@ -531,7 +548,8 @@
     "HomeV3Mobile.dc.html",
     "RoomsV3Web.dc.html",
     "RoomsV3Mobile.dc.html",
-    "MoneyV3Mobile.dc.html"
+    "MoneyV3Mobile.dc.html",
+    "CollectNavMobile.dc.html"
   ],
   "pages": [],
   "title": "Local SaaS UX"

@@ -6669,3 +6669,113 @@ i.owe, .mr-legend i.owe { background: #FCD34D; }
   .who-key i { width: 9px; height: 9px; border-radius: 3px; }
   .who-key i.paid { background: #DCFCE7; } .who-key i.overdue { background: #FEE2E2; } .who-key i.due { background: #FEF3C7; }
 }
+
+/* ===== Members + Enquiries on phones: same pattern as Money v3 ===== */
+@media (max-width: 767px) {
+  /* Members (MembersPhone) */
+  .mxp .mr-phone-head { margin-bottom: 12px; }
+  .mxp .ph-strip { margin-bottom: 12px; }
+  .ph-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+  .ph-card .who-rows { margin: 0; }
+  .ph-card-title { margin: 0 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+  .ph-card .who-search-row .mxp-search { flex: 1; min-width: 0; }
+  .ph-sub-chips { overflow-x: auto; scrollbar-width: none; }
+  .ph-sub-chips button { flex: none; height: 28px; font-size: 12px; }
+  .who-row.on { background: var(--primary-soft); }
+  .who-row .mxp-box { flex: none; }
+  .who-row-main.fresh b, .who-row-main b.fresh { color: var(--mx-green, #067647); }
+  a.who-row-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; }
+  .who-row-amt b.amber { color: var(--amber); }
+  .who-row-amt b.grey { color: var(--text-3); }
+  .who-empty { list-style: none; padding: 20px 4px; text-align: center; display: flex; flex-direction: column; gap: 4px; color: var(--text-3); font-size: 13px; }
+  .who-empty b { color: var(--text); font-size: 14px; }
+  .who-row:last-of-type { border-bottom: 0; }
+
+  /* Enquiries */
+  .en2 .mr-phone-head { margin-bottom: 12px; }
+  .en2 .mr-desk-head { display: none !important; }
+  .en2 .en2-cards { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0 !important; margin-bottom: 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .en2 .en2-cards .db-today-card { min-height: 0; padding: 10px 8px; gap: 2px; border: 0 !important; border-right: 1px solid var(--border) !important; border-radius: 0 !important; background: transparent; box-shadow: none !important; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+  .en2 .en2-cards .db-today-card:last-child { border-right: 0 !important; }
+  .en2 .en2-cards .db-today-card.on { background: var(--primary-soft); }
+  .en2 .en2-cards .db-today-icon, .en2 .en2-cards .db-today-note { display: none !important; }
+  .en2 .en2-cards .db-today-text { gap: 0; }
+  .en2 .en2-cards .db-label { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .en2 .en2-cards .db-today-text b { font-size: 15px; font-weight: 800; }
+  .en2 .en2-funnel { padding: 8px 12px; gap: 8px; margin-bottom: 12px; font-size: 12.5px; }
+  .en2 .en2-funnel-bar { display: none; }
+  .en2 .en2-funnel-sum { flex: 1; }
+  .en2 .en2-list { display: flex; flex-direction: column; padding: 12px; }
+  .en2 .en2-list .mx-toolbar { order: 1; padding: 0; margin-bottom: 8px; border: 0; }
+  .en2 .en2-list .mx2-tabs { order: 2; display: flex; gap: 6px; margin: 0 0 8px !important; padding: 0 !important; border: 0; overflow-x: auto; scrollbar-width: none; }
+  .en2 .en2-list .mx2-tabs .db-tab { flex: none; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-2); font-size: 13px; font-weight: 600; gap: 5px; }
+  .en2 .en2-list .mx2-tabs .db-tab::after { display: none; }
+  .en2 .en2-list .mx2-tabs .db-tab.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-ink); }
+  .en2 .en2-list .mx2-tabs .db-tab-count { background: transparent; color: inherit; opacity: .7; padding: 0; min-width: 0; }
+  .en2 .en2-list > :not(.mx-toolbar):not(.mx2-tabs) { order: 3; }
+  .en2 .en2-cards-list, .en2 .mx-foot { display: none !important; }
+}
+
+/* Enquiries on phones: polish to match Members and Money */
+@media (max-width: 767px) {
+  .en2 .en2-cards .db-today-card { padding: 12px 10px !important; gap: 6px !important; }
+  .en2 .en2-cards .db-today-text { display: flex; flex-direction: column; gap: 8px !important; }
+  .en2 .en2-cards .db-label { font-size: 12px !important; color: var(--text-2); }
+  .en2 .en2-cards .db-today-text b { font-size: 17px !important; }
+  .en2 .en2-funnel { display: none !important; }
+  .en2 .en2-list { background: var(--card-bg) !important; border: 1px solid var(--border) !important; border-radius: 14px !important; box-shadow: none; padding: 12px !important; }
+  .en2 .en2-list .mx2-tabs .db-dot { display: none; }
+  .en2 .en2-list .mx2-tabs .lbl-long { display: none; }
+  .en2 .en2-list .mx2-tabs .lbl-short { display: inline; }
+  .en2 .en2-list .mx2-tabs .db-tab { padding: 0 11px; }
+  .en2 .en2-list .mx-search { height: 42px; }
+}
+
+/* Phones: the left-menu items in one swipeable row under the top bar, on every page
+   (design: Collect · menu row). On Collect it replaces the greeting. */
+.app-menu-row { display: none; }
+@media (max-width: 767px) {
+  .db-hello-desk { display: none; }
+  .app-menu-row {
+    display: flex; gap: 0; padding: 0 8px; background: var(--card-bg);
+    position: sticky; top: var(--header-h); z-index: 39;
+    width: 100%; max-width: 100%; box-sizing: border-box; min-width: 0;
+  }
+  .app-menu-row .db-tab { flex: none; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; }
+  .app-menu-row .db-tab svg { flex: none; }
+  .app-menu-row::-webkit-scrollbar { display: none; }
+}
+
+/* ===== Sales on phones: same pattern as Money / Members ===== */
+.sv-strip, .sv-ph { display: none; }
+.sv-undo { display: none; }
+@media (max-width: 767px) {
+  .sl .mr-phone-head { margin-bottom: 10px; }
+  .sl .mr-desk-head { display: none !important; }
+  /* type tabs: underline, like Money's Overview / Expenses / Who paid */
+  .sl .sl-tabs { display: flex; gap: 0; padding: 0; margin: 0 0 12px; background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; overflow-x: auto; scrollbar-width: none; }
+  .sl .sl-tabs .db-tab { flex: none; height: 40px; padding: 0 11px; border-radius: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 14px; background: transparent; }
+  .sl .sl-tabs .db-tab.on { background: transparent; border-bottom-color: var(--primary); }
+  .sl .sl-tabs .db-tab-count { display: inline-grid; margin-left: 6px; }
+  .sl .sl-tabs .lbl-long { display: none; }
+  .sl .sl-tabs .lbl-short { display: inline; }
+  /* period: one segmented row */
+  .sv .sv-periods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 10px; padding: 3px; overflow: visible; border-radius: 10px; background: var(--bg-subtle); }
+  .sv .sv-periods .en-choice { height: 30px; min-height: 0 !important; padding: 0 4px !important; border: 0 !important; border-radius: 7px; background: transparent; font-size: 12.5px; font-weight: 600; color: var(--text-2); justify-content: center; white-space: nowrap; box-shadow: none; }
+  .sv .sv-periods .en-choice.on { background: var(--card-bg); color: var(--text); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
+  /* the four numbers in one strip; the big cards and the desktop box go */
+  .sv .sv-strip { display: grid; margin-bottom: 12px; }
+  .sv .sv-strip b.violet { color: var(--primary-ink); }
+  .sv .sv-strip b.green { color: var(--mx-green, #067647); }
+  .sv .sv-strip b.red { color: var(--mx-red, #B42318); }
+  .sv .sv-totals, .sv .sv-box { display: none !important; }
+  .sv { display: block; }
+  .sv .sv-ph { display: block; }
+  .sv-ph .who-row-main { text-decoration: none; }
+  .sv-undo { display: grid; place-items: center; flex: none; width: 30px; height: 30px; min-height: 0 !important; padding: 0 !important; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text-3); }
+  .sv-ph-foot { display: flex; align-items: center; gap: 12px; padding-top: 10px; font-size: 12.5px; color: var(--text-3); }
+  .sv-ph-foot .mr-link:last-child { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+}
+@media (max-width: 767px) {
+  .sv-ph .mxp-search { border: 1px solid var(--border); height: 42px; }
+}

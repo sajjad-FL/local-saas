@@ -220,7 +220,7 @@ function Shell({ onLogout }) {
           <nav className="sidebar-nav" aria-label="Main">
             <NavLink to="/" end className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
               <HomeIcon size={18} />
-              <span>Collect</span>
+              <span>Dashboard</span>
             </NavLink>
             <NavLink to="/members" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
               <UsersIcon size={18} />
@@ -334,6 +334,29 @@ function Shell({ onLogout }) {
               </button>
             </div>
           </header>
+
+          {/* phones: every left-menu item in one swipeable row under the top bar, on every page */}
+          <nav className="db-tabs app-menu-row" aria-label="Go to">
+            {[
+              { to: '/', label: 'Dashboard', icon: HomeIcon },
+              { to: '/members', label: memberWord, icon: UsersIcon },
+              isHostel && { to: '/rooms', label: 'Rooms', icon: DoorIcon },
+              attendanceOn && { to: '/attendance', label: 'Attendance', icon: CalendarCheckIcon },
+              { to: '/enquiries', label: 'Enquiries', icon: UserPlusIcon },
+              { to: '/reports', label: 'Money', icon: BarChartIcon },
+              { to: '/setup', label: 'Setup', icon: SlidersHorizontalIcon },
+              biz.salesEnabled !== false && { to: '/sales', label: 'Sales', icon: TagIcon },
+              { to: '/settings', label: 'Settings', icon: SettingsIcon },
+            ].filter(Boolean).map((m) => (
+              <NavLink key={m.to} to={m.to} end={m.to === '/'} className={({ isActive }) => `db-tab${isActive ? ' on' : ''}`}
+                ref={(el) => { // keep the current page's tab in view (without scrolling the page)
+                  const row = el?.parentElement;
+                  if (row && el.classList.contains('on') && (el.offsetLeft < row.scrollLeft || el.offsetLeft + el.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = el.offsetLeft - 16;
+                }}>
+                <m.icon size={15} /> {m.label}
+              </NavLink>
+            ))}
+          </nav>
 
           <main>
             {biz.status === 'suspended' ? <PausedBusiness biz={biz} me={me} others={businesses.length > 1} /> : (

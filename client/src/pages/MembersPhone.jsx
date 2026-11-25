@@ -60,24 +60,6 @@ export default function MembersPhone({
   const cur = TABS.find((t) => t.id === tab);
   const list = base.filter(cur.fn).sort((a, b) => daysLate(b) - daysLate(a) || (b.balance || 0) - (a.balance || 0));
 
-  const byGroup = (() => {
-    if (tab === 'owe') {
-      return [
-        { key: 'week', title: 'Over a week late', tone: 'red', rows: list.filter((m) => daysLate(m) >= 7) },
-        { key: 'now', title: 'Late this week', tone: 'amber', rows: list.filter((m) => daysLate(m) < 7) },
-      ];
-    }
-    if (tab === 'all') {
-      return [
-        { key: 'owe', title: 'Owe', tone: 'red', rows: list.filter(inTab.owing) },
-        { key: 'soon', title: 'Due soon', tone: 'amber', rows: list.filter(isSoon) },
-        { key: 'paid', title: 'Paid', tone: 'green', rows: list.filter((m) => inTab.clear(m) && !isSoon(m)) },
-        { key: 'other', title: 'Paused', tone: '', rows: list.filter((m) => !inTab.owing(m) && !inTab.clear(m)) },
-      ];
-    }
-    return [{ key: tab, title: tab === 'soon' ? 'Fee due this week' : `Paid for ${monthName}`, tone: cur.ink, rows: list }];
-  })().filter((g) => g.rows.length);
-
   // free beds (hostels, All tab): one line per room with space
   const freeBeds = isHostel && tab === 'all' && !picking
     ? (rooms || [])
@@ -151,145 +133,142 @@ export default function MembersPhone({
     const d = m.nextRenewal ? daysUntil(m.nextRenewal) : null;
     return { amount: m.balance < 0 ? `+${rupees(-m.balance)}` : 'Paid', amtTone: 'green', chip: d != null && d > 0 ? `next in ${d} days` : 'paid up', chipTone: 'green' };
   };
-  const tileTone = (m) => (m.balance > 0 ? 'red' : isSoon(m) ? 'amber' : 'grey');
-
+  
   return (
     <div className="mxp">
-      <header className="mxp-head">
-        <div className="mxp-title">
-          <h1>{title}</h1>
-          <p>
-            {members.filter(inTab.all).length} {W.member}s
-            {isHostel && rooms?.length > 0 && ` · ${rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0)} of ${rooms.reduce((s, r) => s + r.capacity, 0)} beds filled`}
-          </p>
-        </div>
-        <div className="mxp-more-wrap">
-          <button type="button" className="mxp-more" aria-label="More" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>⋯</button>
+      {/* same pattern as Money on phones: title, ⋯, one main button */}
+      <header className="mr-phone-head">
+        <h1>{title}</h1>
+        <div className="mr-more">
+          <button type="button" className="mr-more-btn" aria-label="More" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>⋯</button>
           {menuOpen && (
             <>
-              <div className="mxp-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-              <div className="mxp-menu" role="menu">
-                {canAdd && <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onPay(); }}><span className="violet"><RupeeIcon size={14} /></span>Record a payment</button>}
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setPicking(true); setPicked(new Set()); }}><span className="blue"><CheckIcon size={14} /></span>Pick several {W.member}s</button>
-                {isHostel && <Link role="menuitem" to="/rooms" onClick={() => setMenuOpen(false)}><span className="green"><BedIcon size={14} /></span>Rooms and beds</Link>}
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onExport(); }}><span className="grey"><DownloadIcon size={14} /></span>Download the list</button>
+              <div className="mr-more-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+              <div className="mr-more-menu" role="menu">
+                {canAdd && <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onPay(); }}><span className="mr-more-icon exp"><RupeeIcon size={14} /></span>Record a payment</button>}
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setPicking(true); setPicked(new Set()); }}><span className="mr-more-icon"><CheckIcon size={14} /></span>Pick several {W.member}s</button>
+                {isHostel && <Link role="menuitem" to="/rooms" onClick={() => setMenuOpen(false)}><span className="mr-more-icon"><BedIcon size={14} /></span>Rooms and beds</Link>}
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onExport(); }}><span className="mr-more-icon"><DownloadIcon size={14} /></span>Download the list</button>
               </div>
             </>
           )}
         </div>
-        {canAdd && <button type="button" className="mxp-add" onClick={onAdd}><PlusIcon size={15} /> {W.member[0].toUpperCase() + W.member.slice(1)}</button>}
+        {canAdd && <button type="button" className="btn mr-phone-pay" onClick={onAdd}><PlusIcon size={14} /> {W.member[0].toUpperCase() + W.member.slice(1)}</button>}
       </header>
 
-      {expected != null && expected > 0 && (
-        <section className="mxp-month" aria-label="This month">
-          <div className="mxp-month-top"><span>{monthName} {isHostel ? 'rent' : 'fees'}</span><span>{pct}% in</span></div>
-          <div className="mxp-month-num"><b>{rupees(collected)}</b><span>collected of {rupees(expected)}</span></div>
-          <div className="mxp-bar" aria-hidden="true"><span style={{ width: `${pct}%` }} /><i /></div>
-          <div className="mxp-legend"><span><i className="paid" />Paid</span><span><i className="due" />{rupees(owedNow)} still to collect</span></div>
-        </section>
-      )}
+      {/* the four numbers in one slim strip */}
+      <section className="mr-cards ph-strip" aria-label={`${monthName} at a glance`}>
+        {[
+          { key: 'in', label: 'Collected', value: collected == null ? '…' : rupees(collected), ink: 'green' },
+          { key: 'owe', label: 'To collect', value: rupees(owedNow), ink: owedNow ? 'red' : '' },
+          { key: 'n', label: `${W.member[0].toUpperCase() + W.member.slice(1)}s`, value: String(members.filter(inTab.all).length), ink: '' },
+          isHostel && rooms?.length > 0
+            ? { key: 'beds', label: 'Beds filled', value: `${rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0)}/${rooms.reduce((s, r) => s + r.capacity, 0)}`, ink: '' }
+            : { key: 'soon', label: 'Due soon', value: String(base.filter(isSoon).length), ink: base.some(isSoon) ? 'amber' : '' },
+        ].map((c) => (
+          <div key={c.key} className="mr-card">
+            <span className="mr-card-main"><span className="mr-card-text"><span className="db-label">{c.label}</span><b className={c.ink}>{c.value}</b></span></span>
+          </div>
+        ))}
+      </section>
 
-      <div className="mxp-tabs" role="tablist" aria-label={`Show ${W.member}s`}>
-        {TABS.map((t) => {
-          const n = base.filter(t.fn).length;
-          return (
-            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => { setTab(t.id); setPicked(new Set()); }}>
-              <b className={n ? t.ink : 'dim'}>{n}</b>
-              <span>{t.label}</span>
+      <div className="ph-card">
+        <div className="who-search-row">
+          <label className="mxp-search">
+            <SearchIcon size={15} />
+            <span className="sr-only">Search {W.member}s</span>
+            <input type="search" placeholder={isHostel ? 'Name, phone or room' : 'Name, phone or plan'} value={q} onChange={(e) => setQ(e.target.value)} />
+            {q && <button type="button" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>}
+          </label>
+          <span className="who-filter-btn"><FilterButton on={filtersOn} onClick={onFilters} /></span>
+        </div>
+        <div className="who-chips" role="group" aria-label={`Show ${W.member}s`}>
+          {TABS.map((t) => (
+            <button key={t.id} type="button" aria-pressed={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => { setTab(t.id); setPicked(new Set()); }}>
+              {t.label} <span>{base.filter(t.fn).length}</span>
             </button>
-          );
-        })}
-      </div>
-
-      <div className="mxp-search-row">
-        <label className="mxp-search">
-          <SearchIcon size={15} />
-          <span className="sr-only">Search {W.member}s</span>
-          <input type="search" placeholder={isHostel ? 'Name, phone or room' : 'Name, phone or plan'} value={q} onChange={(e) => setQ(e.target.value)} />
-          {q && <button type="button" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>}
-        </label>
-        <FilterButton on={filtersOn} onClick={onFilters} />
-      </div>
-      {chips.length > 0 && (
-        <div className="mxp-chips">
-          {[{ id: 'all', label: oneBuilding ? 'All floors' : `All ${W.groups.toLowerCase()}` }, ...chips].map((c) => (
-            <button key={c.id} type="button" className={chip === c.id ? 'on' : ''} onClick={() => { setChip(c.id); setPicked(new Set()); }}>{c.label}</button>
           ))}
         </div>
-      )}
+        {chips.length > 0 && (
+          <div className="who-chips ph-sub-chips">
+            {[{ id: 'all', label: oneBuilding ? 'All floors' : `All ${W.groups.toLowerCase()}` }, ...chips].map((c) => (
+              <button key={c.id} type="button" className={chip === c.id ? 'on' : ''} onClick={() => { setChip(c.id); setPicked(new Set()); }}>{c.label}</button>
+            ))}
+          </div>
+        )}
 
-      {picking && (
-        <div className="mxp-picking">
-          <span>Tap {W.member}s to pick them · {picked.size} picked</span>
-          <button type="button" onClick={stopPicking}>Done</button>
-        </div>
-      )}
+        {picking && (
+          <div className="mxp-picking">
+            <span>Tap {W.member}s to pick them · {picked.size} picked</span>
+            <button type="button" onClick={stopPicking}>Done</button>
+          </div>
+        )}
 
-      {byGroup.map((g) => (
-        <section key={g.key} className="mxp-group">
-          <h2 className={g.tone}>{g.title}</h2>
-          {g.rows.map((m) => {
+        {/* one line per person: name + tags, what they owe or paid, one button */}
+        <ul className="who-rows">
+          {list.map((m) => {
             const room = roomOf(m);
             const r = rightSide(m);
             const owes = m.balance > 0;
             const soon = isSoon(m);
             const on = picked.has(m._id);
+            const late = daysLate(m);
+            const tag = owes ? (late >= 7 ? 'overdue' : 'due') : soon ? 'due' : statusOf(m).key === 'paused' ? 'none' : 'paid';
             return (
-              <article key={m._id} className={`mxp-row ${on ? 'on' : ''}`}>
-                <Link to={`/members/${m._id}`} className="mxp-row-main" onClick={(e) => rowClick(e, m)} {...press(m)}>
-                  {picking && <span className={`mxp-box ${on ? 'on' : ''}`} aria-hidden="true">{on && <CheckIcon size={12} />}</span>}
-                  {isHostel && room
-                    ? <span className={`mxp-room ${tileTone(m)}`}><span>Room</span><b>{room.roomNo}</b></span>
-                    : <Avatar name={m.name} />}
-                  <span className="mxp-who">
-                    <b>{m.name}</b>
-                    <span>{label(m)}</span>
-                    <span className={m._justPaid ? 'fresh' : ''}>{lastPaidText(m)}</span>
-                  </span>
-                  <span className="mxp-money">
-                    <b className={r.amtTone}>{r.amount}</b>
-                    <span className={`mxp-chip ${r.chipTone}`}>{r.chip}</span>
+              <li key={m._id} className={`who-row ${on ? 'on' : ''}`}>
+                {picking && <span className={`mxp-box ${on ? 'on' : ''}`} aria-hidden="true">{on && <CheckIcon size={12} />}</span>}
+                <Link to={`/members/${m._id}`} className="who-row-main" onClick={(e) => rowClick(e, m)} {...press(m)}>
+                  <b className={m._justPaid ? 'fresh' : ''}>{m.name}</b>
+                  <span className="who-row-tags">
+                    {isHostel && room && <span className="who-tag none">Room {room.roomNo}</span>}
+                    <span className={`who-tag ${tag}`}>{tag === 'paid' ? `✓ ${r.chip}` : r.chip}</span>
+                    {label(m) && <span className="who-row-plan">{label(m)}</span>}
                   </span>
                   {picking && <span className="sr-only">{on ? 'picked' : 'not picked'}</span>}
                 </Link>
-                {!picking && (owes || soon) && m.status === 'active' && (
-                  <div className="mxp-actions">
-                    {m.phone && (
-                      <a className="mxp-wa" href={waLink(m.phone, owes ? owingMessage(biz, m) : renewalMessage(biz, m))} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${m.name}`}><WhatsAppIcon size={17} /></a>
-                    )}
-                    {owes && canAdd && <button type="button" className="mxp-collect" onClick={() => setSheet({ m, amt: m.balance, mode: 'upi' })}>Collect {rupees(m.balance)}</button>}
-                    {soon && m.phone && <a className="mxp-remind" href={waLink(m.phone, renewalMessage(biz, m))} target="_blank" rel="noreferrer">Send a reminder</a>}
-                  </div>
-                )}
-              </article>
+                <span className="who-row-amt">
+                  <b className={r.amtTone}>{r.amount}</b>
+                  <span>{owes ? 'owes' : soon ? 'due' : r.amtTone === 'green' ? 'paid' : ''}</span>
+                </span>
+                {!picking && (owes && canAdd && m.status === 'active'
+                  ? <button type="button" className="btn who-row-btn" onClick={() => setSheet({ m, amt: m.balance, mode: 'upi' })}>Collect</button>
+                  : soon && m.phone && m.status === 'active'
+                    ? <a className="btn-secondary who-row-btn" href={waLink(m.phone, renewalMessage(biz, m))} target="_blank" rel="noreferrer">Remind</a>
+                    : <Link className="btn-secondary who-row-btn" to={`/members/${m._id}`}>Open</Link>)}
+              </li>
             );
           })}
-        </section>
-      ))}
+          {!list.length && (
+            <li className="who-empty">
+              <b>{q ? `Nobody matches “${q}”` : { owe: 'Nobody owes money', soon: 'Nothing due this week', paid: 'Nobody has paid yet', all: `No ${W.member}s here` }[tab]}</b>
+              <span>{q ? 'Try a name, phone number or room.' : { owe: 'Everyone here is paid up.', soon: `You'll see ${W.member}s here a week before their fee is due.`, paid: 'Payments you record show up here.', all: `Add a ${W.member} to get started.` }[tab]}</span>
+            </li>
+          )}
+          {list.length > 0 && <li className="who-key" aria-hidden="true"><span><i className="paid" />Paid</span><span><i className="overdue" />Week+ late</span><span><i className="due" />Due</span></li>}
+        </ul>
+      </div>
 
       {freeBeds.length > 0 && (
-        <section className="mxp-group">
-          <h2>Free beds · {freeBeds.reduce((s, r) => s + r.capacity - (r.occupied || 0), 0)}</h2>
-          {freeBeds.map((r) => {
-            const free = r.capacity - (r.occupied || 0);
-            return (
-              <div key={r._id} className="mxp-free">
-                <span className="mxp-room vacant"><span>Room</span><b>{r.roomNo}</b></span>
-                <span className="mxp-who">
-                  <b>{free} bed{free === 1 ? '' : 's'} free</b>
-                  <span>{[floorName(r), r.capacity === 1 ? 'Single' : `${r.capacity} sharing`, r.bedRent ? `${rupees(r.bedRent)}/mo` : null].filter(Boolean).join(' · ')}</span>
-                </span>
-                {canAdd && <button type="button" onClick={() => onFillBed(r._id)}>+ Fill bed</button>}
-              </div>
-            );
-          })}
-        </section>
-      )}
-
-      {!byGroup.length && !freeBeds.length && (
-        <div className="mxp-empty">
-          <b>{q ? `Nobody matches “${q}”` : { owe: 'Nobody owes money', soon: 'Nothing due this week', paid: 'Nobody has paid yet', all: `No ${W.member}s here` }[tab]}</b>
-          <span>{q ? 'Try a name, phone number or room.' : { owe: 'Everyone here is paid up.', soon: `You'll see ${W.member}s here a week before their fee is due.`, paid: 'Payments you record show up here.', all: `Add a ${W.member} to get started.` }[tab]}</span>
+        <div className="ph-card">
+          <p className="ph-card-title">Free beds · {freeBeds.reduce((s, r) => s + r.capacity - (r.occupied || 0), 0)}</p>
+          <ul className="who-rows">
+            {freeBeds.map((r) => {
+              const free = r.capacity - (r.occupied || 0);
+              return (
+                <li key={r._id} className="who-row">
+                  <span className="who-row-main">
+                    <b>Room {r.roomNo}</b>
+                    <span className="who-row-tags">
+                      <span className="who-tag paid">{free} bed{free === 1 ? '' : 's'} free</span>
+                      <span className="who-row-plan">{[floorName(r), r.capacity === 1 ? 'Single' : `${r.capacity} sharing`].filter(Boolean).join(' · ')}</span>
+                    </span>
+                  </span>
+                  {r.bedRent > 0 && <span className="who-row-amt"><b>{rupees(r.bedRent)}</b><span>a month</span></span>}
+                  {canAdd && <button type="button" className="btn-secondary who-row-btn" onClick={() => onFillBed(r._id)}>Fill bed</button>}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 
