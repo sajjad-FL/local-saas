@@ -317,6 +317,14 @@
       "w": 390,
       "x": 0,
       "y": 23400
+    },
+    "MembersFilterMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Members · filters v2 (mobile)",
+      "w": 390,
+      "x": 0,
+      "y": 24600
     }
   },
   "createdOnFiles": {
@@ -347,7 +355,8 @@
     "home3",
     "rooms3",
     "money3",
-    "collectnav"
+    "collectnav",
+    "memfilters"
   ],
   "notes": {
     "attendance": {
@@ -509,6 +518,14 @@
       "w": 240,
       "x": 0,
       "y": 23140
+    },
+    "memfilters": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "Members filters v2 (phone): the funnel centred and the same height as search; renewal, payment, last visit and joined filters; what's on shows as chips you can remove",
+      "w": 240,
+      "x": 0,
+      "y": 24340
     }
   },
   "order": [
@@ -549,7 +566,8 @@
     "RoomsV3Web.dc.html",
     "RoomsV3Mobile.dc.html",
     "MoneyV3Mobile.dc.html",
-    "CollectNavMobile.dc.html"
+    "CollectNavMobile.dc.html",
+    "MembersFilterMobile.dc.html"
   ],
   "pages": [],
   "title": "Local SaaS UX"

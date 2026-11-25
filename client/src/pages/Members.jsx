@@ -26,7 +26,7 @@ import {
 } from '../ui.jsx';
 
 // the Sort menu; header clicks can pick the other directions, which still get a name
-const SORT_OPTIONS = [['late_desc', 'Most late first'], ['balance_desc', 'Most owed first'], ['renewal_asc', 'Expiring soonest'], ['joined_desc', 'Newest joined']];
+const SORT_OPTIONS = [['late_desc', 'Most late first'], ['balance_desc', 'Most owed first'], ['renewal_asc', 'Renews soonest'], ['joined_desc', 'Newest joined'], ['name_asc', 'Name A–Z']];
 const SORT_LABELS = {
   ...Object.fromEntries(SORT_OPTIONS),
   late_asc: 'Least late first', balance_asc: 'Least owed first', renewal_desc: 'Expiring latest',
@@ -180,6 +180,7 @@ export default function Members() {
   const chooseBuilding = (id) => { setGroupFilter(id); setFloorFilter('all'); setRoomFilter('all'); };
   const chooseFloor = (id) => { setFloorFilter(id); setRoomFilter('all'); };
   const [filtering, setFiltering] = useState(false); // phones: the filter sheet
+  const [ph, setPh] = useState({}); // phones: the extra sheet filters (see PH_GROUPS)
 
   const planMatch = (m, p) => (m.planName || m.planId?.name || '').toLowerCase() === p.toLowerCase();
   const roomOf = (m) => roomById.get(m.roomId?._id || m.roomId);
@@ -210,22 +211,24 @@ export default function Members() {
     return true;
   };
 
+  const compare = (a, b) => {
+    const [col, dir] = sortBy.split('_');
+    const sign = dir === 'desc' ? -1 : 1;
+    if (col === 'renewal') {
+      if (!a.nextRenewal) return 1; // no date always last
+      if (!b.nextRenewal) return -1;
+      return (new Date(a.nextRenewal) - new Date(b.nextRenewal)) * sign;
+    }
+    if (col === 'joined') return (new Date(a.joinDate) - new Date(b.joinDate)) * sign;
+    if (col === 'balance') return ((a.balance || 0) - (b.balance || 0)) * sign;
+    if (col === 'late') return (daysLate(a) - daysLate(b)) * sign || ((a.balance || 0) - (b.balance || 0)) * sign;
+    if (col === 'visit') return ((daysAway(a) ?? -1) - (daysAway(b) ?? -1)) * sign;
+    if (col === 'name') return (a.name || '').localeCompare(b.name || '') * sign;
+    return 0;
+  };
   const filtered = useMemo(() => (members || [])
     .filter((m) => passes(m))
-    .sort((a, b) => {
-      const [col, dir] = sortBy.split('_');
-      const sign = dir === 'desc' ? -1 : 1;
-      if (col === 'renewal') {
-        if (!a.nextRenewal) return 1; // no date always last
-        if (!b.nextRenewal) return -1;
-        return (new Date(a.nextRenewal) - new Date(b.nextRenewal)) * sign;
-      }
-      if (col === 'joined') return (new Date(a.joinDate) - new Date(b.joinDate)) * sign;
-      if (col === 'balance') return ((a.balance || 0) - (b.balance || 0)) * sign;
-      if (col === 'late') return (daysLate(a) - daysLate(b)) * sign || ((a.balance || 0) - (b.balance || 0)) * sign;
-      if (col === 'visit') return ((daysAway(a) ?? -1) - (daysAway(b) ?? -1)) * sign;
-      return 0;
-    }),
+    .sort(compare),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [members, q, filter, planFilter, renewalFilter, groupFilter, floorFilter, roomFilter, roomById, sortBy]);
 
@@ -351,6 +354,47 @@ export default function Members() {
     { label: 'Sort by', value: sortBy, onPick: setSortBy, def: 'late_desc', options: SORT_OPTIONS.map(([value, label]) => ({ value, label })) },
   ].filter(Boolean);
   const clearSheet = () => { setPlanFilter('all'); chooseBuilding('all'); setSortBy('late_desc'); };
+
+  // phones only (design: Members filters v2): status, when the plan ends, payment, last visit, joined.
+  // Kept out of passes() so the desktop's own status tabs (Paused, Left…) are untouched.
+  const ends = (m) => (m.nextRenewal ? daysUntil(m.nextRenewal) : null);
+  const endsWithin = (n) => (m) => { const d = ends(m); return live(m) && d != null && d >= 0 && d <= n; };
+  const joinedDays = (m) => Math.floor((startOfToday - new Date(new Date(m.joinDate).toDateString())) / DAY);
+  const PH_GROUPS = [
+    { key: 'state', label: 'Status', def: 'active', options: [
+      ['active', 'Active', (m) => m.status === 'active' && !isPaused(m)],
+      ['paused', 'Paused', (m) => m.status === 'active' && isPaused(m)],
+      ['left', 'Left', (m) => m.status === 'left'],
+      ['everyone', 'Everyone', () => true],
+    ] },
+    { key: 'ends', label: 'Plan ends', options: [
+      ['all', 'Any time', () => true], ['today', 'Today', endsWithin(0)], ['d3', 'In 3 days', endsWithin(3)], ['d7', 'In 7 days', endsWithin(7)],
+      ['d15', 'In 15 days', endsWithin(15)], ['d30', 'In 30 days', endsWithin(30)], ['ended', 'Already ended', (m) => { const d = ends(m); return d != null && d < 0; }],
+    ] },
+    { key: 'pay', label: 'Payment', options: [
+      ['all', 'Any', () => true], ['owe', 'Owes money', (m) => m.balance > 0], ['late7', 'Late 7+ days', (m) => daysLate(m) >= 7],
+      ['late30', 'Late 30+ days', (m) => daysLate(m) >= 30], ['clear', 'Fully paid', (m) => (m.balance || 0) <= 0],
+    ] },
+    attendanceOn && { key: 'visit', label: 'Last visit', options: [
+      ['all', 'Any', () => true], ['today', 'Came today', (m) => m.lastVisit && daysAway(m) === 0],
+      ['a7', 'Away 7+ days', (m) => (daysAway(m) ?? 0) >= 7], ['a30', 'Away 30+ days', (m) => (daysAway(m) ?? 0) >= 30],
+      ['never', 'Never came', (m) => m.lastVisit === null],
+    ] },
+    { key: 'joined', label: 'Joined', options: [
+      ['all', 'Any time', () => true], ['w', 'This week', (m) => joinedDays(m) <= 7], ['m', 'This month', (m) => joinedDays(m) <= 30],
+      ['q', 'Last 3 months', (m) => joinedDays(m) <= 90], ['old', 'Over a year ago', (m) => joinedDays(m) > 365],
+    ] },
+  ].filter(Boolean);
+  const phDefault = Object.fromEntries(PH_GROUPS.map((g) => [g.key, g.def || 'all']));
+  const phone = {
+    groups: PH_GROUPS, value: { ...phDefault, ...ph }, set: (key, v) => setPh((p) => ({ ...p, [key]: v })),
+    // the existing building / floor / room and plan filters, and the sort
+    place: sheetGroups.filter((g) => g.label !== 'Plan' && g.label !== 'Sort by'),
+    plan: sheetGroups.find((g) => g.label === 'Plan'),
+    sort: sheetGroups.find((g) => g.label === 'Sort by'),
+    compare,
+    clear: () => { setPh({}); clearSheet(); },
+  };
 
   const chosen = filtered.filter((m) => selected.has(m._id));
   const allChosen = filtered.length > 0 && chosen.length === filtered.length;
@@ -671,7 +715,7 @@ export default function Members() {
           biz={biz} W={W} title={title} members={members} rooms={rooms || []} groups={groups || []}
           q={q} setQ={setQ} inTab={inTab} passes={passes} daysLate={daysLate} daysUntil={daysUntil}
           statusOf={statusOf} lastPaidText={lastPaidText} roomOf={roomOf} groupOf={groupOf}
-          filtersOn={sheetGroups.filter((g) => g.value !== (g.def ?? 'all')).length} onFilters={() => setFiltering(true)}
+          phone={phone}
           onAdd={() => setAdding(true)} onPay={() => setPicking(true)}
           onExport={() => download(`/businesses/${biz._id}/export/balances.csv`, `${biz.name}-${title.toLowerCase()}.csv`)}
           onFillBed={(roomId) => { setAddToRoom(roomId); setAdding(true); }}

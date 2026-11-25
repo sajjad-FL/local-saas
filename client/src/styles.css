@@ -6779,3 +6779,27 @@ i.owe, .mr-legend i.owe { background: #FCD34D; }
 @media (max-width: 767px) {
   .sv-ph .mxp-search { border: 1px solid var(--border); height: 42px; }
 }
+
+/* ===== Filters v2 (design: Members · filters v2) ===== */
+@media (max-width: 767px) {
+  /* the filter button: funnel dead centre, always as tall as the search box beside it */
+  .who-search-row { align-items: stretch !important; }
+  .who-search-row .who-filter-btn { display: flex; flex: none; }
+  .who-filter-btn .en2-filter-btn { display: grid !important; place-items: center; width: 44px; height: auto !important; min-height: 42px; padding: 0 !important; }
+  .who-filter-btn .en2-filter-btn svg { display: block; }
+  .ph-card .who-search-row .mxp-search { border: 1px solid var(--border); }
+
+  /* what's on, removable, under the search */
+  .ph-on-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .ph-on-chips button { height: 28px; min-height: 0 !important; padding: 0 8px 0 10px !important; border: 0; border-radius: 99px; background: var(--primary-soft); color: var(--primary-ink); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+}
+/* the sheet: roomier, a line between groups, the button stays put at the bottom */
+.fs-sheet { gap: 0; padding: 8px 20px calc(16px + env(safe-area-inset-bottom, 0px)); }
+.fs-grip { margin-bottom: 6px; }
+.fs-head { padding: 6px 0 12px; border-bottom: 1px solid var(--border); }
+.fs-group { padding: 16px 0 18px; min-width: 0; }
+.fs-group + .fs-group { border-top: 1px solid var(--border); }
+.fs-group legend { float: left; width: 100%; margin: 0 0 10px; font-size: 12px; font-weight: 700; color: var(--text-2); }
+.fs-chips { clear: both; gap: 8px; }
+.fs-chips .en-choice { height: 36px; padding: 0 14px; white-space: nowrap; }
+.fs-done { margin-top: 4px; box-shadow: 0 -12px 0 var(--card-bg), 0 -16px 14px -6px rgba(15, 23, 42, .06); }

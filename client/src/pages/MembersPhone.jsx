@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api, rupees, waLink, can, ADD } from '../api.js';
 import { owingMessage, renewalMessage } from '../BulkRemind.jsx';
-import { FilterButton } from '../FilterSheet.jsx';
+import FilterSheet, { FilterButton } from '../FilterSheet.jsx';
 import { Avatar, PlusIcon, SearchIcon, XIcon, WhatsAppIcon, CheckIcon, DownloadIcon, RupeeIcon, BedIcon } from '../ui.jsx';
 
 // Phones: the simpler list from the design (Tenants v3). One button up top, the month's
@@ -16,8 +16,9 @@ const MODE_NAME = { upi: 'UPI', cash: 'Cash', bank_transfer: 'Bank', card: 'Card
 
 export default function MembersPhone({
   biz, W, title, members, rooms, groups, q, setQ, inTab, passes, daysLate, daysUntil, statusOf, lastPaidText,
-  roomOf, groupOf, filtersOn, onFilters, onAdd, onPay, onExport, onFillBed, setBulk,
+  roomOf, groupOf, phone, onAdd, onPay, onExport, onFillBed, setBulk,
 }) {
+  const [filtering, setFiltering] = useState(false); // the filter sheet
   const qc = useQueryClient();
   const [tab, setTab] = useState('owe');
   const [chip, setChip] = useState('all'); // a floor (hostel with one building), a building, or a batch
@@ -53,12 +54,31 @@ export default function MembersPhone({
     { id: 'owe', label: 'Owe', fn: inTab.owing, ink: 'red' },
     { id: 'soon', label: 'Due soon', fn: isSoon, ink: 'amber' },
     { id: 'paid', label: 'Paid', fn: (m) => inTab.clear(m) && !isSoon(m), ink: 'green' },
-    { id: 'all', label: 'All', fn: inTab.all, ink: '' },
+    { id: 'all', label: 'All', fn: () => true, ink: '' }, // the sheet's Status decides who "all" is
   ];
+  // the sheet's own filters (status, plan ends, payment, last visit, joined); skip one to count its options
+  const optFn = (g, v) => (g.options.find((o) => o[0] === v) || g.options[0])[2];
+  const extra = (m, skip) => phone.groups.every((g) => g.key === skip || optFn(g, phone.value[g.key])(m));
   // search, plan and the other sheet filters still apply; the tab and chip are this screen's own
-  const base = members.filter((m) => passes(m, 'status') && chipTest(m));
+  const base = members.filter((m) => passes(m, 'status') && chipTest(m) && extra(m));
   const cur = TABS.find((t) => t.id === tab);
-  const list = base.filter(cur.fn).sort((a, b) => daysLate(b) - daysLate(a) || (b.balance || 0) - (a.balance || 0));
+  const list = base.filter(cur.fn).sort(phone.compare);
+
+  // the sheet, top to bottom: Status · Plan ends · Payment · Last visit · building/floor/room or batch · Plan · Joined · Sort
+  const sheetFor = (g) => ({
+    label: g.label, value: phone.value[g.key], def: g.def || 'all', onPick: (v) => { phone.set(g.key, v); setPicked(new Set()); },
+    options: g.options.map(([value, label, fn]) => ({
+      value, label,
+      count: members.filter((m) => passes(m, 'status') && chipTest(m) && extra(m, g.key) && cur.fn(m) && fn(m)).length,
+    })),
+  });
+  const byKey = Object.fromEntries(phone.groups.map((g) => [g.key, sheetFor(g)]));
+  const sheetGroups = [
+    byKey.state, byKey.ends, byKey.pay, byKey.visit, ...phone.place, phone.plan, byKey.joined, phone.sort,
+  ].filter(Boolean);
+  const isSet = (g) => g.value !== (g.def ?? 'all');
+  const setGroups = sheetGroups.filter((g) => g !== phone.sort && isSet(g));
+  const filtersOn = setGroups.length + (isSet(phone.sort) ? 1 : 0);
 
   // free beds (hostels, All tab): one line per room with space
   const freeBeds = isHostel && tab === 'all' && !picking
@@ -180,8 +200,18 @@ export default function MembersPhone({
             <input type="search" placeholder={isHostel ? 'Name, phone or room' : 'Name, phone or plan'} value={q} onChange={(e) => setQ(e.target.value)} />
             {q && <button type="button" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>}
           </label>
-          <span className="who-filter-btn"><FilterButton on={filtersOn} onClick={onFilters} /></span>
+          <span className="who-filter-btn"><FilterButton on={filtersOn} onClick={() => setFiltering(true)} /></span>
         </div>
+        {/* what the sheet has on, each one removable */}
+        {setGroups.length > 0 && (
+          <div className="ph-on-chips">
+            {setGroups.map((g) => (
+              <button key={g.label} type="button" onClick={() => g.onPick(g.def ?? 'all')} aria-label={`Remove ${g.label} filter`}>
+                {g.label}: {g.options.find((o) => o.value === g.value)?.label} <XIcon size={11} />
+              </button>
+            ))}
+          </div>
+        )}
         <div className="who-chips" role="group" aria-label={`Show ${W.member}s`}>
           {TABS.map((t) => (
             <button key={t.id} type="button" aria-pressed={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => { setTab(t.id); setPicked(new Set()); }}>
@@ -280,6 +310,13 @@ export default function MembersPhone({
           <button type="button" onClick={bar.go}><WhatsAppIcon size={15} /> {bar.cta}</button>
         </div>
       )}
+
+      <AnimatePresence>
+        {filtering && (
+          <FilterSheet groups={sheetGroups} count={list.length} noun={[W.member, `${W.member}s`]}
+            onClear={phone.clear} onClose={() => setFiltering(false)} />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {sheet && (
