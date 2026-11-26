@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { api, rupees } from '../api.js';
 import { useBiz } from '../contexts.js';
 import { confirmAction } from '../confirm.jsx';
-import { Field, PlusIcon, XIcon, BuildingIcon, UsersIcon, RupeeIcon, CheckCircleIcon, EditIcon, TrashIcon, CheckIcon } from '../ui.jsx';
+import { Field, PlusIcon, XIcon, BuildingIcon, UsersIcon, RupeeIcon, CheckCircleIcon, EditIcon, TrashIcon } from '../ui.jsx';
 
 const KINDS = [
   { key: 'gym', label: 'Gym' },
@@ -232,16 +232,10 @@ function AddOutletModal({ current, canCopy, onClose }) {
         <Field label="Outlet name *">
           <input required autoFocus maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={`e.g. ${current.name} – Second branch`} />
         </Field>
-        <fieldset className="en-fieldset">
-          <legend>Type</legend>
-          <div className="en-pills">
-            {KINDS.map((k) => (
-              <button key={k.key} type="button" aria-pressed={form.type === k.key} className={`en-choice ${form.type === k.key ? 'on' : ''}`} onClick={() => setForm({ ...form, type: k.key })}>
-                {form.type === k.key && <CheckIcon size={13} />} {k.label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        {/* a new outlet is the same kind of business as this one: no type to pick */}
+        <p className="ol-type-note">
+          <span>Type</span> <b>{KINDS.find((k) => k.key === current.type)?.label || kindLabel(current.type)}</b> · same as {current.name}
+        </p>
         {canCopy && (
           <label className="ol-copy">
             <input type="checkbox" checked={form.copy} onChange={(e) => setForm({ ...form, copy: e.target.checked })} />

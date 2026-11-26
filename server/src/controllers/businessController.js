@@ -21,6 +21,11 @@ export async function createBusiness(req, res, next) {
     const name = String(req.body.name || '').trim();
     if (!name) return res.status(400).json({ error: 'name is required' });
     if (!TYPES.includes(type)) return res.status(400).json({ error: 'pick a business type' });
+    // more outlets of the same business: a gym owner adds gyms, not a mess or tuition
+    const ownTypes = await Business.distinct('type', { ownerId: req.userId });
+    if (ownTypes.length && !ownTypes.includes(type)) {
+      return res.status(400).json({ error: `your outlets are ${ownTypes.join(' and ')}, so a new outlet must be the same type` });
+    }
     // copying setup is only allowed from a business this user owns
     let source = null;
     if (copyFrom) {

@@ -6804,6 +6804,11 @@ i.owe, .mr-legend i.owe { background: #FCD34D; }
 .fs-chips .en-choice { height: 36px; padding: 0 14px; white-space: nowrap; }
 .fs-done { margin-top: 4px; box-shadow: 0 -12px 0 var(--card-bg), 0 -16px 14px -6px rgba(15, 23, 42, .06); }
 
+/* Add an outlet: the type is fixed to the owner's kind of business */
+.ol-type-note { margin: 0; font-size: 14px; color: var(--text-3); }
+.ol-type-note span { color: var(--text-2); font-weight: 600; margin-right: 4px; }
+.ol-type-note b { color: var(--text); font-weight: 600; }
+
 /* Tuition attendance: pick a batch, then take its roll call */
 .at-daypick { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; }
 .at-daypick > button, .at-daypick-other { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-2); font-size: 13px; font-weight: 600; position: relative; }
