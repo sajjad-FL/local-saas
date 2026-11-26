@@ -19,10 +19,12 @@ import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
 import { ScreenSkeleton } from '../../components/Loader';
 import AddExpenseModal from '../modals/AddExpenseModal';
+import RecordPaymentModal from '../modals/RecordPaymentModal';
+import PickMember from '../../components/PickMember';
+import { words } from '../../constants/wording';
 import { CompactHeader, NumberStrip, ListCard, SearchFilter, ChipRow, CompactRow, ColorKey } from '../../components/Compact';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MODES = { cash: 'Cash', upi: 'UPI', other: 'Bank / card' };
 const EXPENSE_CATEGORIES = {
   rent: 'Rent',
   salary: 'Salaries',
@@ -36,8 +38,8 @@ const EXPENSE_CATEGORIES = {
   other: 'Other',
 };
 
-const dayStart = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const dayEnd = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+const CAT_ICON = { rent: '⌂', salary: '☺', electricity: 'ϟ', water: '≈', internet: '◎', maintenance: '⚙', equipment: '⚙', groceries: '◍', marketing: '✦', other: '•' };
 const fmtDay = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function periodRange(kind, step, now = new Date()) {
@@ -106,6 +108,8 @@ export default function ReportsScreen({ navigation }) {
   const [whoPlan, setWhoPlan] = useState('all');
   const [whoSort, setWhoSort] = useState('owed');
   const [whoFilters, setWhoFilters] = useState(false);
+  const [picking, setPicking] = useState(false); // + Payment: choose who paid
+  const [paying, setPaying] = useState(null);
 
   const range = periodRange(kind, step);
 
@@ -194,12 +198,16 @@ export default function ReportsScreen({ navigation }) {
   const profit = report?.profit ?? 0;
   const pending = report?.pending ?? 0;
 
-  // Splits for breakdown card
-  const byMode = Object.entries(report?.byMode || {});
-  const totalMode = byMode.reduce((s, [, v]) => s + v, 0);
 
   const byCat = Object.entries(report?.byCategory || {});
-  const totalCat = byCat.reduce((s, [, v]) => s + v, 0);
+  // month by month: up to today, from the first month with anything in it (as the web)
+  const nowD = new Date();
+  const thisMonth = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, '0')}`;
+  const upToNow = (report?.months || []).filter((m) => m.key <= thisMonth);
+  const firstActive = upToNow.findIndex((m) => m.received || m.expenses || m.pending);
+  const pastMonths = firstActive < 0 ? upToNow : upToNow.slice(firstActive);
+  const amt = (v) => (v ? rupees(Math.abs(v)) : '—');
+  const monthLabel = (key) => { const [yy, mm] = key.split('-'); return `${MONTHS[Number(mm) - 1]} ${yy}`; };
 
   // what each member still owes = their unpaid months (the server sends months, not a balance)
   const memberBreakdown = (dashboardData?.memberPaymentBreakdown || []).map((m) => ({
@@ -224,7 +232,7 @@ export default function ReportsScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* TopBar with Brand and Theme Toggle */}
-      <TopBar title="Reports" navigation={navigation} />
+      <TopBar title="Money" navigation={navigation} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -237,15 +245,16 @@ export default function ReportsScreen({ navigation }) {
         }>
         {/* 1. title, ⋯ (expense, downloads), one main button — same as the web on phones */}
         <CompactHeader
-          title="Reports"
+          title="Money"
           menu={[
+            { icon: 'wallet-outline', label: 'Add expense', go: () => setAddExpenseOpen(true) },
             { icon: 'document-text-outline', label: 'Download all payments', go: () => handleExport('payments') },
             { icon: 'alert-circle-outline', label: 'Download unpaid dues', go: () => handleExport('dues') },
             { icon: 'list-outline', label: 'Download balances', go: () => handleExport('balances') },
             { icon: 'cloud-download-outline', label: 'Download a backup', go: () => handleExport('backup') },
           ]}
-          mainLabel="Expense"
-          onMain={() => setAddExpenseOpen(true)}
+          mainLabel="Payment"
+          onMain={() => setPicking(true)}
         />
 
         {/* 2. the period in one row: ‹ Nov 2026 › and M Q Y … */}
@@ -272,10 +281,10 @@ export default function ReportsScreen({ navigation }) {
 
         {/* 3. the four numbers in one slim strip */}
         <NumberStrip items={[
-          { label: 'Received', value: rupees(received), ink: received ? theme.colors.successDark : undefined },
-          { label: 'Spent', value: rupees(spent), ink: spent ? theme.colors.dangerDark : undefined },
-          { label: profit < 0 ? 'Loss' : 'Profit', value: `${profit < 0 ? '−' : ''}${rupees(Math.abs(profit))}`, ink: profit < 0 ? theme.colors.dangerDark : undefined },
-          { label: 'To collect', value: rupees(pending), ink: pending ? theme.colors.dangerDark : theme.colors.successDark },
+          { label: 'Received', value: rupees(received), ink: received ? theme.colors.moneyGreen : undefined },
+          { label: 'Spent', value: rupees(spent), ink: spent ? theme.colors.moneyRed : undefined },
+          { label: profit < 0 ? 'Loss' : 'Profit', value: `${profit < 0 ? '−' : ''}${rupees(Math.abs(profit))}`, ink: profit < 0 ? theme.colors.moneyRed : undefined },
+          { label: 'Still to collect', value: rupees(pending), ink: pending ? theme.colors.moneyRed : theme.colors.moneyGreen },
         ]} />
 
         {/* 4. tabs */}
@@ -296,77 +305,63 @@ export default function ReportsScreen({ navigation }) {
           })}
         </View>
 
-        {/* TAB 1: BREAKDOWN */}
+        {/* TAB 1: OVERVIEW — the same two cards as the web on a phone */}
         {tab === 'breakdown' && (
-          <Card style={styles.detailCard}>
-            {/* How members paid */}
-            <Text style={[styles.breakdownHeader, { color: theme.colors.text }]}>
-              How members paid
-            </Text>
-            {byMode.length > 0 ? (
-              <View style={{ gap: 10, marginBottom: 20 }}>
-                {byMode.map(([modeKey, amt]) => {
-                  const pct = totalMode > 0 ? Math.max(3, Math.round((amt / totalMode) * 100)) : 0;
-                  return (
-                    <View key={modeKey} style={styles.barRow}>
-                      <Text style={[styles.barLabel, { color: theme.colors.text }]} numberOfLines={1}>
-                        {MODES[modeKey] || modeKey}
-                      </Text>
-                      <View style={[styles.barTrack, { backgroundColor: theme.colors.cardSubtle }]}>
-                        <View
-                          style={[
-                            styles.barFill,
-                            { width: `${pct}%`, backgroundColor: '#10B981' },
-                          ]}
-                        />
-                      </View>
-                      <Text style={[styles.barVal, { color: theme.colors.text }]}>
-                        {rupees(amt)}
+          <>
+            <View style={[styles.box, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+              <Text style={[styles.boxTitle, { color: theme.colors.text }]}>Month by month</Text>
+              {pastMonths.length === 0 || !pastMonths.some((m) => m.received || m.expenses || m.pending) ? (
+                <Text style={[styles.boxEmpty, { color: theme.colors.textMuted }]}>Nothing received, spent or owed in this period yet.</Text>
+              ) : pastMonths.map((m, i) => {
+                const big = Math.max(1, m.received || 0, m.expenses || 0);
+                const loss = m.profit < 0;
+                return (
+                  <View key={m.key} style={[styles.mrow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10 }]}>
+                    <View style={styles.mrowTop}>
+                      <Text style={[styles.mrowMonth, { color: theme.colors.text }]}>{monthLabel(m.key)}</Text>
+                      <Text style={[styles.mrowMonth, { color: loss ? theme.colors.moneyRed : theme.colors.text }]}>
+                        {loss ? '−' : ''}{amt(m.profit)} <Text style={{ fontWeight: '400', color: theme.colors.textMuted }}>{loss ? 'loss' : 'profit'}</Text>
                       </Text>
                     </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <Text style={[styles.emptyNote, { color: theme.colors.textMuted }]}>
-                No payments received in this period.
-              </Text>
-            )}
+                    <View style={[styles.track, { backgroundColor: theme.colors.cardSubtle }]}>
+                      <View style={{ width: `${((m.received || 0) / big) * 100}%`, backgroundColor: '#16A34A' }} />
+                      <View style={{ width: `${((m.expenses || 0) / big) * 100}%`, backgroundColor: '#EF4444' }} />
+                    </View>
+                    <View style={styles.mrowTop}>
+                      <Text style={[styles.mrowSub, { color: theme.colors.moneyGreen }]}>In {amt(m.received)}</Text>
+                      <Text style={[styles.mrowSub, { color: theme.colors.moneyRed }]}>Out {amt(m.expenses)}</Text>
+                      <Text style={[styles.mrowSub, { color: theme.colors.moneyAmber }]}>Owed {amt(m.pending)}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
 
-            {/* Where money went */}
-            <Text style={[styles.breakdownHeader, { color: theme.colors.text, marginTop: 4 }]}>
-              Where money went
-            </Text>
-            {byCat.length > 0 ? (
-              <View style={{ gap: 10 }}>
-                {byCat.map(([catKey, amt]) => {
-                  const pct = totalCat > 0 ? Math.max(3, Math.round((amt / totalCat) * 100)) : 0;
-                  return (
-                    <View key={catKey} style={styles.barRow}>
-                      <Text style={[styles.barLabel, { color: theme.colors.text }]} numberOfLines={1}>
-                        {EXPENSE_CATEGORIES[catKey] || catKey}
-                      </Text>
-                      <View style={[styles.barTrack, { backgroundColor: theme.colors.cardSubtle }]}>
-                        <View
-                          style={[
-                            styles.barFill,
-                            { width: `${pct}%`, backgroundColor: '#EF4444' },
-                          ]}
-                        />
-                      </View>
-                      <Text style={[styles.barVal, { color: theme.colors.text }]}>
-                        {rupees(amt)}
-                      </Text>
-                    </View>
-                  );
-                })}
+            <View style={[styles.box, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+              <View style={styles.boxHead}>
+                <Text style={[styles.boxTitle, { color: theme.colors.text }]}>Where money went</Text>
+                <TouchableOpacity onPress={() => setAddExpenseOpen(true)} style={styles.boxLink} hitSlop={8}>
+                  <Icon name="add" size={14} color={theme.colors.primaryDark} />
+                  <Text style={[styles.boxLinkText, { color: theme.colors.primaryDark }]}>Add expense</Text>
+                </TouchableOpacity>
               </View>
-            ) : (
-              <Text style={[styles.emptyNote, { color: theme.colors.textMuted }]}>
-                No expenses recorded in this period.
-              </Text>
-            )}
-          </Card>
+              {byCat.some(([, v]) => v) ? (
+                <View style={{ gap: 10 }}>
+                  {byCat.filter(([, v]) => v).sort((x, y) => y[1] - x[1]).map(([k, v]) => (
+                    <View key={k} style={styles.cat}>
+                      <View style={[styles.catIcon, { backgroundColor: theme.isDark ? 'rgba(248,113,113,0.14)' : '#FEF1F0' }]}>
+                        <Text style={{ color: theme.colors.moneyRed, fontSize: 14 }}>{CAT_ICON[k] || '•'}</Text>
+                      </View>
+                      <Text style={[styles.catName, { color: theme.colors.text }]}>{EXPENSE_CATEGORIES[k] || k}</Text>
+                      <Text style={[styles.catAmt, { color: theme.colors.moneyRed }]}>−{rupees(v)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.boxEmpty, { color: theme.colors.textMuted }]}>No expenses in this period. Add rent, salaries and bills to see your real profit.</Text>
+              )}
+            </View>
+          </>
         )}
 
         {/* TAB 2: EXPENSES */}
@@ -446,7 +441,7 @@ export default function ReportsScreen({ navigation }) {
                     })}
                     sub={m.planName}
                     amount={rupees(owes ? m.balance : m.totalPaid || 0)}
-                    amountInk={owes ? theme.colors.dangerDark : theme.colors.successDark}
+                    amountInk={owes ? theme.colors.moneyRed : theme.colors.moneyGreen}
                     amountSub={owes ? 'owes' : 'paid'}
                     button={owes
                       ? { label: 'Collect', primary: true, onPress: () => navigation.navigate('MemberDetail', { id: m._id }) }
@@ -464,6 +459,10 @@ export default function ReportsScreen({ navigation }) {
           </ListCard>
         )}
       </ScrollView>
+
+      <PickMember visible={picking} members={(dashboardData?.membersTable || []).filter((m) => m.status === 'active')} word={words(biz?.type).member}
+        onClose={() => setPicking(false)} onPick={(m) => { setPicking(false); setPaying(m); }} />
+      <RecordPaymentModal visible={Boolean(paying)} member={paying} biz={biz} onClose={() => setPaying(null)} onPaymentRecorded={fetchReports} />
 
       {/* Add Expense Modal */}
       <AddExpenseModal
@@ -549,6 +548,21 @@ export default function ReportsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  box: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12, gap: 12 },
+  boxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  boxTitle: { fontSize: 15, fontWeight: '700' },
+  boxEmpty: { fontSize: 13.5, lineHeight: 20 },
+  boxLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  boxLinkText: { fontSize: 13, fontWeight: '600' },
+  mrow: { gap: 6 },
+  mrowTop: { flexDirection: 'row', justifyContent: 'space-between' },
+  mrowMonth: { fontSize: 13.5, fontWeight: '600' },
+  mrowSub: { fontSize: 12 },
+  track: { flexDirection: 'row', height: 8, borderRadius: 99, overflow: 'hidden' },
+  cat: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  catIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  catName: { flex: 1, fontSize: 13.5 },
+  catAmt: { fontSize: 13.5, fontWeight: '700' },
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   periodLabel: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700' },
   seg: { flexDirection: 'row', padding: 3, borderRadius: 10, borderWidth: 1, gap: 2 },

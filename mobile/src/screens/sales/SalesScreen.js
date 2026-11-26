@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   RefreshControl,
   SafeAreaView,
@@ -14,16 +13,16 @@ import {
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees } from '../../api/api';
-import { tint } from '../../constants/theme';
 import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
-import Avatar from '../../components/Avatar';
 import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import { ScreenSkeleton, Skeleton } from '../../components/Loader';
-import SellModal, { Choice } from '../modals/SellModal';
+import SellModal from '../modals/SellModal';
+import { CompactHeader, NumberStrip, ListCard, SearchFilter, ChipRow, CompactRow } from '../../components/Compact';
+import { downloadFile } from '../../api/download';
 
 // Same as the web Sales page (client/src/pages/Sales.jsx + SalesView/CatalogueTab in Setup.jsx).
 const KINDS = {
@@ -58,7 +57,10 @@ export default function SalesScreen({ navigation }) {
   const [sales, setSales] = useState(null);
   const [salesError, setSalesError] = useState(null);
   const [period, setPeriod] = useState('month');
-  const [part, setPart] = useState('history');
+  const [show, setShow] = useState('all'); // 'all' | 'unpaid' | 'items'
+  const [kindF, setKindF] = useState('all');
+  const [modeF, setModeF] = useState('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [q, setQ] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [selling, setSelling] = useState(null); // {} or { start }
@@ -100,11 +102,16 @@ export default function SalesScreen({ navigation }) {
   if (!catalogue) return <ScreenSkeleton navigation={navigation} />;
 
   const t = sales?.totals;
-  const monthName = new Date().toLocaleDateString('en-IN', { month: 'long' });
   const tabs = [
     { id: 'sales', label: 'Sales', count: t?.count },
     ...kinds.map((k) => ({ id: k, label: KINDS[k].label, count: catalogue.filter((i) => i.kind === k).length })),
   ];
+
+  const downloadCsv = async () => {
+    const [from, to] = SALE_PERIODS.find((p) => p[0] === period)[2]();
+    try { await downloadFile(`/businesses/${biz._id}/export/sales.csv?${from ? `from=${from.toISOString()}&` : ''}to=${to.toISOString()}`, `${biz.name}-sales.csv`); }
+    catch (e) { Alert.alert('Download failed', e.message); }
+  };
 
   const askUndo = (x) => {
     Alert.alert(
@@ -122,93 +129,115 @@ export default function SalesScreen({ navigation }) {
 
   const renderSales = () => {
     if (salesError) return <Text style={[styles.none, { color: c.danger }]}>{salesError.status === 404 ? 'Sales need the latest server update.' : salesError.message}</Text>;
-    if (!sales) return <View style={{ gap: 8 }}><Skeleton height={90} /><Skeleton height={200} /></View>;
-    const pct = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
-    const change = t.prevRevenue != null ? pct(t.revenue, t.prevRevenue) : null;
-    const cards = [
-      { icon: 'pricetag-outline', hex: '#D97706', label: 'Items sold', value: String(t.qty), note: `in ${t.count} sale${t.count === 1 ? '' : 's'}` },
-      { icon: 'card-outline', hex: '#16A34A', ink: c.successDark, label: 'Revenue', value: rupees(t.revenue), note: change == null ? '—' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% vs before` },
-      { icon: 'pulse-outline', hex: '#64748B', label: 'Cost', value: t.cost == null ? '—' : rupees(t.cost), note: t.cost == null ? 'add cost prices' : 'from cost prices' },
-      { icon: 'sparkles-outline', hex: '#7C3AED', ink: c.purpleDark, label: 'Profit', value: t.profit == null ? '—' : rupees(t.profit), note: t.profit == null ? 'needs cost prices' : `${Math.round((t.profit / t.profitOn) * 100)}% margin` },
-      { icon: 'alert-circle-outline', hex: '#DC2626', ink: t.unpaid ? c.dangerDark : c.text, label: 'Not paid yet', value: rupees(t.unpaid), note: t.unpaid ? 'sold onto dues' : 'all sales paid' },
-    ];
+    if (!sales) return <View style={{ gap: 8 }}><Skeleton height={60} /><Skeleton height={200} /></View>;
     const query = q.trim().toLowerCase();
-    const list = sales.sales.filter((x) => !query || x.memberName.toLowerCase().includes(query) || linesText(x.items).toLowerCase().includes(query));
+    const owing = (x) => !x.paid && x.stillOwed > 0;
+    const searched = sales.sales.filter((x) => !query || x.memberName.toLowerCase().includes(query) || linesText(x.items).toLowerCase().includes(query));
+    const base = searched.filter((x) => (kindF === 'all' || x.items.some((l) => l.kind === kindF)) && (modeF === 'all' || (modeF === 'dues' ? !x.paid : x.mode === modeF)));
+    const list = show === 'unpaid' ? base.filter(owing) : base;
     const shown = showAll ? list : list.slice(0, 12);
+    const items = sales.byItem.filter((i) => kindF === 'all' || i.kind === kindF);
+    const kindsSold = [...new Set(sales.byItem.map((i) => i.kind))];
+    const filtersOn = (kindF !== 'all' ? 1 : 0) + (modeF !== 'all' ? 1 : 0);
+    const KIND_SHORT = { pt: 'PT pack', service: 'Service', product: 'Product' };
+    const tagFor = (x) => (x.paid
+      ? { text: `Paid · ${MODE_NAME[x.mode] || 'Paid'}`, tone: 'paid' }
+      : x.stillOwed ? { text: x.stillOwed < x.total ? `${rupees(x.stillOwed)} owed` : 'On dues', tone: 'due' } : { text: 'Paid later', tone: 'paid' });
     return (
       <>
-        <View style={styles.wrap}>
-          {SALE_PERIODS.map(([id, label]) => <Choice key={id} on={period === id} label={label} onPress={() => { setPeriod(id); setShowAll(false); }} />)}
-        </View>
-        <View style={styles.cardGrid}>
-          {cards.map((k) => (
-            <View key={k.label} style={[styles.kpi, { backgroundColor: c.card, borderColor: c.border }]}>
-              <View style={[styles.kpiIcon, { backgroundColor: tint(k.hex, theme.isDark ? 0.2 : 0.1, c.card) }]}><Icon name={k.icon} size={15} color={k.hex} /></View>
-              <Text style={[styles.kpiLabel, { color: c.textMuted }]}>{k.label}</Text>
-              <Text style={[styles.kpiValue, { color: k.ink || c.text }]} numberOfLines={1} adjustsFontSizeToFit>{k.value}</Text>
-              <Text style={[styles.kpiNote, { color: c.textSubtle }]} numberOfLines={1}>{k.note}</Text>
-            </View>
-          ))}
+        {/* period: one segmented row */}
+        <View style={[styles.seg, { backgroundColor: c.cardSubtle }]}>
+          {SALE_PERIODS.map(([id, label]) => {
+            const on = period === id;
+            return (
+              <TouchableOpacity key={id} onPress={() => { setPeriod(id); setShowAll(false); }} accessibilityState={{ selected: on }}
+                style={[styles.segBtn, on && { backgroundColor: c.card, shadowColor: '#0F172A', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 }]}>
+                <Text style={{ fontSize: 12.5, fontWeight: '600', color: on ? c.text : c.textSecondary }} numberOfLines={1}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
+        {/* the four numbers in one slim strip */}
+        <NumberStrip items={[
+          { label: 'Revenue', value: rupees(t.revenue), ink: c.moneyGreen },
+          { label: 'Cost', value: t.cost == null ? '—' : rupees(t.cost) },
+          { label: 'Profit', value: t.profit == null ? '—' : rupees(t.profit), ink: c.primaryDark },
+          { label: 'Not paid', value: rupees(t.unpaid), ink: t.unpaid ? c.moneyRed : undefined },
+        ]} />
+
         {!sales.sales.length ? (
-          <Card style={{ alignItems: 'center', paddingVertical: 28 }}>
+          <ListCard style={{ alignItems: 'center', paddingVertical: 28 }}>
             <Text style={[styles.emptyTitle, { color: c.text }]}>No sales {period === 'all' ? 'yet' : 'in this period'}</Text>
             <Text style={[styles.emptyText, { color: c.textMuted, marginBottom: 0 }]}>Sell from here, the Dashboard or a member’s page. Every sale shows up here with what it earned.</Text>
-          </Card>
+          </ListCard>
         ) : (
-          <Card style={{ padding: 12 }}>
-            <View style={[styles.wrap, { marginBottom: 10 }]}>
-              <Choice on={part === 'history'} label={`Sales history · ${sales.sales.length}`} onPress={() => setPart('history')} />
-              <Choice on={part === 'items'} label={`By item · ${sales.byItem.length}`} onPress={() => setPart('items')} />
-            </View>
-            {part === 'items' ? (
-              sales.byItem.map((i) => (
-                <View key={String(i.itemId)} style={[styles.saleRow, { borderTopColor: c.borderSubtle }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.name, { color: c.text }]}>{i.name}{i.removed ? ' (removed)' : ''}</Text>
-                    <Text style={[styles.meta, { color: c.textMuted }]}>
-                      {i.qty} sold{i.profit != null ? ` · profit ${i.profit < 0 ? '−' : ''}${rupees(Math.abs(i.profit))}` : ''}{i.stock != null ? ` · ${i.stock === 0 ? 'out' : `${i.stock} left`}` : ''}
-                    </Text>
-                  </View>
-                  <Text style={[styles.amt, { color: c.text }]}>{rupees(i.revenue)}</Text>
-                </View>
-              ))
-            ) : (
-              <>
-                <View style={[styles.search, { backgroundColor: c.inputBg, borderColor: c.inputBorder }]}>
-                  <Icon name="search" size={15} color={c.textMuted} />
-                  <TextInput value={q} onChangeText={setQ} placeholder="Member or item" placeholderTextColor={c.textMuted} style={[styles.searchInput, { color: c.text }]} />
-                </View>
-                {shown.map((x) => {
-                  const owed = !x.paid && x.stillOwed;
-                  return (
-                    <View key={x._id} style={[styles.saleRow, { borderTopColor: c.borderSubtle }]}>
-                      <TouchableOpacity style={styles.saleWho} onPress={() => navigation.navigate('MemberDetail', { id: x.memberId })}>
-                        <Avatar name={x.memberName} size={32} />
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{x.memberName}</Text>
-                          <Text style={[styles.meta, { color: c.textMuted }]} numberOfLines={1}>{linesText(x.items)}</Text>
-                          <Text style={[styles.meta, { color: owed ? c.dangerDark : c.successDark }]} numberOfLines={1}>
-                            {x.paid ? `Paid · ${MODE_NAME[x.mode] || 'Paid'}` : x.stillOwed ? (x.stillOwed < x.total ? `${rupees(x.stillOwed)} owed` : 'On dues') : 'Paid later'}
-                            <Text style={{ color: c.textMuted }}>{`  ·  ${whenText(x.at)}${x.soldBy ? ` · by ${x.soldBy}` : ''}`}</Text>
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                      <Text style={[styles.amt, { color: c.text }]}>{rupees(x.total)}</Text>
-                      {level(biz) >= 3 ? (
-                        <TouchableOpacity onPress={() => askUndo(x)} accessibilityLabel={`Undo sale to ${x.memberName}`} style={styles.undo}>
-                          <Icon name="close" size={16} color={c.textMuted} />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  );
-                })}
-                {list.length > shown.length && <Button title={`Show all ${list.length}`} variant="ghost" onPress={() => setShowAll(true)} />}
-                {!list.length && <Text style={[styles.none, { color: c.textMuted }]}>Nothing matches “{q}”.</Text>}
-              </>
+          <ListCard>
+            <SearchFilter value={q} onChange={setQ} placeholder="Member or item" filterOn={filtersOn} onFilter={() => setFiltersOpen((o) => !o)} />
+            {filtersOpen && (
+              <View style={[styles.filterPanel, { backgroundColor: c.cardSubtle }]}>
+                {kindsSold.length > 1 && (
+                  <>
+                    <Text style={[styles.filterLabel, { color: c.textMuted }]}>TYPE</Text>
+                    <ChipRow small value={kindF} onPick={setKindF} options={[{ id: 'all', label: 'Everything' }, ...kindsSold.map((k) => ({ id: k, label: KINDS[k]?.label || k }))]} />
+                  </>
+                )}
+                <Text style={[styles.filterLabel, { color: c.textMuted }]}>PAID BY</Text>
+                <ChipRow small value={modeF} onPick={setModeF} options={[{ id: 'all', label: 'Any' }, { id: 'cash', label: 'Cash' }, { id: 'upi', label: 'UPI' }, { id: 'other', label: 'Card / bank' }, { id: 'dues', label: 'Put on dues' }]} />
+              </View>
             )}
-          </Card>
+            <ChipRow value={show} onPick={(v) => { setShow(v); setShowAll(false); }} options={[
+              { id: 'all', label: 'All', count: base.length },
+              { id: 'unpaid', label: 'Not paid', count: base.filter(owing).length },
+              { id: 'items', label: 'By item', count: items.length },
+            ]} />
+            <View>
+              {show === 'items' ? items.map((i, n) => (
+                <CompactRow
+                  key={String(i.itemId)}
+                  last={n === items.length - 1}
+                  title={i.name}
+                  tags={[
+                    { text: KIND_SHORT[i.kind] || i.kind, tone: 'none' },
+                    i.stock != null && { text: i.stock === 0 ? 'Out of stock' : `${i.stock} left`, tone: i.stock === 0 ? 'late' : i.stock <= 2 ? 'due' : 'paid' },
+                  ]}
+                  sub={`${i.qty} sold${i.removed ? ' · removed' : ''}`}
+                  amount={rupees(i.revenue)}
+                  amountSub={i.profit == null ? 'no cost price' : `${i.profit < 0 ? '−' : ''}${rupees(Math.abs(i.profit))} profit`}
+                />
+              )) : shown.map((x, n) => (
+                <CompactRow
+                  key={x._id}
+                  last={n === shown.length - 1}
+                  title={x.memberName}
+                  onPress={() => navigation.navigate('MemberDetail', { id: x.memberId })}
+                  tags={[tagFor(x)]}
+                  sub={linesText(x.items)}
+                  amount={rupees(x.total)}
+                  amountInk={owing(x) ? c.warning : undefined}
+                  amountSub={whenText(x.at)}
+                  right={level(biz) >= 3 ? (
+                    <TouchableOpacity onPress={() => askUndo(x)} accessibilityLabel={`Undo sale to ${x.memberName}`} style={[styles.undo, { borderColor: c.border, backgroundColor: c.card }]}>
+                      <Icon name="close" size={14} color={c.textMuted} />
+                    </TouchableOpacity>
+                  ) : null}
+                />
+              ))}
+              {show !== 'items' && !list.length && (
+                <Text style={[styles.none, { color: c.textMuted }]}>{q ? `Nothing matches “${q}”.` : show === 'unpaid' ? 'Every sale is paid.' : 'No sales match.'}</Text>
+              )}
+            </View>
+            <View style={styles.foot}>
+              {show !== 'items' ? <Text style={{ fontSize: 12.5, color: c.textMuted }}>{shown.length} of {list.length}</Text> : null}
+              {show !== 'items' && list.length > shown.length ? (
+                <TouchableOpacity onPress={() => setShowAll(true)}><Text style={[styles.footLink, { color: c.primaryDark }]}>Show all</Text></TouchableOpacity>
+              ) : null}
+              <TouchableOpacity onPress={downloadCsv} style={[styles.footCsv]}>
+                <Icon name="download-outline" size={13} color={c.primaryDark} />
+                <Text style={[styles.footLink, { color: c.primaryDark }]}>CSV</Text>
+              </TouchableOpacity>
+            </View>
+          </ListCard>
         )}
       </>
     );
@@ -264,23 +293,27 @@ export default function SalesScreen({ navigation }) {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.card} />}>
-        <Text style={[styles.sub, { color: c.textMuted }]}>
-          {t && period === 'month' ? `${monthName} · ${rupees(t.revenue)} sold${t.unpaid ? ` · ${rupees(t.unpaid)} not paid yet` : ''}` : 'Products, PT packs and services'}
-        </Text>
-        <View style={styles.titleRow}>
-          <Text style={[styles.h1, { color: c.text }]}>Sales</Text>
-          {level(biz) >= 1 ? (
-            <Button title="Sell" size="sm" disabled={!catalogue.length} icon={<Icon name="pricetag-outline" size={15} color="#fff" />} onPress={() => setSelling({})} />
-          ) : null}
-        </View>
+        {/* title, ⋯ (add items), + Sell — same as the web on a phone */}
+        <CompactHeader
+          title="Sales"
+          menu={level(biz) >= 2 ? kinds.map((k) => ({ icon: KINDS[k].icon, label: KINDS[k].add, go: () => { setView(k); setEditing({ kind: k }); } })) : []}
+          mainLabel="Sell"
+          onMain={level(biz) >= 1 && catalogue.length ? () => setSelling({}) : null}
+        />
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+        {/* Sales · Products · Services, underlined like Money's tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabs, { borderBottomColor: c.border }]}>
           {tabs.map((tb) => {
             const on = view === tb.id;
             return (
-              <TouchableOpacity key={tb.id} onPress={() => setView(tb.id)} style={[styles.tab, { backgroundColor: on ? c.primarySoft : c.card, borderColor: on ? c.primary : c.border }]}>
-                <Text style={{ fontSize: 13, fontWeight: on ? '700' : '500', color: on ? c.primaryDark : c.textSecondary }}>{tb.label}</Text>
-                {tb.count > 0 ? <Text style={{ fontSize: 11.5, color: c.textMuted }}>{tb.count}</Text> : null}
+              <TouchableOpacity key={tb.id} onPress={() => setView(tb.id)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                style={[styles.tab, { borderBottomColor: on ? c.primary : 'transparent' }]}>
+                <Text style={{ fontSize: 14, fontWeight: on ? '600' : '500', color: on ? c.primaryDark : c.textMuted }}>{tb.label}</Text>
+                {tb.count > 0 ? (
+                  <View style={[styles.tabCount, { backgroundColor: on ? c.primary : c.cardSubtle }]}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: on ? '#fff' : c.textSecondary }}>{tb.count}</Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -404,13 +437,21 @@ function ItemModal({ biz, kind, item, onClose, onSaved, onDelete }) {
 }
 
 const styles = StyleSheet.create({
+  seg: { flexDirection: 'row', padding: 3, gap: 2, borderRadius: 10, marginBottom: 10 },
+  segBtn: { flex: 1, height: 30, borderRadius: 7, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  filterPanel: { borderRadius: 10, padding: 10, gap: 6 },
+  filterLabel: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.4 },
+  tabCount: { minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
+  foot: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10 },
+  footLink: { fontSize: 13, fontWeight: '600' },
+  footCsv: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 },
   safe: { flex: 1 },
   scroll: { padding: 16, paddingBottom: 40 },
   sub: { fontSize: 12.5 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, marginBottom: 12 },
   h1: { fontSize: 24, fontWeight: '700' },
-  tabs: { gap: 6, paddingVertical: 2, marginBottom: 12 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1 },
+  tabs: { flexGrow: 0, borderBottomWidth: 1, marginBottom: 12 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 11, borderBottomWidth: 2, marginBottom: -1 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   cardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   kpi: { width: '48.8%', borderWidth: 1, borderRadius: 12, padding: 12 },
@@ -425,7 +466,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 14, fontWeight: '600' },
   meta: { fontSize: 12, marginTop: 1 },
   amt: { fontSize: 14, fontWeight: '700' },
-  undo: { padding: 6 },
+  undo: { width: 30, height: 30, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   none: { textAlign: 'center', paddingVertical: 20, fontSize: 13 },
   itemTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   price: { fontSize: 18, fontWeight: '700', marginTop: 8 },

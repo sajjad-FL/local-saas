@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,10 @@ import {
 import * as Print from 'expo-print';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
-import { api, waLink, WEB_URL } from '../../api/api';
+import { api, waLink, WEB_URL, rupees } from '../../api/api';
+import { useFocusEffect } from '@react-navigation/native';
+import { words } from '../../constants/wording';
+import PickMember from '../../components/PickMember';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
 import { ScreenSkeleton } from '../../components/Loader';
@@ -32,540 +35,341 @@ const addDays = (day, n) => {
 const timeOf = (at) => new Date(at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 const fmtShort = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-const dayLabel = (day, today) => {
-  if (day === today) return 'Today';
-  if (day === addDays(today, -1)) return 'Yesterday';
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  });
-};
 
 export default function AttendanceScreen({ navigation }) {
   const { biz, isOwner } = useBiz();
   const { theme } = useTheme();
-  const [importing, setImporting] = useState(false);
+  const c = theme.colors;
+  const W = words(biz?.type);
+  const isGym = biz?.type === 'gym';
+  const canMark = (biz?.access ? biz.access.level : 3) >= 1;
 
-  const [day, setDay] = useState(null); // null = today
+  const [day, setDay] = useState(null); // null = today (the server decides "today")
   const [groupId, setGroupId] = useState('');
   const [q, setQ] = useState('');
-  const [view, setView] = useState('today'); // 'today' | 'away'
+  const [tab, setTab] = useState('notin'); // 'notin' | 'in' | 'absent' | 'away'
+  const [awayDays, setAwayDays] = useState(7);
   const [groups, setGroups] = useState([]);
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [away, setAway] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  const isGym = biz?.type === 'gym';
+  const [importing, setImporting] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const fetchAttendance = useCallback(async () => {
     if (!biz?._id || biz.attendanceEnabled === false) return;
     try {
-      const qs = new URLSearchParams({
-        ...(day && { day }),
-        ...(groupId && { groupId }),
-      }).toString();
-
+      const qs = new URLSearchParams({ ...(day && { day }), ...(groupId && { groupId }) }).toString();
       const [res, g] = await Promise.all([
         api(`/businesses/${biz._id}/attendance?${qs}`),
-        api(`/businesses/${biz._id}/groups`),
+        api(`/businesses/${biz._id}/groups`).catch(() => []),
       ]);
       setData(res);
       setGroups(Array.isArray(g) ? g : []);
     } catch (err) {
       console.warn('Attendance fetch error', err);
-    } finally {
-      setLoading(false);
     }
-  }, [biz?._id, biz?.attendanceEnabled, day, groupId]);
+  }, [biz, day, groupId]);
+  const fetchAway = useCallback(async () => {
+    if (!biz?._id || biz.attendanceEnabled === false) return;
+    try { setAway(await api(`/businesses/${biz._id}/attendance/not-coming?days=${awayDays}`)); } catch { setAway({ members: [] }); }
+  }, [biz, awayDays]);
 
-  useEffect(() => {
-    fetchAttendance();
-  }, [fetchAttendance]);
-
+  useFocusEffect(useCallback(() => { fetchAttendance(); fetchAway(); }, [fetchAttendance, fetchAway]));
   // gym: new QR check-ins appear without pulling to refresh
   useEffect(() => {
-    if (!isGym || view !== 'today') return undefined;
+    if (!isGym) return undefined;
     const t = setInterval(fetchAttendance, 30000);
     return () => clearInterval(t);
-  }, [isGym, view, fetchAttendance]);
+  }, [isGym, fetchAttendance]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchAttendance();
-    setRefreshing(false);
-  };
+  const onRefresh = async () => { setRefreshing(true); await Promise.all([fetchAttendance(), fetchAway()]); setRefreshing(false); };
 
   const handleMark = async (memberId, status) => {
+    setData((prev) => prev && { ...prev, members: prev.members.map((m) => (m._id === memberId ? { ...m, status, method: status && 'staff', markedBy: status && 'you', at: status && new Date().toISOString() } : m)) });
     try {
-      // Optimistic update
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          members: prev.members.map((m) =>
-            m._id === memberId
-              ? {
-                  ...m,
-                  status,
-                  method: status && 'staff',
-                  at: status && new Date().toISOString(),
-                }
-              : m
-          ),
-        };
-      });
-
-      await api(`/businesses/${biz._id}/attendance`, {
-        method: 'PUT',
-        body: { day: data?.day, memberId, status },
-      });
+      await api(`/businesses/${biz._id}/attendance`, { method: 'PUT', body: { day: data?.day, memberId, status } });
+      fetchAway();
     } catch (err) {
-      Alert.alert('Error', err.message);
+      Alert.alert('Could not save', err.message);
       fetchAttendance();
     }
   };
-
-  const handleMarkAllPresent = async () => {
-    Alert.alert('Mark All Present?', 'This will mark all remaining members as present for today.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Mark All',
-        onPress: async () => {
-          try {
-            await api(`/businesses/${biz._id}/attendance/all-present`, {
-              method: 'POST',
-              body: { day: data?.day, groupId: groupId || undefined },
-            });
-            await fetchAttendance();
-          } catch (err) {
-            Alert.alert('Error', err.message);
-          }
-        },
-      },
-    ]);
+  const markAllPresent = async () => {
+    try {
+      await api(`/businesses/${biz._id}/attendance/all-present`, { method: 'POST', body: { day: data?.day, groupId: groupId || undefined } });
+      await fetchAttendance();
+    } catch (err) {
+      Alert.alert('Could not save', err.message);
+    }
   };
 
   if (biz?.attendanceEnabled === false) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
         <TopBar navigation={navigation} />
         <View style={styles.centerBox}>
-          <Icon name="calendar-outline" size={48} color={theme.colors.textMuted} />
-          <Text style={[styles.disabledTitle, { color: theme.colors.text }]}>Attendance is Disabled</Text>
-          <Text style={[styles.disabledSub, { color: theme.colors.textSecondary }]}>
-            Enable attendance tracking in Business Settings to start marking daily check-ins.
-          </Text>
-          <TouchableOpacity
-            style={[styles.btnPrimary, { backgroundColor: theme.colors.primary, marginTop: 14 }]}
-            onPress={() => navigation.navigate('Settings')}>
-            <Text style={styles.btnPrimaryText}>Open Settings</Text>
-          </TouchableOpacity>
+          <Icon name="calendar-outline" size={48} color={c.textMuted} />
+          <Text style={[styles.disabledTitle, { color: c.text }]}>Attendance is off</Text>
+          <Text style={[styles.disabledSub, { color: c.textSecondary }]}>Turn on attendance in Settings to start marking who came each day.</Text>
         </View>
       </SafeAreaView>
     );
   }
+  if (!data) return <ScreenSkeleton navigation={navigation} />;
 
-  const today = data?.today || new Date().toISOString().slice(0, 10);
-  const current = data?.day || today;
-  const isCurrentToday = current >= today;
-  const members = data?.members || [];
-
-  const present = members.filter((m) => m.status === 'present').length;
-  const absent = members.filter((m) => m.status === 'absent').length;
-  const unmarked = members.length - present - absent;
-  const fillPct = members.length ? Math.round((present / members.length) * 100) : 0;
-
+  const today = data.today;
+  const current = data.day;
+  const members = data.members || [];
+  const present = members.filter((m) => m.status === 'present');
+  const absent = members.filter((m) => m.status === 'absent');
+  const notIn = members.filter((m) => (isGym ? m.status !== 'present' : !m.status));
+  const week = data.week || [];
+  const avg = week.length ? Math.round(week.reduce((n, d) => n + d.present, 0) / week.length) : 0;
+  const peak = Math.max(1, ...week.map((d) => d.present));
+  const isToday = current === today;
   const query = q.trim().toLowerCase();
-  const found = query
-    ? members.filter((m) => `${m.name} ${m.phone || ''}`.toLowerCase().includes(query))
-    : members;
+  const match = (m) => !query || `${m.name} ${m.phone || ''}`.toLowerCase().includes(query);
+  const fmtLong = (d, withYear) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', ...(withYear && { year: 'numeric' }), timeZone: 'UTC' });
+  const subtitle = `${fmtLong(current, !isToday)} · ${present.length} of ${members.length} ${isGym ? 'in' : 'present'}${isToday ? ' so far' : ''}`;
+  const daysBetween = (a, b) => Math.round((new Date(`${b}T00:00:00Z`) - new Date(`${a}T00:00:00Z`)) / 86400000);
+  const lastText = (m) => {
+    if (m.paused) return { text: 'Paused', red: false };
+    if (!m.lastPresent) {
+      const d = daysBetween(m.joinDay || current, current);
+      return { text: d > 0 ? `Not seen since joining · ${d} day${d === 1 ? '' : 's'}` : 'Joined today', red: d >= 7 };
+    }
+    const d = daysBetween(m.lastPresent, current);
+    return { text: d === 1 ? 'Last came yesterday' : d >= 7 ? `${d} days away` : `Last came ${d} days ago`, red: d >= 7 };
+  };
+  const weekLabel = (d) => (d === today ? 'Today' : d === addDays(today, -1) ? 'Yesterday' : new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }));
 
-  if (loading && !data) return <ScreenSkeleton navigation={navigation} kind="attendance" />;
+  const tabs = [
+    { id: 'notin', label: isGym ? (isToday ? 'Not in yet' : "Didn't come") : 'Not marked', dot: '#D97706', count: notIn.length },
+    { id: 'in', label: isGym ? 'Checked in' : 'Present', dot: '#16A34A', count: present.length },
+    !isGym && { id: 'absent', label: 'Absent', dot: '#94A3B8', count: absent.length },
+    { id: 'away', label: `Not coming ${awayDays}+ days`, dot: '#DC2626', count: away ? away.members.length : '–' },
+  ].filter(Boolean);
+  const cards = [
+    { id: 'in', label: 'In', value: `${present.length} / ${members.length}`, ink: c.moneyGreen },
+    { id: 'notin', label: 'Not in', value: String(notIn.length) },
+    { id: 'away', label: 'Away', value: away ? String(away.members.length) : '–', ink: away?.members.length ? c.moneyRed : undefined },
+    { id: null, label: 'Avg/day', value: String(avg) },
+  ];
+  const rows = tab === 'notin' ? notIn : tab === 'in' ? [...present].sort((a, b) => new Date(b.at) - new Date(a.at)) : tab === 'absent' ? absent : [];
+  const shownRows = rows.filter(match);
+  const actions = [
+    canMark && { key: 'in', label: isGym ? 'Check in' : 'Present', icon: 'checkmark', primary: true, disabled: !notIn.length, go: () => setPicking(true) },
+    canMark && { key: 'import', label: 'Import', icon: 'download-outline', go: () => setImporting(true) },
+  ].filter(Boolean);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-      {/* Universal TopBar */}
-      <TopBar navigation={navigation} />
-
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
+      <TopBar title="Attendance" navigation={navigation} />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
-        }>
-        {/* Page Header */}
-        <View style={styles.pageHeader}>
-          <View style={styles.pageTitleWrap}>
-            <Text style={[styles.pageTitle, { color: theme.colors.text }]}>Attendance</Text>
-            <Text style={[styles.pageSubtitle, { color: theme.colors.textSecondary }]}>
-              {isGym
-                ? 'Members check in by scanning your QR code, or import from your biometric machine.'
-                : 'Mark who came today. Attendance is only recorded; fees are not affected.'}
-            </Text>
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.card} />}>
+        <Text style={[styles.date, { color: c.textMuted }]}>{subtitle}</Text>
+        <Text style={[styles.h1, { color: c.text }]}>Attendance</Text>
+
+        {/* one tap each, like the web's tiles */}
+        {actions.length > 0 && (
+          <View style={styles.quickRow}>
+            {actions.map((a) => (
+              <TouchableOpacity key={a.key} activeOpacity={0.8} disabled={a.disabled} onPress={a.go} accessibilityLabel={a.label}
+                style={[styles.quick, { backgroundColor: c.card, borderColor: c.border, opacity: a.disabled ? 0.5 : 1 }]}>
+                <View style={[styles.quickIcon, { backgroundColor: a.primary ? c.primary : c.primarySoft }]}>
+                  <Icon name={a.icon} size={16} color={a.primary ? '#FFFFFF' : c.primaryDark} />
+                </View>
+                <Text style={[styles.quickText, { color: c.text }]}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+            {/* keep tiles the web's size: three to a row */}
+            {[...Array(Math.max(0, 3 - actions.length))].map((_, i) => <View key={i} style={styles.quickGap} />)}
           </View>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setImporting(true)}
-            style={[styles.importBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <Icon name="download-outline" size={15} color={theme.colors.text} />
-            <Text style={[styles.importBtnText, { color: theme.colors.text }]}>Import from machine</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* View Mode Tabs: By Day | Not Coming */}
-        <View style={[styles.viewTabsWrap, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}>
-          <TouchableOpacity
-            onPress={() => setView('today')}
-            style={[
-              styles.viewTabBtn,
-              view === 'today' && { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-            ]}>
-            <Text
-              style={[
-                styles.viewTabBtnText,
-                { color: view === 'today' ? theme.colors.text : theme.colors.textSecondary, fontWeight: view === 'today' ? '700' : '500' },
-              ]}>
-              By day
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setView('away')}
-            style={[
-              styles.viewTabBtn,
-              view === 'away' && { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-            ]}>
-            <Text
-              style={[
-                styles.viewTabBtnText,
-                { color: view === 'away' ? theme.colors.text : theme.colors.textSecondary, fontWeight: view === 'away' ? '700' : '500' },
-              ]}>
-              Not coming
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {view === 'away' ? (
-          <NotComing biz={biz} theme={theme} navigation={navigation} />
-        ) : (
-          <>
-            {/* Day Stepper & Group Filter Card */}
-            <View style={[styles.controlsCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-              <View style={styles.stepperRow}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setDay(addDays(current, -1))}
-                  style={[styles.stepperNavBtn, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}>
-                  <Icon name="chevron-back" size={16} color={theme.colors.text} />
-                </TouchableOpacity>
-
-                <View style={styles.stepperCenter}>
-                  <Text style={[styles.stepperMainLabel, { color: theme.colors.text }]}>
-                    {dayLabel(current, today)}
-                  </Text>
-                  <Text style={[styles.stepperSubLabel, { color: theme.colors.textSecondary }]}>
-                    {new Date(`${current}T00:00:00Z`).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                      timeZone: 'UTC',
-                    })}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  disabled={isCurrentToday}
-                  activeOpacity={0.7}
-                  onPress={() => setDay(addDays(current, 1) >= today ? null : addDays(current, 1))}
-                  style={[
-                    styles.stepperNavBtn,
-                    {
-                      backgroundColor: theme.colors.cardSubtle,
-                      borderColor: theme.colors.border,
-                      opacity: isCurrentToday ? 0.3 : 1,
-                    },
-                  ]}>
-                  <Icon name="chevron-forward" size={16} color={theme.colors.text} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Batches / Groups Filter Pills */}
-              {groups.length > 0 && (
-                <View style={styles.groupsScrollRow}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupsScroll}>
-                    <TouchableOpacity
-                      onPress={() => setGroupId('')}
-                      style={[
-                        styles.groupChip,
-                        {
-                          backgroundColor: !groupId ? theme.colors.primarySoft : theme.colors.cardSubtle,
-                          borderColor: !groupId ? theme.colors.primary : theme.colors.border,
-                        },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.groupChipText,
-                          { color: !groupId ? theme.colors.primaryDark : theme.colors.textSecondary, fontWeight: !groupId ? '700' : '500' },
-                        ]}>
-                        Everyone
-                      </Text>
-                    </TouchableOpacity>
-
-                    {groups.map((g) => {
-                      const active = groupId === g._id;
-                      return (
-                        <TouchableOpacity
-                          key={g._id}
-                          onPress={() => setGroupId(active ? '' : g._id)}
-                          style={[
-                            styles.groupChip,
-                            {
-                              backgroundColor: active ? theme.colors.primarySoft : theme.colors.cardSubtle,
-                              borderColor: active ? theme.colors.primary : theme.colors.border,
-                            },
-                          ]}>
-                          <Text
-                            style={[
-                              styles.groupChipText,
-                              { color: active ? theme.colors.primaryDark : theme.colors.textSecondary, fontWeight: active ? '700' : '500' },
-                            ]}>
-                            {g.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-
-            {/* Attendance Summary Card with Progress Bar */}
-            <View style={[styles.summaryCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-              <View style={styles.summaryTopRow}>
-                <View>
-                  <Text style={[styles.summaryCount, { color: theme.colors.text }]}>
-                    {present}{' '}
-                    <Text style={[styles.summaryCountSub, { color: theme.colors.textSecondary }]}>
-                      of {members.length} {isGym ? 'checked in' : 'present'}
-                    </Text>
-                  </Text>
-                  {!isGym && (
-                    <Text style={[styles.summarySubText, { color: theme.colors.textSecondary }]}>
-                      {absent} absent · {unmarked} not marked
-                    </Text>
-                  )}
-                </View>
-
-              </View>
-
-              {/* Progress Bar */}
-              <View style={[styles.progressBarTrack, { backgroundColor: theme.colors.border }]}>
-                <View style={[styles.progressBarFill, { width: `${fillPct}%`, backgroundColor: '#10B981' }]} />
-              </View>
-
-              {!isGym && unmarked > 0 && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.btnMarkAll, { backgroundColor: theme.colors.primary }]}
-                  onPress={handleMarkAllPresent}>
-                  <Icon name="checkmark" size={15} color="#FFFFFF" />
-                  <Text style={styles.btnMarkAllText}>
-                    Mark {unmarked === members.length ? 'all' : `remaining ${unmarked}`} present
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {isGym && isOwner && <CheckinQR biz={biz} theme={theme} />}
-
-            {/* Search Input */}
-            {members.length > 6 && (
-              <View style={[styles.searchBox, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder }]}>
-                <Icon name="search-outline" size={16} color={theme.colors.textMuted} />
-                <TextInput
-                  value={q}
-                  onChangeText={setQ}
-                  placeholder="Search members"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[styles.searchInput, { color: theme.colors.text }]}
-                />
-                {q ? (
-                  <TouchableOpacity onPress={() => setQ('')}>
-                    <Icon name="close-circle" size={16} color={theme.colors.textMuted} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            )}
-
-            {/* The list: gym shows who checked in, then who hasn't; others mark present/absent */}
-            <View style={[styles.listCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-              {!members.length && (
-                <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary, textAlign: 'left' }]}>
-                  No active members{groupId ? ' in this group' : ''}.
-                </Text>
-              )}
-              {members.length > 0 && !found.length && (
-                <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary, textAlign: 'left' }]}>No member matches “{q}”.</Text>
-              )}
-
-              {isGym ? (
-                <>
-                  {found.filter((m) => m.status === 'present').sort((a, b) => new Date(b.at) - new Date(a.at)).map((m, i) => (
-                    <View key={m._id} style={[styles.attRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
-                      <Avatar name={m.name} />
-                      <TouchableOpacity style={styles.attName} onPress={() => navigation.navigate('MemberDetail', { id: m._id })}>
-                        <Text style={[styles.memberName, { color: theme.colors.text }]} numberOfLines={1}>{m.name}</Text>
-                        <Text style={[styles.memberPhone, { color: theme.colors.successDark }]}>
-                          ✓ {timeOf(m.at)} · {m.method === 'qr' ? 'QR' : m.method === 'biometric' ? 'machine' : 'by staff'}
-                          {m.due > 0 ? <Text style={{ color: theme.colors.danger }}> · ₹{m.due.toLocaleString('en-IN')} due</Text> : null}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleMark(m._id, null)} style={styles.undoBtn}>
-                        <Text style={[styles.undoText, { color: theme.colors.primary }]}>Undo</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  {found.some((m) => m.status !== 'present') && (
-                    <Text style={[styles.subhead, { color: theme.colors.textMuted, borderTopColor: theme.colors.border }, !found.some((m) => m.status === 'present') && { borderTopWidth: 0, marginTop: 0 }]}>
-                      Not checked in {current === today ? 'yet' : ''}
-                    </Text>
-                  )}
-                  {found.filter((m) => m.status !== 'present').map((m) => (
-                    <View key={m._id} style={styles.attRow}>
-                      <Avatar name={m.name} />
-                      <TouchableOpacity style={styles.attName} onPress={() => navigation.navigate('MemberDetail', { id: m._id })}>
-                        <Text style={[styles.memberName, { color: theme.colors.text }]} numberOfLines={1}>{m.name}</Text>
-                        {m.paused ? <Text style={[styles.memberPhone, { color: theme.colors.textMuted }]}>Paused</Text> : null}
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => handleMark(m._id, 'present')}
-                        style={[styles.checkinBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
-                        <Text style={[styles.checkinText, { color: theme.colors.text }]}>Check in</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </>
-              ) : (
-                found.map((m, i) => {
-                  const isPresent = m.status === 'present';
-                  const isAbsent = m.status === 'absent';
-                  return (
-                    <View key={m._id} style={[styles.attRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
-                      <Avatar name={m.name} />
-                      <TouchableOpacity style={styles.attName} onPress={() => navigation.navigate('MemberDetail', { id: m._id })}>
-                        <Text style={[styles.memberName, { color: theme.colors.text }]} numberOfLines={1}>{m.name}</Text>
-                        {m.paused ? <Text style={[styles.memberPhone, { color: theme.colors.textMuted }]}>Paused</Text> : null}
-                      </TouchableOpacity>
-                      <View style={styles.toggleContainer}>
-                        <TouchableOpacity
-                          accessibilityLabel={`${m.name} present`}
-                          activeOpacity={0.7}
-                          onPress={() => handleMark(m._id, isPresent ? null : 'present')}
-                          style={[styles.toggleBtn, { borderColor: isPresent ? '#10B981' : theme.colors.border, backgroundColor: isPresent ? '#10B981' : theme.colors.card }]}>
-                          <Icon name="checkmark" size={15} color={isPresent ? '#FFFFFF' : theme.colors.textSecondary} />
-                          <Text style={[styles.toggleBtnText, { color: isPresent ? '#FFFFFF' : theme.colors.textSecondary }]}>Present</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          accessibilityLabel={`${m.name} absent`}
-                          activeOpacity={0.7}
-                          onPress={() => handleMark(m._id, isAbsent ? null : 'absent')}
-                          style={[styles.toggleBtn, { borderColor: isAbsent ? '#EF4444' : theme.colors.border, backgroundColor: isAbsent ? '#EF4444' : theme.colors.card }]}>
-                          <Icon name="close" size={15} color={isAbsent ? '#FFFFFF' : theme.colors.textSecondary} />
-                          <Text style={[styles.toggleBtnText, { color: isAbsent ? '#FFFFFF' : theme.colors.textSecondary }]}>Absent</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          </>
         )}
-      </ScrollView>
 
-      <AttendanceImportModal visible={importing} biz={biz} onClose={() => setImporting(false)} onImported={fetchAttendance} />
-    </SafeAreaView>
-  );
-}
-
-// The call list: who hasn't come in a while, with call and WhatsApp in one tap
-function NotComing({ biz, theme, navigation }) {
-  const [days, setDays] = useState(7);
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    let live = true;
-    api(`/businesses/${biz._id}/attendance/not-coming?days=${days}`)
-      .then((d) => live && setData(d))
-      .catch(() => live && setData({ members: [] }));
-    return () => { live = false; };
-  }, [biz._id, days]);
-  const firstName = (n) => n.split(' ')[0];
-  const list = data?.members || [];
-
-  return (
-    <>
-      <View style={[styles.summaryCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <Text style={[styles.summaryCount, { color: theme.colors.text }]}>
-          {data ? list.length : '–'}{' '}
-          <Text style={[styles.summaryCountSub, { color: theme.colors.textSecondary }]}>
-            member{list.length === 1 ? '' : 's'} not seen in {days}+ days
-          </Text>
-        </Text>
-        <Text style={[styles.summarySubText, { color: theme.colors.textSecondary }]}>
-          Call or message them before they quit. Paused members aren't listed.
-        </Text>
-        <View style={styles.daysRow}>
-          {[7, 14, 30].map((d) => {
-            const on = days === d;
+        {/* the week at a glance; tap a day to open it */}
+        <View style={[styles.week, { backgroundColor: c.card, borderColor: c.border }]}>
+          {week.map((d) => {
+            const on = d.day === current;
             return (
-              <TouchableOpacity
-                key={d}
-                onPress={() => setDays(d)}
-                style={[styles.groupChip, { backgroundColor: on ? theme.colors.primarySoft : theme.colors.cardSubtle, borderColor: on ? theme.colors.primary : theme.colors.border }]}>
-                <Text style={[styles.groupChipText, { color: on ? theme.colors.primaryDark : theme.colors.textSecondary, fontWeight: on ? '700' : '500' }]}>{d}+ days</Text>
+              <TouchableOpacity key={d.day} onPress={() => setDay(d.day === today ? null : d.day)} accessibilityState={{ selected: on }}
+                accessibilityLabel={`${fmtLong(d.day)}: ${d.present} came`}
+                style={[styles.wday, on && { borderColor: c.primary, borderWidth: 1.5, backgroundColor: c.primarySoft }]}>
+                <Text style={[styles.wdayLabel, { color: on ? c.primaryDark : c.textMuted, fontWeight: on ? '600' : '500' }]} numberOfLines={1}>{weekLabel(d.day)}</Text>
+                <View style={styles.wdayBarBox}>
+                  <View style={[styles.wdayBar, { height: `${Math.max(4, (d.present / peak) * 100)}%`, backgroundColor: on ? c.primary : c.primaryBorder }]} />
+                </View>
+                <Text style={[styles.wdayNum, { color: c.text }]}>{d.present}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
-      </View>
 
-      <View style={[styles.listCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        {data && !list.length && (
-          <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary, textAlign: 'left' }]}>
-            Everyone has come in the last {days} days.
-          </Text>
-        )}
-        {list.map((m, i) => (
-          <View key={m._id} style={[styles.attRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
-            <Avatar name={m.name} />
-            <TouchableOpacity style={styles.attName} onPress={() => navigation.navigate('MemberDetail', { id: m._id })}>
-              <Text style={[styles.memberName, { color: theme.colors.text }]} numberOfLines={1}>{m.name}</Text>
-              <Text style={[styles.memberPhone, { color: theme.colors.danger }]}>
-                {m.lastPresent ? `Last came ${fmtShort(m.lastPresent)} · ${m.daysAway} days ago` : `Not seen since joining · ${m.daysAway} days`}
-              </Text>
-            </TouchableOpacity>
-            {m.phone ? (
-              <>
-                <TouchableOpacity
-                  accessibilityLabel={`Call ${m.name}`}
-                  onPress={() => Linking.openURL(`tel:${m.phone}`)}
-                  style={[styles.iconBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
-                  <Icon name="call-outline" size={17} color={theme.colors.text} />
+        {/* four numbers; tap one to show that list */}
+        <View style={styles.cards}>
+          {cards.map((k) => {
+            const on = !!k.id && tab === k.id;
+            return (
+              <TouchableOpacity key={k.label} disabled={!k.id} onPress={() => setTab(k.id)} activeOpacity={0.8}
+                style={[styles.card, { backgroundColor: c.card, borderColor: on ? c.primary : c.border }, on && { borderWidth: 2 }]}>
+                <Text style={[styles.cardLabel, { color: c.textMuted }]} numberOfLines={1}>{k.label}</Text>
+                <Text style={[styles.cardValue, { color: k.ink || c.text }]} numberOfLines={1}>{k.value}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* the list: tabs, search, batch, mark all, one row each */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabs, { borderBottomColor: c.border }]}>
+          {tabs.map((t) => {
+            const on = tab === t.id;
+            return (
+              <TouchableOpacity key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                style={[styles.tab, { borderBottomColor: on ? c.primary : 'transparent' }]}>
+                <View style={[styles.dotSmall, { backgroundColor: t.dot }]} />
+                <Text style={{ fontSize: 14, fontWeight: on ? '600' : '500', color: on ? c.primaryDark : c.textMuted }}>{t.label}</Text>
+                <View style={[styles.tabCount, { backgroundColor: on ? c.primary : c.cardSubtle }]}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: on ? '#fff' : c.textSecondary }}>{t.count}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.tools}>
+          {tab !== 'away' ? (
+            <>
+              <View style={[styles.search, { borderColor: c.border, backgroundColor: c.card }]}>
+                <Icon name="search" size={15} color={c.textMuted} />
+                <TextInput value={q} onChangeText={setQ} placeholder={`Search a ${W.member}`} placeholderTextColor={c.textMuted} style={[styles.searchInput, { color: c.text }]} />
+              </View>
+              {groups.length > 0 && (
+                <View style={[styles.seg, { backgroundColor: c.cardSubtle }]}>
+                  {[{ _id: '', name: 'Everyone' }, ...groups].map((g) => {
+                    const on = groupId === g._id;
+                    return (
+                      <TouchableOpacity key={g._id || 'all'} onPress={() => setGroupId(g._id)} style={[styles.segBtn, on && { backgroundColor: c.card }]}>
+                        <Text style={{ fontSize: 13, fontWeight: on ? '600' : '400', color: on ? c.text : c.textSecondary }}>{g.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+              {canMark && tab === 'notin' && notIn.length > 0 && (
+                <TouchableOpacity onPress={markAllPresent} style={[styles.allBtn, { borderColor: c.border, backgroundColor: c.card }]}>
+                  <Icon name="checkmark" size={14} color={c.text} />
+                  <Text style={{ fontSize: 13.5, fontWeight: '500', color: c.text }}>Mark all {notIn.length} present</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  accessibilityLabel={`WhatsApp ${m.name}`}
-                  onPress={() => Linking.openURL(waLink(m.phone, `Hi ${firstName(m.name)}, we haven't seen you at ${biz.name} ${m.lastPresent ? `since ${fmtShort(m.lastPresent)}` : 'yet'}. Hope all is well. See you soon!`))}
-                  style={[styles.iconBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
-                  <Icon name="logo-whatsapp" size={18} color="#25D366" />
-                </TouchableOpacity>
-              </>
-            ) : null}
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={{ fontSize: 13, color: c.textMuted, flexBasis: '100%' }}>{`Call or message them before they quit. Paused ${W.member}s aren't listed.`}</Text>
+              <View style={[styles.seg, { backgroundColor: c.cardSubtle }]}>
+                {[7, 14, 30].map((d) => (
+                  <TouchableOpacity key={d} onPress={() => setAwayDays(d)} style={[styles.segBtn, awayDays === d && { backgroundColor: c.card }]}>
+                    <Text style={{ fontSize: 13, fontWeight: awayDays === d ? '600' : '400', color: awayDays === d ? c.text : c.textSecondary }}>{d}+ days</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+        </View>
+
+        {tab === 'away' ? (
+          <View>
+            {away && !away.members.length && <Text style={[styles.empty, { color: c.textMuted }]}>Everyone has come in the last {awayDays} days.</Text>}
+            {(away?.members || []).map((m) => (
+              <View key={m._id} style={[styles.row, { borderTopColor: c.border }]}>
+                <Avatar name={m.name} size={32} />
+                <View style={styles.who}>
+                  <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{m.name}</Text>
+                  <Text style={[styles.meta, { color: c.moneyRed }]} numberOfLines={1}>
+                    {m.lastPresent ? `Last came ${fmtShort(m.lastPresent)} · ${m.daysAway} days ago` : `Not seen since joining · ${m.daysAway} days`}
+                  </Text>
+                </View>
+                {m.phone ? (
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${m.phone}`)} accessibilityLabel={`Call ${m.name}`} style={[styles.iconBtn, { borderColor: c.border }]}>
+                      <Icon name="call-outline" size={15} color={c.text} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(waLink(m.phone, `Hi ${m.name.split(' ')[0]}, we haven't seen you at ${biz.name} ${m.lastPresent ? `since ${fmtShort(m.lastPresent)}` : 'yet'}. Hope all is well. See you soon!`))}
+                      style={[styles.waBtn, { backgroundColor: c.successSoft, borderColor: c.successBorder }]}>
+                      <Icon name="logo-whatsapp" size={14} color={c.moneyGreen} />
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: c.moneyGreen }}>WhatsApp</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
-    </>
+        ) : (
+          <View>
+            {!members.length && <Text style={[styles.empty, { color: c.textMuted }]}>No active {W.member}s{groupId ? ' in this batch' : ''}.</Text>}
+            {members.length > 0 && !shownRows.length && (
+              <Text style={[styles.empty, { color: c.textMuted }]}>
+                {query ? `Nobody matches “${q}”.` : tab === 'notin' ? (isGym ? 'Everyone is in. 🎉' : 'Everyone is marked.') : tab === 'in' ? 'Nobody yet.' : 'Nobody absent.'}
+              </Text>
+            )}
+            {shownRows.map((m) => {
+              const last = lastText(m);
+              const info = [m.groupName, m.planName].filter(Boolean).join(' · ');
+              return (
+                <View key={m._id} style={[styles.row, { borderTopColor: c.border }]}>
+                  <View style={styles.rowTop}>
+                    <Avatar name={m.name} size={32} />
+                    <View style={styles.who}>
+                      <View style={styles.nameRow}>
+                        <Text style={[styles.name, { color: c.text, flexShrink: 1 }]} numberOfLines={1}>{m.name}</Text>
+                        {m.due > 0 && (
+                          <View style={[styles.owes, { backgroundColor: theme.isDark ? 'rgba(248,113,113,0.14)' : '#FEF1F0' }]}>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.isDark ? '#F87171' : '#B42318' }}>owes {rupees(m.due)}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.meta, { color: c.textMuted }]} numberOfLines={1}>
+                        {m.status === 'present'
+                          ? `${timeOf(m.at)} · ${m.method === 'staff' && m.markedBy ? `marked by ${m.markedBy}` : { qr: 'scanned QR', biometric: 'machine', staff: 'by staff' }[m.method] || 'marked'}`
+                          : info || 'No plan'}
+                      </Text>
+                    </View>
+                    {canMark && (isGym ? (
+                      m.status === 'present'
+                        ? <TouchableOpacity onPress={() => handleMark(m._id, null)} style={[styles.gymBtn, { borderColor: c.border, backgroundColor: c.card }]}><Text style={{ fontWeight: '600', color: c.text }}>Undo</Text></TouchableOpacity>
+                        : <TouchableOpacity onPress={() => handleMark(m._id, 'present')} style={[styles.gymBtn, { backgroundColor: c.primary, borderColor: c.primary }]}><Text style={{ fontWeight: '600', color: '#fff' }}>Check in</Text></TouchableOpacity>
+                    ) : (
+                      <View style={[styles.toggle, { borderColor: c.border }]}>
+                        <TouchableOpacity accessibilityLabel={`${m.name} present`} accessibilityState={{ selected: m.status === 'present' }}
+                          onPress={() => handleMark(m._id, m.status === 'present' ? null : 'present')}
+                          style={[styles.toggleBtn, m.status === 'present' && { backgroundColor: c.success }]}>
+                          <Icon name="checkmark" size={16} color={m.status === 'present' ? '#fff' : c.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity accessibilityLabel={`${m.name} absent`} accessibilityState={{ selected: m.status === 'absent' }}
+                          onPress={() => handleMark(m._id, m.status === 'absent' ? null : 'absent')}
+                          style={[styles.toggleBtn, { borderLeftWidth: 1, borderLeftColor: c.border }, m.status === 'absent' && { backgroundColor: c.danger }]}>
+                          <Icon name="close" size={16} color={m.status === 'absent' ? '#fff' : c.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                  {m.status !== 'present' && <Text style={[styles.last, { color: last.red ? c.moneyRed : c.textMuted, fontWeight: last.red ? '500' : '400' }]}>{last.text}</Text>}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {isGym && isOwner && <View style={{ marginTop: 16 }}><CheckinQR biz={biz} theme={theme} /></View>}
+      </ScrollView>
+
+      <PickMember visible={picking} members={notIn.filter((m) => !m.paused).map((m) => ({ ...m, balance: m.due }))} word={W.member}
+        onClose={() => setPicking(false)} onPick={(m) => { setPicking(false); handleMark(m._id, 'present'); }} />
+      <AttendanceImportModal visible={importing} biz={biz} onClose={() => setImporting(false)} onImported={fetchAttendance} />
+    </SafeAreaView>
   );
 }
 
@@ -674,6 +478,48 @@ function CheckinQR({ biz, theme }) {
 }
 
 const styles = StyleSheet.create({
+  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 },
+  date: { fontSize: 13, marginBottom: 2 },
+  h1: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3, marginBottom: 10 },
+  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  quick: { flex: 1, height: 66, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  quickGap: { flex: 1 },
+  quickIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  quickText: { fontSize: 12, fontWeight: '600' },
+  week: { flexDirection: 'row', gap: 2, padding: 6, borderWidth: 1, borderRadius: 14, marginBottom: 12 },
+  wday: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
+  wdayLabel: { fontSize: 10.5 },
+  wdayBarBox: { height: 30, width: '100%', alignItems: 'center', justifyContent: 'flex-end' },
+  wdayBar: { width: 14, borderTopLeftRadius: 5, borderTopRightRadius: 5, borderBottomLeftRadius: 2, borderBottomRightRadius: 2 },
+  wdayNum: { fontSize: 12, fontWeight: '700' },
+  cards: { flexDirection: 'row', gap: 6, marginBottom: 12 },
+  card: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 10, gap: 2 },
+  cardLabel: { fontSize: 11 },
+  cardValue: { fontSize: 16, fontWeight: '800' },
+  tabs: { flexGrow: 0, borderBottomWidth: 1 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, paddingHorizontal: 9, borderBottomWidth: 2, marginBottom: -1 },
+  dotSmall: { width: 8, height: 8, borderRadius: 4 },
+  tabCount: { minWidth: 22, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  tools: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 10 },
+  search: { flexBasis: '100%', height: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
+  seg: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 10 },
+  segBtn: { height: 30, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  allBtn: { flexBasis: '100%', height: 40, borderWidth: 1, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  empty: { textAlign: 'center', paddingVertical: 24, fontSize: 13.5 },
+  row: { borderTopWidth: 1, paddingVertical: 12, paddingHorizontal: 2, gap: 4 },
+  rowTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  who: { flex: 1, minWidth: 0 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { fontSize: 15, fontWeight: '600' },
+  meta: { fontSize: 12.5, marginTop: 1 },
+  owes: { height: 20, paddingHorizontal: 7, borderRadius: 99, justifyContent: 'center' },
+  last: { fontSize: 12.5, paddingLeft: 44 },
+  toggle: { flexDirection: 'row', borderWidth: 1, borderRadius: 8, overflow: 'hidden' },
+  toggleBtn: { height: 42, width: 44, alignItems: 'center', justifyContent: 'center' },
+  gymBtn: { minWidth: 96, height: 40, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  iconBtn: { width: 36, height: 36, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  waBtn: { height: 36, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 5 },
   importBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -736,14 +582,6 @@ const styles = StyleSheet.create({
   checkinText: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   daysRow: {
     flexDirection: 'row',
@@ -946,11 +784,6 @@ const styles = StyleSheet.create({
     height: 38,
     marginBottom: 12,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    paddingVertical: 0,
-  },
   listSection: {
     gap: 8,
   },
@@ -987,15 +820,6 @@ const styles = StyleSheet.create({
   toggleContainer: {
     flexDirection: 'row',
     gap: 6,
-  },
-  toggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: 36,
-    paddingHorizontal: 9,
-    borderRadius: 8,
-    borderWidth: 1,
   },
   toggleBtnText: {
     fontSize: 12.5,

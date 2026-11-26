@@ -115,9 +115,9 @@ export default function MembersScreen({ navigation, route }) {
   const isPaid = (m) => active(m) && m.balance <= 0 && !isSoon(m) && !isPaused(m);
   const isAll = (m) => m.status !== 'left';
   const TABS = [
-    { id: 'owe', label: 'Owe', fn: isOwe, ink: c.dangerDark },
-    { id: 'soon', label: 'Due soon', fn: isSoon, ink: c.warningDark },
-    { id: 'paid', label: 'Paid', fn: isPaid, ink: c.successDark },
+    { id: 'owe', label: 'Owe', fn: isOwe, ink: c.moneyRed },
+    { id: 'soon', label: 'Due soon', fn: isSoon, ink: c.moneyAmber },
+    { id: 'paid', label: 'Paid', fn: isPaid, ink: c.moneyGreen },
     { id: 'all', label: 'All', fn: isAll, ink: c.text },
   ];
 
@@ -187,9 +187,9 @@ export default function MembersScreen({ navigation, route }) {
 
   // ---- colours ----
   const tone = {
-    red: { bg: dark ? 'rgba(248,113,113,0.14)' : '#FEF1F0', ink: c.dangerDark },
-    amber: { bg: dark ? 'rgba(251,191,36,0.14)' : '#FFF6E5', ink: c.warningDark },
-    green: { bg: dark ? 'rgba(52,211,153,0.12)' : '#ECFDF3', ink: c.successDark },
+    red: { bg: dark ? 'rgba(248,113,113,0.14)' : '#FEF1F0', ink: c.moneyRed },
+    amber: { bg: dark ? 'rgba(251,191,36,0.14)' : '#FFF6E5', ink: c.moneyAmber },
+    green: { bg: dark ? 'rgba(52,211,153,0.12)' : '#ECFDF3', ink: c.moneyGreen },
     grey: { bg: dark ? 'rgba(148,163,184,0.14)' : '#EEF1F6', ink: c.textMuted },
   };
   const line = dark ? 'rgba(255,255,255,0.08)' : '#E7E9F0';
@@ -197,7 +197,7 @@ export default function MembersScreen({ navigation, route }) {
   const rightSide = (m) => {
     if (m.balance > 0) {
       const late = daysLate(m);
-      return { amount: rupees(m.balance), amtInk: c.dangerDark, chip: late > 0 ? `${late} day${late === 1 ? '' : 's'} late` : 'due today', chipTone: late >= 7 ? 'red' : 'amber' };
+      return { amount: rupees(m.balance), amtInk: c.moneyRed, chip: late > 0 ? `${late} day${late === 1 ? '' : 's'} late` : 'due today', chipTone: late >= 7 ? 'red' : 'amber' };
     }
     if (isSoon(m)) {
       const d = daysUntil(m.nextRenewal);
@@ -205,7 +205,7 @@ export default function MembersScreen({ navigation, route }) {
     }
     if (isPaused(m)) return { amount: 'Paused', amtInk: c.textMuted, chip: 'no fees', chipTone: 'grey' };
     const d = m.nextRenewal ? daysUntil(m.nextRenewal) : null;
-    return { amount: m.balance < 0 ? `+${rupees(-m.balance)}` : 'Paid', amtInk: c.successDark, chip: d != null && d > 0 ? `next in ${d} days` : 'paid up', chipTone: 'green' };
+    return { amount: m.balance < 0 ? `+${rupees(-m.balance)}` : 'Paid', amtInk: c.moneyGreen, chip: d != null && d > 0 ? `next in ${d} days` : 'paid up', chipTone: 'green' };
   };
   const where = (m) => {
     const r = roomOf(m);
@@ -236,12 +236,12 @@ export default function MembersScreen({ navigation, route }) {
 
         {/* 2. the four numbers in one slim strip */}
         <NumberStrip items={[
-          { label: 'Collected', value: collected == null ? '…' : rupees(collected), ink: c.successDark },
-          { label: 'To collect', value: rupees(owedNow), ink: owedNow ? c.dangerDark : undefined },
+          { label: 'Collected', value: collected == null ? '…' : rupees(collected), ink: c.moneyGreen },
+          { label: 'To collect', value: rupees(owedNow), ink: owedNow ? c.moneyRed : undefined },
           { label: Title, value: String(all.filter(isAll).length) },
           isHostel && rooms.length > 0
             ? { label: 'Beds filled', value: `${rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0)}/${rooms.reduce((s, r) => s + r.capacity, 0)}` }
-            : { label: 'Due soon', value: String(all.filter(isSoon).length), ink: all.some(isSoon) ? c.warningDark : undefined },
+            : { label: 'Due soon', value: String(all.filter(isSoon).length), ink: all.some(isSoon) ? c.moneyAmber : undefined },
         ]} />
 
         {/* 3. search + filter, chips, one line per person */}
@@ -307,7 +307,7 @@ export default function MembersScreen({ navigation, route }) {
                   sub={where(m)}
                   amount={r.amount}
                   amountInk={r.amtInk}
-                  amountSub={owes ? 'owes' : soon ? 'due' : r.amtInk === c.successDark ? 'paid' : ''}
+                  amountSub={owes ? 'owes' : soon ? 'due' : r.amtInk === c.moneyGreen ? 'paid' : ''}
                   button={picking ? null
                     : owes && canAdd && active(m) ? { label: 'Collect', primary: true, onPress: () => setSheet({ m, amt: m.balance, mode: 'upi' }) }
                     : soon && m.phone && active(m) ? { label: 'Remind', icon: 'logo-whatsapp', onPress: () => Linking.openURL(waLink(m.phone, renewMsg(m))) }
@@ -463,7 +463,7 @@ export function CollectSheet({ sheet, setSheet, room, late, theme, tone, onDone 
             ) : <Avatar name={m.name} size={42} />}
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>Collect from {m.name.split(' ')[0]}</Text>
-              <Text style={{ color: c.dangerDark, fontSize: 12.5, fontWeight: '600' }}>Owes {rupees(m.balance)}{late > 0 ? ` · ${late} day${late === 1 ? '' : 's'} late` : ''}</Text>
+              <Text style={{ color: c.moneyRed, fontSize: 12.5, fontWeight: '600' }}>Owes {rupees(m.balance)}{late > 0 ? ` · ${late} day${late === 1 ? '' : 's'} late` : ''}</Text>
             </View>
             <TouchableOpacity accessibilityLabel="Close" onPress={() => setSheet(null)} style={[styles.sheetX, { backgroundColor: tone.grey.bg }]}>
               <Icon name="close" size={16} color={c.textSecondary} />

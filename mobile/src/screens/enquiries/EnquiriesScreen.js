@@ -151,7 +151,6 @@ export default function EnquiriesScreen({ navigation, route }) {
 
   const hello = (e) => `Hi ${e.name}, thanks for asking about ${biz?.name}.${e.planId ? ` The ${e.planId.name} plan is ${rupees(e.planId.amount)}.` : ''} Would you like to come in for a visit?`;
   const count = (fn) => list0.filter(fn).length;
-  const monthName = now.toLocaleDateString('en-IN', { month: 'long' });
   const monthIn = list0.filter((e) => thisMonth(e.createdAt));
   const monthJoined = monthIn.filter((e) => e.status === 'joined').length;
   const nToday = count(VIEWS.today.fn), nMissed = count(VIEWS.overdue.fn), nOpen = count(isOpen);
@@ -206,11 +205,11 @@ export default function EnquiriesScreen({ navigation, route }) {
         ) : (
           <>
             {/* 2. the four numbers in one slim strip (tap one to show that list) */}
-            <NumberStrip items={[
-              { label: 'Call today', value: String(nToday), ink: nToday ? c.warningDark : undefined, on: curView === 'today', onPress: () => setView('today') },
-              { label: 'Missed', value: String(nMissed), ink: nMissed ? c.dangerDark : undefined, on: curView === 'overdue', onPress: () => setView('overdue') },
+            <NumberStrip big items={[
+              { label: 'Call', value: String(nToday), on: curView === 'today', onPress: () => setView('today') },
+              { label: 'Missed', value: String(nMissed), ink: nMissed ? c.moneyRed : undefined, on: curView === 'overdue', onPress: () => setView('overdue') },
               { label: 'Open', value: String(nOpen), on: curView === 'open', onPress: () => setView('open') },
-              { label: `Joined · ${monthName.slice(0, 3)}`, value: String(monthJoined), ink: monthJoined ? c.successDark : undefined, on: curView === 'joined', onPress: () => setView('joined') },
+              { label: 'Joined', value: String(monthJoined), on: curView === 'joined', onPress: () => setView('joined') },
             ]} />
 
             {/* 3. search + filter, chips, one line per person */}
@@ -251,9 +250,8 @@ export default function EnquiriesScreen({ navigation, route }) {
                 })}
                 {list.length === 0 && <Text style={[styles.none, { color: c.textMuted }]}>{q ? `Nobody matches “${q}”.` : VIEWS[curView].empty}</Text>}
               </View>
-              {list.length > 0 && <ColorKey items={[['Missed', 'late'], ['Call today', 'due'], ['Later', 'none']]} />}
+              {list.length > 0 && <ColorKey items={[['Missed', 'late'], ['Call today', 'due'], ['Joined', 'paid']]} />}
             </ListCard>
-            <Text style={[styles.foot, { color: c.textMuted }]}>Tap a name to edit, call, or mark them joined</Text>
           </>
         )}
       </ScrollView>
@@ -379,7 +377,7 @@ function EnquiryModal({ biz, plans, enquiry, canDelete, onDelete, onJoined, onSa
       <View style={styles.modalActions}>
         {enquiry && canDelete ? (
           <TouchableOpacity onPress={onDelete} style={[styles.round, { borderColor: c.dangerBorder }]} accessibilityLabel="Delete enquiry">
-            <Icon name="trash-outline" size={16} color={c.dangerDark} />
+            <Icon name="trash-outline" size={16} color={c.moneyRed} />
           </TouchableOpacity>
         ) : null}
         <View style={{ flex: 1 }} />

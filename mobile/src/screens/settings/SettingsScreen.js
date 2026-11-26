@@ -9,37 +9,33 @@ import {
   Alert,
   SafeAreaView,
   TextInput,
-  Linking,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, getApiBaseUrl, setApiBaseUrl, STORAGE_KEYS } from '../../api/api';
-import Card from '../../components/Card';
-import Badge from '../../components/Badge';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import Modal from '../../components/Modal';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
 import { downloadFile } from '../../api/download';
-import { BIZ_CONFIG } from '../../constants/theme';
+import { BIZ_CONFIG, tint } from '../../constants/theme';
+import { words } from '../../constants/wording';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const TABS = [
-  { key: 'profile', label: 'Profile', icon: 'person-outline', intro: 'Your name, phone number and password.' },
-  { key: 'payments', label: 'Payments', icon: 'shield-checkmark-outline', intro: 'How members pay you, and how they are reminded.' },
-  { key: 'team', label: 'Team', icon: 'people-outline', intro: 'People who can help you run the business.', ownerOnly: true },
-  { key: 'business', label: 'Business', icon: 'business-outline', intro: 'Your business details and the features you use.' },
-  { key: 'data', label: 'Backup', icon: 'download-outline', intro: 'Download your data for accounting or safekeeping.' },
-];
 
 export default function SettingsScreen({ navigation }) {
   const { logout, user } = useAuth();
   const { biz, isOwner, updateBusiness, refetch } = useBiz();
   const { theme, isDark, toggleTheme } = useTheme();
 
-  const [activeTab, setActiveTab] = useState('profile');
+  // one page like the web; these open the small forms in place
+  const [editProfile, setEditProfile] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [staffOpen, setStaffOpen] = useState(false);
+  const [editBizName, setEditBizName] = useState(false);
+  const [dangerOpen, setDangerOpen] = useState(false);
 
   // Profile: the signed-in person's own details, from /me (the sign-in token has no name or phone)
   const [me, setMe] = useState(null);
@@ -304,540 +300,299 @@ export default function SettingsScreen({ navigation }) {
     ]);
   };
 
-  const tabs = TABS.filter((t) => !t.ownerOnly || isOwner);
-  const currentTabObj = tabs.find((t) => t.key === activeTab) || tabs[0];
+  const c = theme.colors;
+  const W = words(biz?.type);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-      {/* TopBar */}
       <TopBar navigation={navigation} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Page Header */}
-        <View style={styles.pageHeader}>
-          <Text style={[styles.pageTitle, { color: theme.colors.text }]}>Settings</Text>
-          <Text style={[styles.pageSubtitle, { color: theme.colors.textSecondary }]}>
-            {currentTabObj.intro}
-          </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* who you are, and the page title (the web's st-head) */}
+        <View style={ws.head}>
+          <View style={[ws.avatar, { backgroundColor: c.primary }]}><Text style={ws.avatarText}>{initials(me?.name)}</Text></View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[ws.headSub, { color: c.textMuted }]} numberOfLines={1}>{me?.name || 'You'}{me?.phone ? ` · +91 ${me.phone}` : ''}</Text>
+            <Text style={[ws.h1, { color: c.text }]}>Settings</Text>
+          </View>
+          <TouchableOpacity onPress={() => setEditProfile((o) => !o)} style={[ws.outline, { borderColor: c.border, backgroundColor: c.card }]}>
+            <Icon name="person-outline" size={14} color={c.text} />
+            <Text style={[ws.outlineText, { color: c.text }]}>{editProfile ? 'Done' : 'Edit'}</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Setup Shortcut Banner */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('Setup')}
-          style={[styles.shortcutBanner, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <View style={[styles.shortcutIconWrap, { backgroundColor: 'rgba(139, 92, 246, 0.14)' }]}>
-            <Icon name="options-outline" size={18} color="#8B5CF6" />
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={[styles.shortcutTitle, { color: theme.colors.text }]}>
-              Plans, batches & rooms
-            </Text>
-            <Text style={[styles.shortcutSub, { color: theme.colors.textSecondary }]}>
-              Fees, cycles, groups, buildings & rooms
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={16} color={theme.colors.textMuted} />
-        </TouchableOpacity>
+        {/* at a glance */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 12 }} contentContainerStyle={{ gap: 8 }}>
+          {[
+            { text: `UPI payments: ${biz?.upiId ? 'Set up' : 'Not set up'}`, ok: !!biz?.upiId },
+            { text: `Auto reminders: ${autoRemind ? 'On' : 'Off'}`, ok: autoRemind, warn: !autoRemind },
+          ].map((x) => (
+            <View key={x.text} style={[ws.chip, { backgroundColor: x.ok ? c.successSoft : x.warn ? c.warningSoft : c.dangerSoft }]}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: x.ok ? c.moneyGreen : x.warn ? c.moneyAmber : c.moneyRed }}>{x.text}</Text>
+            </View>
+          ))}
+        </ScrollView>
 
-        {/* Tabs: equal widths, icon above the label (same as the web on phones) */}
-        <View style={[styles.tabsBar, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}>
-          {tabs.map((t) => {
-            const active = activeTab === t.key;
-            return (
-              <TouchableOpacity
-                key={t.key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                onPress={() => setActiveTab(t.key)}
-                style={[styles.tabBtn, active && { backgroundColor: theme.colors.card, ...styles.tabBtnActive }]}>
-                <Icon name={t.icon} size={16} color={active ? theme.colors.primary : theme.colors.textMuted} />
-                <Text style={[styles.tabBtnText, { color: active ? theme.colors.text : theme.colors.textMuted }]} numberOfLines={1}>
-                  {t.label}
-                </Text>
+        {/* your name and number (the web opens this from Edit) */}
+        {editProfile && (
+          <View style={[ws.card, ws.pad, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[ws.cardTitle, { color: c.text }]}>Your profile</Text>
+            <Text style={[ws.label, { color: c.textSecondary }]}>Your name</Text>
+            <TextInput value={userName} onChangeText={(v) => { setUserName(v); setProfileMsg(''); }} maxLength={60} placeholder="Your name" placeholderTextColor={c.textMuted}
+              style={[ws.input, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text }]} />
+            <Text style={[ws.label, { color: c.textSecondary }]}>Mobile number (you sign in with this)</Text>
+            <TextInput value={userPhone} onChangeText={(v) => { setUserPhone(v.replace(/\D/g, '').slice(0, 10)); setProfileMsg(''); }} keyboardType="number-pad" placeholder="10-digit number" placeholderTextColor={c.textMuted}
+              style={[ws.input, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text }]} />
+            {phoneChanged && (
+              <>
+                <Text style={[ws.label, { color: c.textSecondary }]}>Current password (needed to change your number)</Text>
+                <TextInput value={phonePassword} onChangeText={setPhonePassword} secureTextEntry style={[ws.input, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text }]} />
+              </>
+            )}
+            {!!profileError && <Text style={[ws.msg, { color: c.danger }]}>{profileError}</Text>}
+            {!!profileMsg && <Text style={[ws.msg, { color: c.moneyGreen }]}>✓ {profileMsg}</Text>}
+            <TouchableOpacity disabled={!profileChanged || profileBusy || !userName.trim() || userPhone.length !== 10 || (phoneChanged && !phonePassword)} onPress={handleSaveProfile}
+              style={[ws.primary, { backgroundColor: c.primary, opacity: !profileChanged || profileBusy ? 0.55 : 1 }]}>
+              <Icon name="checkmark" size={15} color="#fff" /><Text style={ws.primaryText}>{profileBusy ? 'Saving…' : 'Save changes'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* how members pay you */}
+        <View style={[ws.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={ws.cardHead}>
+            <View style={[ws.cardIcon, { backgroundColor: theme.isDark ? 'rgba(52,211,153,0.12)' : '#ECFDF3' }]}><Text style={{ color: c.moneyGreen, fontWeight: '700' }}>₹</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.cardTitle, { color: c.text, marginBottom: 0 }]}>How members pay you</Text>
+              <Text style={[ws.cardSub, { color: c.textMuted }]}>Reminders and statements carry a 1-tap pay link. Money goes straight to you.</Text>
+            </View>
+          </View>
+          <View style={ws.padX}>
+            <Text style={[ws.label, { color: c.text }]}>Your UPI ID</Text>
+            <TextInput value={upiId} onChangeText={setUpiId} editable={isOwner} placeholder="e.g. yourgym@ybl" placeholderTextColor={c.textMuted} autoCapitalize="none"
+              style={[ws.input, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text, fontFamily: 'monospace' }]} />
+            <Text style={[ws.hint, { color: c.textMuted }]}>Find it in your UPI app (PhonePe, GPay, Paytm) under your profile.</Text>
+            {isOwner ? (
+              <TouchableOpacity disabled={upiSaving} onPress={handleSaveUpi} style={[ws.primary, { backgroundColor: c.primary, alignSelf: 'flex-end', paddingHorizontal: 60 }]}>
+                <Icon name="checkmark" size={15} color="#fff" /><Text style={ws.primaryText}>{upiSaving ? 'Saving…' : 'Save UPI ID'}</Text>
               </TouchableOpacity>
-            );
-          })}
+            ) : <Text style={[ws.hint, { color: c.textMuted }]}>Only the owner can change this.</Text>}
+          </View>
         </View>
 
-        {/* ============================================================ */}
-        {/* TAB 1: PROFILE */}
-        {/* ============================================================ */}
-        {activeTab === 'profile' && (
-          <View style={styles.tabSection}>
-            <Card style={styles.card}>
-              <View style={[styles.profileHero, { borderBottomColor: theme.colors.border }]}>
-                <View style={styles.profileAvatar}>
-                  <Text style={styles.profileAvatarText}>{initials(userName || me?.name)}</Text>
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.profileName, { color: theme.colors.text }]} numberOfLines={1}>{me?.name || 'Your profile'}</Text>
-                  <Text style={[styles.cardSub, { color: theme.colors.textMuted, marginBottom: 0 }]}>
-                    {me?.phone ? `+91 ${me.phone}` : ''}{me?.role === 'admin' ? ' · platform admin' : ''}
-                  </Text>
-                </View>
+        {/* WhatsApp reminders */}
+        <View style={[ws.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={ws.cardHead}>
+            <View style={[ws.cardIcon, { backgroundColor: theme.isDark ? 'rgba(52,211,153,0.12)' : '#E7F8EE' }]}><Icon name="logo-whatsapp" size={16} color={theme.isDark ? '#34D399' : '#15803D'} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.cardTitle, { color: c.text, marginBottom: 0 }]}>WhatsApp reminders</Text>
+              <Text style={[ws.cardSub, { color: c.textMuted }]}>Every day at 10 AM, {W.member}s who owe get one, with your pay link</Text>
+            </View>
+          </View>
+          <View style={[ws.row, { borderTopColor: c.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.rowTitle, { color: c.text }]}>Send them automatically</Text>
+              <Text style={[ws.rowSub, { color: c.textMuted }]}>{autoRemind ? 'On' : 'Off'}</Text>
+            </View>
+            <Switch value={autoRemind} disabled={!isOwner} onValueChange={(v) => handleSaveNotifications(v, reminderDays)} trackColor={{ false: c.borderSolid, true: c.primary }} thumbColor="#FFFFFF" activeThumbColor="#FFFFFF" />
+          </View>
+          <View style={[ws.row, { borderTopColor: c.border, flexDirection: 'column', alignItems: 'stretch', gap: 0 }]}>
+            <Text style={[ws.rowTitle, { color: c.text }]}>Same {W.member} at most every</Text>
+            <Text style={[ws.rowSub, { color: c.textMuted }]}>Fewer messages keep {W.member}s from muting you</Text>
+            <View style={[ws.seg, { backgroundColor: c.cardSubtle, marginTop: 10 }]}>
+              {[3, 5, 7].map((d) => {
+                const on = reminderDays === d;
+                return (
+                  <TouchableOpacity key={d} disabled={!isOwner} onPress={() => handleSaveNotifications(autoRemind, d)} style={[ws.segBtn, { flex: 1 }, on && { backgroundColor: c.card }]}>
+                    <Text style={{ fontSize: 14, fontWeight: on ? '600' : '400', color: on ? c.text : c.textSecondary }}>{d} days</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={[ws.waPreview, { backgroundColor: theme.isDark ? '#0B141A' : '#ECE5DD' }]}>
+              <View style={[ws.waBubble, { backgroundColor: theme.isDark ? '#005C4B' : '#DCF8C6' }]}>
+                <Text style={{ fontSize: 13, lineHeight: 19, color: theme.isDark ? '#E9EDEF' : '#111B21' }}>Hi Rohit, your payment of ₹1,500 for {biz?.name} is pending. Please pay at the earliest. Thank you!</Text>
+                <Text style={{ fontSize: 11, color: '#667781', textAlign: 'right', marginTop: 2 }}>10:00 AM</Text>
               </View>
+            </View>
+          </View>
+        </View>
 
-              <View style={styles.formRow}>
-                <Text style={[styles.formLabel, { color: theme.colors.textSecondary }]}>Your name</Text>
-                <TextInput
-                  value={userName}
-                  onChangeText={(v) => { setUserName(v); setProfileMsg(''); }}
-                  maxLength={60}
-                  placeholder="Your name"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[styles.inputBox, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                />
-              </View>
-
-              <View style={styles.formRow}>
-                <Text style={[styles.formLabel, { color: theme.colors.textSecondary }]}>Mobile number (you sign in with this)</Text>
-                <TextInput
-                  value={userPhone}
-                  onChangeText={(v) => { setUserPhone(v.replace(/\D/g, '').slice(0, 10)); setProfileMsg(''); }}
-                  keyboardType="number-pad"
-                  placeholder="10-digit number"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[styles.inputBox, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                />
-              </View>
-
-              {phoneChanged && (
-                <View style={styles.formRow}>
-                  <Text style={[styles.formLabel, { color: theme.colors.textSecondary }]}>Current password (needed to change your number)</Text>
-                  <TextInput
-                    value={phonePassword}
-                    onChangeText={setPhonePassword}
-                    secureTextEntry
-                    placeholderTextColor={theme.colors.textMuted}
-                    style={[styles.inputBox, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                  />
+        {/* this outlet */}
+        <View style={[ws.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={[ws.cardHead, { paddingBottom: 12 }]}>
+            <View style={[ws.outletAv, { backgroundColor: c.primarySoft }]}><Text style={{ color: c.primaryDark, fontWeight: '700' }}>{initials(biz?.name)}</Text></View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              {editBizName ? (
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                  <TextInput value={bizName} onChangeText={setBizName} autoFocus style={[ws.input, { flex: 1, marginBottom: 0, height: 38, backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text }]} />
+                  <TouchableOpacity onPress={async () => { await handleSaveBizName(); setEditBizName(false); }} style={[ws.outline, { borderColor: c.border }]}><Text style={[ws.outlineText, { color: c.text }]}>{bizSaving ? '…' : 'Save'}</Text></TouchableOpacity>
                 </View>
+              ) : (
+                <TouchableOpacity disabled={!isOwner} onPress={() => setEditBizName(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[ws.cardTitle, { color: c.text, marginBottom: 0 }]} numberOfLines={1}>{biz?.name}</Text>
+                  {isOwner && <Icon name="create-outline" size={14} color={c.textMuted} />}
+                </TouchableOpacity>
               )}
-
-              {!!profileError && <Text style={[styles.formMsg, { color: theme.colors.danger }]}>{profileError}</Text>}
-              {!!profileMsg && <Text style={[styles.formMsg, { color: theme.colors.primary }]}>✓ {profileMsg}</Text>}
-
-              <Button
-                title={profileBusy ? 'Saving…' : 'Save changes'}
-                icon={<Icon name="checkmark" size={15} color="#FFFFFF" />}
-                disabled={!profileChanged || profileBusy || !userName.trim() || userPhone.length !== 10 || (phoneChanged && !phonePassword)}
-                onPress={handleSaveProfile}
-                style={{ marginTop: 6 }}
-              />
-            </Card>
-
-            <Card style={styles.card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                <Icon name="shield-outline" size={17} color={theme.colors.info} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text, marginBottom: 0 }]}>Change password</Text>
+              <Text style={[ws.cardSub, { color: c.textMuted }]}>{`${BIZ_CONFIG[biz?.type]?.label || biz?.type} · this outlet's settings`}</Text>
+            </View>
+          </View>
+          {isOwner && [
+            { key: 'att', icon: 'calendar-outline', tone: [theme.isDark ? 'rgba(96,165,250,0.14)' : '#EEF4FF', theme.isDark ? '#93C5FD' : '#1D4ED8'], title: 'Attendance', sub: 'Staff mark who came each day. Never changes fees.', value: attendanceEnabled, onChange: handleToggleAttendance },
+            { key: 'sell', icon: 'pricetag-outline', tone: [theme.isDark ? 'rgba(251,191,36,0.14)' : '#FFF6E5', theme.isDark ? '#FBBF24' : '#B45309'], title: 'Sell products & services', sub: 'Shows Sales in the menu and Sell on Collect and member pages.', value: salesEnabled, onChange: handleToggleSales },
+          ].map((r) => (
+            <View key={r.key} style={[ws.row, { borderTopColor: c.border }]}>
+              <View style={[ws.rowIcon, { backgroundColor: r.tone[0] }]}><Icon name={r.icon} size={15} color={r.tone[1]} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={[ws.rowTitle, { color: c.text }]}>{r.title}</Text>
+                <Text style={[ws.rowSub, { color: c.textMuted }]}>{r.sub}</Text>
               </View>
-              <Text style={[styles.cardSub, { color: theme.colors.textMuted }]}>
-                At least 6 characters. You stay signed in on this device.
-              </Text>
-              {[
-                ['Current password', currentPassword, setCurrentPassword],
-                ['New password', newPassword, setNewPassword],
-                ['New password again', newPasswordAgain, setNewPasswordAgain],
-              ].map(([label, value, set]) => (
-                <View key={label} style={styles.formRow}>
-                  <Text style={[styles.formLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
-                  <TextInput
-                    value={value}
-                    onChangeText={(v) => { set(v); setPwdMsg(''); }}
-                    secureTextEntry
-                    style={[styles.inputBox, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                  />
+              <Switch value={r.value} onValueChange={r.onChange} trackColor={{ false: c.borderSolid, true: c.primary }} thumbColor="#FFFFFF" activeThumbColor="#FFFFFF" />
+            </View>
+          ))}
+          {isOwner && (
+            <TouchableOpacity onPress={() => setStaffOpen((o) => !o)} style={[ws.row, { borderTopColor: c.border }]}>
+              <View style={[ws.rowIcon, { backgroundColor: theme.isDark ? 'rgba(244,114,182,0.14)' : '#FCEEF6' }]}><Icon name="people-outline" size={15} color={theme.isDark ? '#F9A8D4' : '#9D1C5E'} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={[ws.rowTitle, { color: c.text }]}>Staff & their access</Text>
+                <Text style={[ws.rowSub, { color: c.textMuted }]}>{staffList.length} {staffList.length === 1 ? 'person' : 'people'} can open this outlet</Text>
+              </View>
+              <Text style={[ws.go, { color: c.primaryDark }]}>{staffOpen ? 'Hide' : 'Manage'} ›</Text>
+            </TouchableOpacity>
+          )}
+          {isOwner && staffOpen && (
+            <View style={[ws.padX, { paddingBottom: 12, gap: 8 }]}>
+              {staffList.map((s) => (
+                <View key={s._id} style={[ws.staff, { backgroundColor: c.cardSubtle, borderColor: c.border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[ws.rowTitle, { color: c.text }]}>{s.name || 'Staff member'}</Text>
+                    <Text style={[ws.rowSub, { color: c.textMuted }]}>{s.phone}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleRemoveStaff(s._id)} accessibilityLabel={`Remove ${s.name || 'staff'}`} style={{ padding: 6 }}>
+                    <Icon name="trash-outline" size={16} color={c.danger} />
+                  </TouchableOpacity>
                 </View>
               ))}
-              {!!newPasswordAgain && newPassword !== newPasswordAgain && (
-                <Text style={[styles.formMsg, { color: theme.colors.danger }]}>The two new passwords don't match.</Text>
-              )}
-              {!!pwdError && <Text style={[styles.formMsg, { color: theme.colors.danger }]}>{pwdError}</Text>}
-              {!!pwdMsg && <Text style={[styles.formMsg, { color: theme.colors.primary }]}>✓ {pwdMsg}</Text>}
-              <Button
-                title={pwdLoading ? 'Saving…' : 'Change password'}
-                icon={<Icon name="checkmark" size={15} color="#FFFFFF" />}
-                disabled={pwdLoading || !currentPassword || newPassword.length < 6 || newPassword !== newPasswordAgain}
-                onPress={handleChangePassword}
-                style={{ marginTop: 6 }}
-              />
-            </Card>
+              <TouchableOpacity onPress={() => { setStaffError(''); setAddStaffOpen(true); }} style={[ws.outline, { borderColor: c.border, alignSelf: 'flex-start' }]}>
+                <Icon name="add" size={14} color={c.text} /><Text style={[ws.outlineText, { color: c.text }]}>Add staff</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <TouchableOpacity onPress={() => navigation.navigate('Setup')} style={[ws.row, { borderTopColor: c.border }]}>
+            <View style={[ws.rowIcon, { backgroundColor: theme.isDark ? 'rgba(52,211,153,0.12)' : '#ECFDF3' }]}><Icon name="card-outline" size={15} color={c.moneyGreen} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.rowTitle, { color: c.text }]}>{biz?.type === 'hostel' ? 'Plans & rooms' : 'Plans & batches'}</Text>
+              <Text style={[ws.rowSub, { color: c.textMuted }]}>Fees, cycles{biz?.type === 'hostel' ? ', buildings and rooms' : ' and batches'}</Text>
+            </View>
+            <Text style={[ws.go, { color: c.primaryDark }]}>Setup ›</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* download your data */}
+        <View style={[ws.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={ws.cardHead}>
+            <View style={[ws.cardIcon, { backgroundColor: theme.isDark ? 'rgba(96,165,250,0.14)' : '#EEF4FF' }]}><Icon name="download-outline" size={15} color={theme.isDark ? '#93C5FD' : '#1D4ED8'} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.cardTitle, { color: c.text, marginBottom: 0 }]}>Download your data</Text>
+              <Text style={[ws.cardSub, { color: c.textMuted }]}>Opens in Excel or Google Sheets</Text>
+            </View>
           </View>
-        )}
-
-        {/* ============================================================ */}
-        {/* TAB 2: PAYMENTS */}
-        {/* ============================================================ */}
-        {activeTab === 'payments' && (
-          <View style={styles.tabSection}>
-            {isOwner ? (
-              <Card style={styles.card}>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>UPI Payment Gateway</Text>
-                <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                  Set your UPI VPA ID. Member WhatsApp reminders and statement pages will embed direct tap-to-pay links.
-                </Text>
-
-                <TextInput
-                  value={upiId}
-                  onChangeText={setUpiId}
-                  placeholder="e.g. yourname@okaxis / 9876543210@paytm"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[styles.inputBox, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder, color: theme.colors.text, marginTop: 10, marginBottom: 12 }]}
-                />
-
-                <Button
-                  title={upiSaving ? 'Saving…' : 'Save UPI ID'}
-                  variant="primary"
-                  size="sm"
-                  loading={upiSaving}
-                  onPress={handleSaveUpi}
-                />
-              </Card>
-            ) : (
-              <Text style={{ color: theme.colors.textMuted, fontSize: 13, marginBottom: 12 }}>
-                Only the owner can modify UPI settings.
-              </Text>
-            )}
-
-            <Card style={styles.card}>
-              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>WhatsApp Reminders</Text>
-              <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                Configure automated daily payment reminder frequency
-              </Text>
-
-              <View style={styles.switchRow}>
-                <Text style={[styles.switchLabel, { color: theme.colors.text }]}>
-                  Automated Member Reminders
-                </Text>
-                <Switch
-                  value={autoRemind}
-                  onValueChange={(val) => handleSaveNotifications(val, reminderDays)}
-                  trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.primary }}
-                />
-              </View>
-
-              <Text style={[styles.subLabel, { color: theme.colors.textSecondary, marginTop: 12 }]}>
-                Reminder Spacing:
-              </Text>
-              <View style={styles.daysRow}>
-                {[3, 5, 7].map((days) => {
-                  const sel = reminderDays === days;
-                  return (
-                    <TouchableOpacity
-                      key={days}
-                      onPress={() => handleSaveNotifications(autoRemind, days)}
-                      style={[
-                        styles.dayPill,
-                        {
-                          backgroundColor: sel ? theme.colors.primarySoft : theme.colors.cardSubtle,
-                          borderColor: sel ? theme.colors.primary : theme.colors.borderSubtle,
-                        },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.dayPillText,
-                          {
-                            color: sel ? theme.colors.primaryDark : theme.colors.textSecondary,
-                            fontWeight: sel ? '700' : '500',
-                          },
-                        ]}>
-                        Every {days} Days
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </Card>
+          <View style={ws.downloads}>
+            {[
+              isOwner && ['backup', 'Everything', 'Full backup file', 'export/backup.json', `${biz?.name}-full-backup.json`],
+              ['payments', 'Payments', 'Every payment received', 'export/payments.csv', `${biz?.name}-payments.csv`],
+              ['dues', 'Unpaid fees', 'Who owes what', 'export/dues.csv', `${biz?.name}-unpaid-fees.csv`],
+              ['expenses', 'Expenses', 'Everything you spent', 'export/expenses.csv', `${biz?.name}-expenses.csv`],
+            ].filter(Boolean).map(([key, title, sub, path, file]) => (
+              <TouchableOpacity key={key} disabled={Boolean(downloading)} onPress={() => handleDownload(key, path, file)}
+                style={[ws.dl, { backgroundColor: c.cardSubtle, borderColor: c.border, opacity: downloading && downloading !== key ? 0.6 : 1 }]}>
+                <Text style={[ws.dlTitle, { color: c.text }]}>{downloading === key ? 'Preparing…' : title}</Text>
+                <Text style={[ws.dlSub, { color: c.textMuted }]}>{sub}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        )}
+        </View>
 
-        {/* ============================================================ */}
-        {/* TAB 3: TEAM */}
-        {/* ============================================================ */}
-        {activeTab === 'team' && isOwner && (
-          <View style={styles.tabSection}>
-            <Card style={styles.card}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View>
-                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Staff Logins</Text>
-                  <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                    Staff can view members & record payments
-                  </Text>
-                </View>
-                <Button
-                  title="Add Staff"
-                  variant="primary"
-                  size="sm"
-                  icon={<Icon name="add" size={14} color="#FFFFFF" />}
-                  onPress={() => {
-                    setStaffError('');
-                    setAddStaffOpen(true);
-                  }}
-                />
-              </View>
-
-              <View style={{ gap: 8, marginTop: 12 }}>
-                {staffList.map((s) => (
-                  <View
-                    key={s._id}
-                    style={[
-                      styles.staffItem,
-                      { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border },
-                    ]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.staffName, { color: theme.colors.text }]}>
-                        {s.name || 'Staff Member'}
-                      </Text>
-                      <Text style={[styles.staffPhone, { color: theme.colors.textSecondary }]}>
-                        {s.phone}
-                      </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleRemoveStaff(s._id)} style={{ padding: 6 }}>
-                      <Icon name="trash-outline" size={16} color={theme.colors.danger} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-
-                {staffList.length === 0 && (
-                  <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
-                    No staff members added. Staff cannot modify your UPI ID or delete transactions.
-                  </Text>
-                )}
-              </View>
-            </Card>
-          </View>
-        )}
-
-        {/* ============================================================ */}
-        {/* TAB 4: BUSINESS */}
-        {/* ============================================================ */}
-        {activeTab === 'business' && (
-          <View style={styles.tabSection}>
-            <Card style={styles.card}>
-              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Business Profile</Text>
-              <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                The business this account manages
-              </Text>
-
-              <View style={styles.formRow}>
-                <Text style={[styles.formLabel, { color: theme.colors.textSecondary }]}>Business Name</Text>
-                <TextInput
-                  value={bizName}
-                  onChangeText={setBizName}
-                  editable={isOwner}
-                  placeholder="Business Name"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[styles.inputBox, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                />
-                {isOwner && (
-                  <Button
-                    title={bizSaving ? 'Saving…' : 'Save Name'}
-                    variant="outline"
-                    size="sm"
-                    loading={bizSaving}
-                    style={{ alignSelf: 'flex-start', marginTop: 8 }}
-                    onPress={handleSaveBizName}
-                  />
-                )}
-              </View>
-
-              <View style={styles.profileRow}>
-                <Text style={[styles.profileLabel, { color: theme.colors.textSecondary }]}>Type:</Text>
-                <Text style={[styles.profileVal, { color: theme.colors.text }]}>{BIZ_CONFIG[biz?.type]?.label || biz?.type}</Text>
-              </View>
-
-              <View style={styles.profileRow}>
-                <Text style={[styles.profileLabel, { color: theme.colors.textSecondary }]}>Your role:</Text>
-                <View style={[styles.rolePill, { backgroundColor: theme.colors.primarySoft }]}>
-                  <Text style={[styles.rolePillText, { color: theme.colors.primaryDark }]}>{isOwner ? 'Owner' : 'Staff member'}</Text>
-                </View>
-              </View>
-
-              <View style={styles.profileRow}>
-                <Text style={[styles.profileLabel, { color: theme.colors.textSecondary }]}>Workspace ID:</Text>
-                <Text style={[styles.profileVal, { color: theme.colors.textSecondary, fontFamily: 'monospace', fontSize: 11 }]}>
-                  {biz?._id}
-                </Text>
-              </View>
-            </Card>
-
-            {isOwner && (
-              <Card style={styles.card}>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Attendance Tracking</Text>
-                <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                  Enable daily attendance lists and check-ins
-                </Text>
-
-                <View style={[styles.switchRow, { marginTop: 10 }]}>
-                  <Text style={[styles.switchLabel, { color: theme.colors.text }]}>
-                    Enable Attendance Feature
-                  </Text>
-                  <Switch
-                    value={attendanceEnabled}
-                    onValueChange={handleToggleAttendance}
-                    trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.primary }}
-                  />
-                </View>
-              </Card>
-            )}
-
-            {isOwner && (
-              <Card style={styles.card}>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Sell products & services</Text>
-                <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                  Sell PT packs, services and products to members, and see what they earned in Sales. Past sales are kept if you turn it off.
-                </Text>
-
-                <View style={[styles.switchRow, { marginTop: 10 }]}>
-                  <Text style={[styles.switchLabel, { color: theme.colors.text }]}>
-                    Turn on selling
-                  </Text>
-                  <Switch
-                    value={salesEnabled}
-                    onValueChange={handleToggleSales}
-                    trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.primary }}
-                  />
-                </View>
-                {salesEnabled ? (
-                  <TouchableOpacity onPress={() => navigation.navigate('Sales')} style={{ marginTop: 10 }}>
-                    <Text style={{ color: theme.colors.primary, fontWeight: '700', fontSize: 13 }}>Open Sales and your catalogue ›</Text>
+        {/* look, password, sign out */}
+        <View style={[ws.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={[ws.row, { borderTopWidth: 0, flexDirection: 'column', alignItems: 'stretch', gap: 0 }]}>
+            <Text style={[ws.rowTitle, { color: c.text }]}>Look</Text>
+            <Text style={[ws.rowSub, { color: c.textMuted }]}>On this device</Text>
+            <View style={[ws.seg, { backgroundColor: c.cardSubtle, marginTop: 10 }]}>
+              {[['light', 'Light', 'sunny-outline'], ['dark', 'Dark', 'moon-outline']].map(([k, label, icon]) => {
+                const on = (k === 'dark') === isDark;
+                return (
+                  <TouchableOpacity key={k} onPress={() => { if (!on) toggleTheme(); }} style={[ws.segBtn, { flex: 1, flexDirection: 'row', gap: 6 }, on && { backgroundColor: c.card }]}>
+                    <Icon name={icon} size={14} color={on ? c.text : c.textSecondary} />
+                    <Text style={{ fontSize: 14, fontWeight: on ? '600' : '400', color: on ? c.text : c.textSecondary }}>{label}</Text>
                   </TouchableOpacity>
-                ) : null}
-              </Card>
-            )}
-
-            {isOwner && (
-              <View style={[styles.dangerCard, { backgroundColor: theme.colors.dangerSoft, borderColor: theme.colors.danger }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                  <Icon name="alert-circle-outline" size={18} color={theme.colors.danger} />
-                  <Text style={[styles.cardTitle, { color: theme.colors.danger, marginBottom: 0 }]}>Danger Zone</Text>
-                </View>
-                <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                  Irreversible actions for {biz?.name}. Please exercise extreme caution.
-                </Text>
-
-                {[
-                  { kind: 'clear', title: 'Clear all member data', sub: 'Permanently purge all members, payment transactions, dues, and subscription logs.', btn: 'Clear All Data' },
-                  { kind: 'delete', title: 'Delete workspace', sub: 'Permanently delete this entire business workspace and all related configurations.', btn: 'Delete Workspace' },
-                ].map((d) => (
-                  <View key={d.kind} style={[styles.dangerRow, { borderTopColor: theme.colors.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.dangerTitle, { color: theme.colors.text }]}>{d.title}</Text>
-                      <Text style={[styles.dangerSub, { color: theme.colors.textSecondary }]}>{d.sub}</Text>
-                    </View>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => openDanger(d.kind)}
-                      style={[styles.dangerBtn, { backgroundColor: theme.colors.danger }]}>
-                      <Text style={styles.dangerBtnText}>{d.btn}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
+                );
+              })}
+            </View>
           </View>
-        )}
-
-        {/* ============================================================ */}
-        {/* TAB 5: BACKUP & DATA */}
-        {/* ============================================================ */}
-        {activeTab === 'data' && (
-          <View style={styles.tabSection}>
-            <Card style={styles.card}>
-              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Data Backup & Export</Text>
-              <Text style={[styles.cardSub, { color: theme.colors.textSecondary }]}>
-                Spreadsheets open in Excel or Google Sheets
-              </Text>
-
-              <View style={{ gap: 8, marginTop: 10 }}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.exportBtn, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}
-                  disabled={Boolean(downloading)}
-                  onPress={() => handleDownload('payments', 'export/payments.csv', `${biz.name}-payments-backup.csv`)}>
-                  <Icon name="document-text-outline" size={16} color={theme.colors.primary} />
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={[styles.exportBtnTitle, { color: theme.colors.text }]}>Payments Backup</Text>
-                    <Text style={[styles.exportBtnSub, { color: theme.colors.textSecondary }]}>Every payment received (CSV)</Text>
-                  </View>
-                  <Icon name="download-outline" size={15} color={theme.colors.textMuted} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.exportBtn, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}
-                  disabled={Boolean(downloading)}
-                  onPress={() => handleDownload('balances', 'export/balances.csv', `${biz.name}-balances-backup.csv`)}>
-                  <Icon name="stats-chart-outline" size={16} color={theme.colors.primary} />
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={[styles.exportBtnTitle, { color: theme.colors.text }]}>Balances Backup</Text>
-                    <Text style={[styles.exportBtnSub, { color: theme.colors.textSecondary }]}>What each member owes now (CSV)</Text>
-                  </View>
-                  <Icon name="download-outline" size={15} color={theme.colors.textMuted} />
-                </TouchableOpacity>
-
-                {isOwner && (
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.exportBtn, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}
-                    disabled={Boolean(downloading)}
-                    onPress={() => handleDownload('backup', 'export/backup.json', `${biz.name}-full-backup.json`)}>
-                    <Icon name="archive-outline" size={16} color={theme.colors.primary} />
-                    <View style={{ flex: 1, marginLeft: 8 }}>
-                      <Text style={[styles.exportBtnTitle, { color: theme.colors.text }]}>Full backup</Text>
-                      <Text style={[styles.exportBtnSub, { color: theme.colors.textSecondary }]}>Everything, to restore later (JSON)</Text>
-                    </View>
-                    <Icon name="download-outline" size={15} color={theme.colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-                {downloading ? (
-                  <Text style={[styles.exportBtnSub, { color: theme.colors.textSecondary }]}>Preparing the file…</Text>
-                ) : null}
-              </View>
-            </Card>
-
-            <Card style={styles.card}>
-              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Theme & Server URL</Text>
-
-              {/* Theme Toggle */}
-              <View style={styles.switchRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Icon name={isDark ? 'moon' : 'sunny'} size={18} color={theme.colors.primary} />
-                  <Text style={[styles.switchLabel, { color: theme.colors.text }]}>Dark Theme</Text>
+          <View style={[ws.row, { borderTopColor: c.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.rowTitle, { color: c.text }]}>Password</Text>
+              <Text style={[ws.rowSub, { color: c.textMuted }]}>At least 6 characters</Text>
+            </View>
+            <TouchableOpacity onPress={() => setPwOpen((o) => !o)} style={[ws.outline, { borderColor: c.border }]}><Text style={[ws.outlineText, { color: c.text }]}>{pwOpen ? 'Close' : 'Change'}</Text></TouchableOpacity>
+          </View>
+          {pwOpen && (
+            <View style={[ws.padX, { paddingBottom: 14 }]}>
+              {[['Current password', currentPassword, setCurrentPassword], ['New password', newPassword, setNewPassword], ['New password again', newPasswordAgain, setNewPasswordAgain]].map(([label, value, set]) => (
+                <View key={label}>
+                  <Text style={[ws.label, { color: c.textSecondary }]}>{label}</Text>
+                  <TextInput value={value} onChangeText={(v) => { set(v); setPwdMsg(''); }} secureTextEntry style={[ws.input, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text }]} />
                 </View>
-                <Switch
-                  value={isDark}
-                  onValueChange={toggleTheme}
-                  trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.primary }}
-                />
-              </View>
-
-              {/* Server Config */}
-              <View style={[styles.serverRow, { borderTopColor: theme.colors.borderSubtle }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.switchLabel, { color: theme.colors.text }]}>Server API URL</Text>
-                  <Text style={[styles.serverUrlText, { color: theme.colors.textMuted }]} numberOfLines={1}>
-                    {serverUrl}
-                  </Text>
-                </View>
-                <Button
-                  title="Edit URL"
-                  variant="outline"
-                  size="sm"
-                  onPress={() => setServerModalOpen(true)}
-                />
-              </View>
-            </Card>
-
-            {/* Logout Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.btnLogout, { borderColor: theme.colors.danger }]}
-              onPress={handleSignOut}>
-              <Icon name="log-out-outline" size={16} color={theme.colors.danger} />
-              <Text style={styles.btnLogoutText}>Sign Out from Workspace</Text>
+              ))}
+              {!!newPasswordAgain && newPassword !== newPasswordAgain && <Text style={[ws.msg, { color: c.danger }]}>{"The two new passwords don't match."}</Text>}
+              {!!pwdError && <Text style={[ws.msg, { color: c.danger }]}>{pwdError}</Text>}
+              {!!pwdMsg && <Text style={[ws.msg, { color: c.moneyGreen }]}>✓ {pwdMsg}</Text>}
+              <TouchableOpacity disabled={pwdLoading || !currentPassword || newPassword.length < 6 || newPassword !== newPasswordAgain} onPress={handleChangePassword}
+                style={[ws.primary, { backgroundColor: c.primary, opacity: pwdLoading || !currentPassword || newPassword.length < 6 || newPassword !== newPasswordAgain ? 0.55 : 1 }]}>
+                <Icon name="checkmark" size={15} color="#fff" /><Text style={ws.primaryText}>{pwdLoading ? 'Saving…' : 'Change password'}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={[ws.row, { borderTopColor: c.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.rowTitle, { color: c.text }]}>Server</Text>
+              <Text style={[ws.rowSub, { color: c.textMuted }]} numberOfLines={1}>{serverUrl}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setServerModalOpen(true)} style={[ws.outline, { borderColor: c.border }]}><Text style={[ws.outlineText, { color: c.text }]}>Change</Text></TouchableOpacity>
+          </View>
+          <View style={[ws.row, { borderTopColor: c.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ws.rowTitle, { color: c.text }]}>Sign out</Text>
+              <Text style={[ws.rowSub, { color: c.textMuted }]}>On this device only</Text>
+            </View>
+            <TouchableOpacity onPress={handleSignOut} style={[ws.outline, { borderColor: c.border }]}>
+              <Icon name="log-out-outline" size={14} color={c.text} /><Text style={[ws.outlineText, { color: c.text }]}>Sign out</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* danger zone, folded like the web's <details> */}
+        {isOwner && (
+          <View style={[ws.danger, { backgroundColor: c.card, borderColor: tint('#B42318', 0.3, c.card) }]}>
+            <TouchableOpacity onPress={() => setDangerOpen((o) => !o)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Icon name={dangerOpen ? 'caret-down' : 'caret-forward'} size={12} color={c.moneyRed} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: c.moneyRed }}>Danger zone · clear data or delete this outlet</Text>
+            </TouchableOpacity>
+            {dangerOpen && [
+              { kind: 'clear', title: 'Clear all member data', sub: 'Removes every member, payment, due and subscription. Cannot be undone.', btn: 'Clear data' },
+              { kind: 'delete', title: 'Delete this outlet', sub: 'Deletes this business and everything in it. Cannot be undone.', btn: 'Delete outlet' },
+            ].map((d) => (
+              <View key={d.kind} style={[ws.row, { borderTopColor: c.border, paddingHorizontal: 0 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[ws.rowTitle, { color: c.text }]}>{d.title}</Text>
+                  <Text style={[ws.rowSub, { color: c.textMuted }]}>{d.sub}</Text>
+                </View>
+                <TouchableOpacity onPress={() => openDanger(d.kind)} style={[ws.outline, { borderColor: tint('#B42318', 0.4, c.card) }]}>
+                  <Text style={[ws.outlineText, { color: c.moneyRed }]}>{d.btn}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -1248,4 +1003,45 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 12,
   },
+});
+
+// the web's Settings cards (st-*) on a phone
+const ws = StyleSheet.create({
+  head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  avatar: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontWeight: '700', fontSize: 17 },
+  headSub: { fontSize: 13 },
+  h1: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3 },
+  outline: { minHeight: 36, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  outlineText: { fontSize: 13.5, fontWeight: '500' },
+  chip: { height: 30, paddingHorizontal: 12, borderRadius: 99, justifyContent: 'center' },
+  card: { borderWidth: 1, borderRadius: 18, overflow: 'hidden', marginBottom: 14 },
+  pad: { padding: 16 },
+  padX: { paddingHorizontal: 18 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 8 },
+  cardIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: 15.5, fontWeight: '700', marginBottom: 8 },
+  cardSub: { fontSize: 13, marginTop: 1, lineHeight: 18 },
+  label: { fontSize: 13, fontWeight: '600', marginTop: 8, marginBottom: 6 },
+  input: { height: 44, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, fontSize: 15, marginBottom: 4 },
+  hint: { fontSize: 13, lineHeight: 18, marginTop: 4, marginBottom: 12 },
+  msg: { fontSize: 13, marginTop: 6 },
+  primary: { height: 44, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, marginBottom: 16 },
+  primaryText: { color: '#fff', fontSize: 14.5, fontWeight: '600' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 18, borderTopWidth: 1 },
+  rowIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  rowTitle: { fontSize: 14, fontWeight: '600' },
+  rowSub: { fontSize: 12.5, marginTop: 1, lineHeight: 17 },
+  go: { fontSize: 13, fontWeight: '600' },
+  seg: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 10 },
+  segBtn: { height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  waPreview: { marginTop: 12, padding: 12, borderRadius: 12 },
+  waBubble: { maxWidth: '86%', alignSelf: 'flex-end', paddingVertical: 9, paddingHorizontal: 11, borderRadius: 10, borderBottomRightRadius: 2 },
+  outletAv: { width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  staff: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 10, borderWidth: 1 },
+  downloads: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 18, paddingTop: 8, paddingBottom: 16 },
+  dl: { width: '48%', flexGrow: 1, padding: 12, borderRadius: 12, borderWidth: 1, gap: 2 },
+  dlTitle: { fontSize: 13.5, fontWeight: '600' },
+  dlSub: { fontSize: 12 },
+  danger: { borderWidth: 1, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 18, marginBottom: 14 },
 });

@@ -4,6 +4,7 @@ import { Platform, View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useBiz } from '../context/BizContext';
 import Icon from '../components/Icon';
+import { words } from '../constants/wording';
 
 // Screens
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
@@ -32,6 +33,9 @@ export default function BottomTabs() {
 
   const isHostel = biz?.type === 'hostel';
   const attendanceOn = biz?.attendanceEnabled !== false;
+  // the same names as the web's menu: Members (or Tenants, Students…), Money
+  const member = words(biz?.type).member || 'member';
+  const membersLabel = member === 'member' ? 'Members' : `${member[0].toUpperCase()}${member.slice(1)}s`;
 
   return (
     <Tab.Navigator
@@ -67,7 +71,7 @@ export default function BottomTabs() {
         component={MembersScreen}
         options={{
           tabBarLabel: ({ color, focused }) => (
-            <TabLabel title="Members" focused={focused} color={color} />
+            <TabLabel title={membersLabel} focused={focused} color={color} />
           ),
           tabBarIcon: ({ color }) => (
             <Icon name="people-outline" size={21} color={color} />
@@ -80,7 +84,7 @@ export default function BottomTabs() {
         component={ReportsScreen}
         options={{
           tabBarLabel: ({ color, focused }) => (
-            <TabLabel title="Reports" focused={focused} color={color} />
+            <TabLabel title="Money" focused={focused} color={color} />
           ),
           tabBarIcon: ({ color }) => (
             <Icon name="bar-chart-outline" size={20} color={color} />

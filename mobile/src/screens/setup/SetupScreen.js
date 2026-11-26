@@ -13,7 +13,6 @@ import {
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees } from '../../api/api';
-import Card from '../../components/Card';
 import Button from '../../components/Button';
 import Modal from '../../components/Modal';
 import Input from '../../components/Input';
@@ -116,8 +115,11 @@ function Pills({ items, theme }) {
 }
 
 export default function SetupScreen({ navigation }) {
-  const { biz } = useBiz();
+  const { biz, businesses = [], switchBiz, isOwner } = useBiz();
   const { theme, isDark } = useTheme();
+  const [setupTab, setSetupTab] = useState('plans'); // 'plans' | 'outlets' | 'staff' (as the web)
+  const [members, setMembers] = useState([]);
+  const [staffCount, setStaffCount] = useState(null);
 
   const [plans, setPlans] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -154,6 +156,9 @@ export default function SetupScreen({ navigation }) {
       ]);
       setPlans(Array.isArray(p) ? p : []);
       setGroups(Array.isArray(g) ? g : []);
+      // how many are on each plan, and the staff count for the line under the title
+      api(`/businesses/${biz._id}/members`).then((m) => setMembers(Array.isArray(m) ? m : [])).catch(() => {});
+      api(`/businesses/${biz._id}/staff`).then((x) => setStaffCount(Array.isArray(x) ? x.length : null)).catch(() => {});
 
       if (biz?.type === 'hostel') {
         const r = await api(`/businesses/${biz._id}/rooms`);
@@ -436,8 +441,63 @@ export default function SetupScreen({ navigation }) {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card} />
         }>
-        <Text style={[styles.headTitle, { color: theme.colors.text }]}>Setup</Text>
-        <Text style={[styles.sectionSub, { color: theme.colors.textMuted, marginTop: -8, marginBottom: 14 }]}>{w.setupHint}</Text>
+        {/* the web's header: counts, title, one main button, then Rooms · Outlets · Staff */}
+        <Text style={[styles.suSub, { color: theme.colors.textMuted }]}>
+          {[`${plans.length} plan${plans.length === 1 ? '' : 's'}`, groups.length && `${groups.length} ${isHostel ? (groups.length === 1 ? 'building' : 'buildings') : w.groups.toLowerCase()}`, `${businesses.length || 1} outlet${(businesses.length || 1) === 1 ? '' : 's'}`, staffCount != null && `${staffCount} staff`].filter(Boolean).join(' · ')}
+        </Text>
+        <Text style={[styles.headTitle, { color: theme.colors.text, marginBottom: 10 }]}>Setup</Text>
+        {setupTab === 'plans' && (
+          <TouchableOpacity onPress={() => { setError(''); setPlanModalOpen(true); }} style={[styles.suAdd, { backgroundColor: theme.colors.primary }]}>
+            <Icon name="add" size={16} color="#FFFFFF" />
+            <Text style={styles.suAddText}>Add {w.plan.toLowerCase().replace('membership ', '')}</Text>
+          </TouchableOpacity>
+        )}
+        <View style={[styles.suTabs, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+          {[['plans', isHostel ? 'Rooms' : 'Plans'], ['outlets', 'Outlets'], isOwner && ['staff', 'Staff']].filter(Boolean).map(([k, label]) => {
+            const on = setupTab === k;
+            return (
+              <TouchableOpacity key={k} onPress={() => setSetupTab(k)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                style={[styles.suTab, on && { backgroundColor: theme.colors.primarySoft }]}>
+                <Text style={{ fontSize: 13, fontWeight: on ? '600' : '500', color: on ? theme.colors.primaryDark : theme.colors.textSecondary }}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {setupTab === 'outlets' && (
+          <View style={{ gap: 10 }}>
+            {(businesses.length ? businesses : [biz]).map((b) => {
+              const here = b._id === biz?._id;
+              return (
+                <View key={b._id} style={[styles.planCard, { backgroundColor: theme.colors.card, borderColor: here ? theme.colors.primary : theme.colors.border }]}>
+                  <View style={styles.planTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.planCardName, { color: theme.colors.text }]}>{b.name}</Text>
+                      <Text style={[styles.planEvery, { color: theme.colors.textMuted }]}>{here ? 'Open now' : 'Tap to switch'}</Text>
+                    </View>
+                    {!here && switchBiz ? (
+                      <TouchableOpacity onPress={() => switchBiz(b._id)} style={[styles.outlineBtn, { borderColor: theme.colors.border }]}>
+                        <Text style={[styles.outlineBtnText, { color: theme.colors.text }]}>Switch</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {setupTab === 'staff' && (
+          <View style={[styles.planCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <Text style={[styles.planCardName, { color: theme.colors.text }]}>Staff & their access</Text>
+            <Text style={[styles.planEvery, { color: theme.colors.textMuted, marginBottom: 12 }]}>{staffCount ?? 0} {staffCount === 1 ? 'person' : 'people'} can open this outlet. Add or remove them in Settings.</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Settings' })} style={[styles.outlineBtn, { borderColor: theme.colors.border, alignSelf: 'flex-start' }]}>
+              <Text style={[styles.outlineBtnText, { color: theme.colors.text }]}>Open Settings ›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {setupTab === 'plans' && (<>
 
         {/* ============================================================ */}
         {/* HOSTEL STEP 1: Buildings, Floors & Rooms */}
@@ -601,68 +661,34 @@ export default function SetupScreen({ navigation }) {
           );
         })()}
 
-        {/* ============================================================ */}
-        {/* MEMBERSHIP PLANS (Hostel Step 2 or Gym/Tuition Step 1) */}
-        {/* ============================================================ */}
-        <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <View style={styles.sectionHeadRow}>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={[styles.stepBadge, { backgroundColor: plans.length ? theme.colors.primary : theme.colors.cardSubtle }]}>
-                  {plans.length ? <Icon name="checkmark" size={13} color="#FFFFFF" /> : <Text style={{ fontWeight: '700', color: theme.colors.textMuted }}>{isHostel ? 2 : 1}</Text>}
+        {/* plans: one card each, like the web (name, cycle, price, how many are on it) */}
+        <View style={{ gap: 12, marginBottom: 14 }}>
+          {[...plans].sort((x, y) => x.amount - y.amount || natural(x.name, y.name)).map((p) => {
+            const on = members.filter((m) => m.status === 'active' && m.planName === p.name).length;
+            const every = p.cycleDays === 30 ? 'month' : p.cycleDays === 90 ? '3 months' : p.cycleDays === 180 ? '6 months' : p.cycleDays === 365 ? 'year' : `${p.cycleDays} days`;
+            return (
+              <View key={p._id} style={[styles.planCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+                <View style={styles.planTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.planCardName, { color: theme.colors.text }]}>{p.name}</Text>
+                    <Text style={[styles.planEvery, { color: theme.colors.textMuted }]}>every {every}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleDeletePlan(p._id, p.name)} accessibilityLabel={`Delete ${p.name}`} style={[styles.planIconBtn, { borderColor: theme.colors.border }]}>
+                    <Icon name="trash-outline" size={14} color={theme.colors.danger} />
+                  </TouchableOpacity>
                 </View>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{w.plans}</Text>
+                <Text style={[styles.planAmount, { color: theme.colors.text }]}>{rupees(p.amount)}<Text style={{ fontSize: 13, fontWeight: '400', color: theme.colors.textMuted }}> / {every}</Text></Text>
+                <View style={[styles.planFoot, { borderTopColor: theme.colors.border }]}>
+                  <Text style={{ fontSize: 13, color: theme.colors.textMuted }}>{on} {w.member}{on === 1 ? '' : 's'} on it</Text>
+                </View>
               </View>
-              <Text style={[styles.sectionSub, { color: theme.colors.textMuted }]}>{w.plansHint}</Text>
-            </View>
-
-          </View>
-          <View style={styles.headBtns}>
-            <TouchableOpacity onPress={() => { setError(''); setPlanModalOpen(true); }} style={[styles.outlineBtn, { borderColor: theme.colors.border }]}>
-              <Icon name="add" size={15} color={theme.colors.text} />
-              <Text style={[styles.outlineBtnText, { color: theme.colors.text }]}>Add {w.plan.toLowerCase()}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ gap: 8, marginTop: 12 }}>
-            {[...plans].sort((x, y) => x.amount - y.amount || natural(x.name, y.name)).map((p) => (
-              <View
-                key={p._id}
-                style={[
-                  styles.planItem,
-                  { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border },
-                ]}>
-                <View style={[styles.planIconWrap, { backgroundColor: theme.colors.primarySoft }]}>
-                  <Icon name="card-outline" size={16} color="#10B981" />
-                </View>
-
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.planName, { color: theme.colors.text }]}>{p.name}</Text>
-                  <Text style={[styles.planCycle, { color: theme.colors.textSecondary }]}>
-                    {p.cycleDays} days recurring cycle
-                  </Text>
-                </View>
-
-                <View style={[styles.pricePill, { backgroundColor: theme.colors.infoSoft }]}>
-                  <Text style={{ color: theme.colors.infoDark, fontWeight: '700', fontSize: 12.5 }}>{rupees(p.amount)}</Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => handleDeletePlan(p._id, p.name)}
-                  style={[styles.trashBtn, { borderColor: theme.colors.border, marginLeft: 8 }]}>
-                  <Icon name="trash-outline" size={13} color={theme.colors.danger} />
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            {plans.length === 0 && (
-              <View style={styles.emptyCardInner}>
-                <Text style={[styles.emptyCardSub, { color: theme.colors.textSecondary }]}>
-                  Add what you charge, for example {w.planExample}. You pick a plan when you add each {w.member}.
-                </Text>
-              </View>
-            )}
-          </View>
+            );
+          })}
+          <TouchableOpacity onPress={() => { setError(''); setPlanModalOpen(true); }} style={[styles.planNew, { borderColor: theme.colors.primaryBorder, backgroundColor: theme.colors.card }]}>
+            <View style={[styles.planNewIcon, { backgroundColor: theme.colors.primarySoft }]}><Icon name="add" size={20} color={theme.colors.primaryDark} /></View>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: theme.colors.primaryDark }}>Add {w.plan.toLowerCase()}</Text>
+            <Text style={{ fontSize: 13, color: theme.colors.textMuted, textAlign: 'center' }}>e.g. {w.planExample}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Batches / time slots (optional), everyone except hostels */}
@@ -711,6 +737,18 @@ export default function SetupScreen({ navigation }) {
             </View>
           </View>
         )}
+
+        {biz?.salesEnabled !== false && (
+          <TouchableOpacity onPress={() => navigation.navigate('Sales')} style={[styles.planCard, styles.salesLink, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <View style={[styles.planNewIcon, { width: 32, height: 32, backgroundColor: theme.colors.warningSoft }]}><Icon name="pricetag-outline" size={15} color={theme.colors.moneyAmber} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.text }}>Products, PT packs and services</Text>
+              <Text style={{ fontSize: 13, color: theme.colors.textMuted }}>Things charged once now live on the Sales page</Text>
+            </View>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.primaryDark }}>Sales ›</Text>
+          </TouchableOpacity>
+        )}
+        </>)}
       </ScrollView>
 
       {/* Plan Modal */}
@@ -857,6 +895,21 @@ export default function SetupScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  suSub: { fontSize: 13, marginBottom: 2 },
+  suAdd: { alignSelf: 'flex-start', height: 40, paddingHorizontal: 16, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  suAddText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  suTabs: { flexDirection: 'row', gap: 4, padding: 4, borderWidth: 1, borderRadius: 12, marginBottom: 12 },
+  suTab: { flex: 1, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  planCard: { borderWidth: 1, borderRadius: 14, padding: 14 },
+  planTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  planCardName: { fontSize: 16, fontWeight: '700' },
+  planEvery: { fontSize: 13, marginTop: 2 },
+  planIconBtn: { width: 34, height: 34, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  planAmount: { fontSize: 22, fontWeight: '800', marginTop: 12 },
+  planFoot: { borderTopWidth: 1, marginTop: 12, paddingTop: 12 },
+  planNew: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 14, paddingVertical: 24, paddingHorizontal: 16, alignItems: 'center', gap: 8 },
+  planNewIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  salesLink: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
   renameInput: {
     flex: 1,
     height: 34,

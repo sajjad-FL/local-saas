@@ -19,10 +19,8 @@ export function useTones() {
   };
 }
 
-const useLine = () => {
-  const { theme } = useTheme();
-  return theme.isDark ? 'rgba(255,255,255,0.08)' : '#E2E5EC';
-};
+// the web's --border
+const useLine = () => useTheme().theme.colors.border;
 
 // 1. title · ⋯ · + Main
 export function CompactHeader({ title, menu = [], mainLabel, onMain }) {
@@ -62,7 +60,8 @@ export function CompactHeader({ title, menu = [], mainLabel, onMain }) {
 }
 
 // 2. four numbers in one slim strip
-export function NumberStrip({ items }) {
+// big: the Enquiries version (taller cells, bigger numbers), as on the web
+export function NumberStrip({ items, big }) {
   const { theme } = useTheme();
   const c = theme.colors;
   const line = useLine();
@@ -75,9 +74,9 @@ export function NumberStrip({ items }) {
             key={it.label}
             onPress={it.onPress}
             accessibilityState={it.onPress ? { selected: !!it.on } : undefined}
-            style={[s.cell, i < items.length - 1 && { borderRightWidth: 1, borderRightColor: line }, it.on && { backgroundColor: c.primarySoft }]}>
-            <Text style={[s.cellLabel, { color: c.textMuted }]} numberOfLines={1}>{it.label}</Text>
-            <Text style={[s.cellValue, { color: it.ink || c.text }]} numberOfLines={1} adjustsFontSizeToFit>{it.value}</Text>
+            style={[s.cell, big && { paddingVertical: 12, paddingHorizontal: 10, gap: 6 }, i < items.length - 1 && { borderRightWidth: 1, borderRightColor: line }, it.on && { backgroundColor: c.primarySoft }]}>
+            <Text style={[s.cellLabel, big && { fontSize: 12, color: c.textSecondary }, !big && { color: c.textMuted }]} numberOfLines={1}>{it.label}</Text>
+            <Text style={[s.cellValue, big && { fontSize: 17 }, { color: it.ink || c.text }]} numberOfLines={1} adjustsFontSizeToFit>{it.value}</Text>
           </Cell>
         );
       })}
@@ -107,7 +106,7 @@ export function SearchFilter({ value, onChange, placeholder, filterOn, onFilter 
       {onFilter ? (
         <TouchableOpacity accessibilityLabel="Filters" onPress={onFilter}
           style={[s.filterBtn, { borderColor: filterOn ? c.primary : line, backgroundColor: filterOn ? c.primarySoft : c.card }]}>
-          <Icon name="options-outline" size={18} color={filterOn ? c.primary : c.textSecondary} />
+          <Icon name="funnel-outline" size={17} color={filterOn ? c.primaryDark : c.textSecondary} />
           {filterOn ? <View style={[s.dot, { backgroundColor: c.primary }]}><Text style={s.dotText}>{filterOn}</Text></View> : null}
         </TouchableOpacity>
       ) : null}
@@ -138,7 +137,7 @@ export function ChipRow({ options, value, onPick, small }) {
 }
 
 // 5. one line per person: name + tags | amount | one button
-export function CompactRow({ title, tags = [], sub, amount, amountInk, amountSub, button, onPress, onLongPress, left, selected, last }) {
+export function CompactRow({ title, tags = [], sub, amount, amountInk, amountSub, button, right, onPress, onLongPress, left, selected, last }) {
   const { theme } = useTheme();
   const c = theme.colors;
   const line = useLine();
@@ -172,6 +171,7 @@ export function CompactRow({ title, tags = [], sub, amount, amountInk, amountSub
           <Text style={[s.btnText, { color: button.primary ? '#fff' : c.text }]}>{button.label}</Text>
         </TouchableOpacity>
       ) : null}
+      {right}
     </View>
   );
 }
@@ -194,25 +194,25 @@ export function ColorKey({ items }) {
 
 const s = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  h1: { flex: 1, fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
-  more: { width: 38, height: 38, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  main: { height: 38, paddingHorizontal: 12, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  mainText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  h1: { flex: 1, fontSize: 22, fontWeight: '700' },
+  more: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  main: { height: 36, paddingHorizontal: 12, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  mainText: { color: '#fff', fontWeight: '600', fontSize: 13.5 },
   scrim: { flex: 1, backgroundColor: 'rgba(15,23,42,0.25)', alignItems: 'flex-end', paddingTop: 110, paddingRight: 16 },
   menu: { width: 240, borderRadius: 14, borderWidth: 1, padding: 6, shadowColor: '#0F172A', shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   strip: { flexDirection: 'row', borderWidth: 1, borderRadius: 14, overflow: 'hidden', marginBottom: 12 },
-  cell: { flex: 1, minWidth: 0, paddingVertical: 12, paddingHorizontal: 10, gap: 8 },
-  cellLabel: { fontSize: 12, fontWeight: '600' },
-  cellValue: { fontSize: 16, fontWeight: '800' },
+  cell: { flex: 1, minWidth: 0, paddingVertical: 12, paddingHorizontal: 8, gap: 18 },
+  cellLabel: { fontSize: 11, fontWeight: '600' },
+  cellValue: { fontSize: 14, fontWeight: '800' },
   card: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 8, marginBottom: 12 },
   searchRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  search: { flex: 1, height: 42, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  searchInput: { flex: 1, fontSize: 14.5, paddingVertical: 0 },
-  filterBtn: { width: 42, height: 42, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
-  dotText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  search: { flex: 1, height: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
+  filterBtn: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  dot: { position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  dotText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   chip: { height: 32, paddingHorizontal: 12, borderRadius: 99, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
   rowMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -1,41 +1,40 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  SafeAreaView,
-  Linking,
+  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, SafeAreaView, Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
-import { api, rupees, waLink, remindMsg, formatDate } from '../../api/api';
+import { api, rupees, waLink, remindMsg } from '../../api/api';
 import { words } from '../../constants/wording';
-import Card from '../../components/Card';
-import Badge from '../../components/Badge';
-import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
 import { ScreenSkeleton } from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { tint } from '../../constants/theme';
 
-// Modals
 import AddMemberModal from '../modals/AddMemberModal';
 import AddExpenseModal from '../modals/AddExpenseModal';
 import RecordPaymentModal from '../modals/RecordPaymentModal';
 import BulkRemindModal from '../modals/BulkRemindModal';
+import SellModal from '../modals/SellModal';
+import PickMember from '../../components/PickMember';
+
+// The same home screen as the web app on a phone: quick buttons, today in three or four
+// numbers, the month, who to follow up today (with a done tick), suggestions, attendance,
+// beds, joined/left and the latest payments.
 
 const DAY = 86400000;
-const daysSince = (d) => Math.max(0, Math.floor((Date.now() - new Date(d)) / DAY));
-const daysUntil = (d) => Math.ceil((new Date(d) - Date.now()) / DAY);
+const startOfDay = (d = new Date()) => new Date(new Date(d).toDateString());
+const daysSince = (d) => Math.max(0, Math.round((startOfDay() - startOfDay(d)) / DAY));
+const daysUntil = (d) => Math.round((startOfDay(d) - startOfDay()) / DAY);
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
 const shortDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-const PAY_MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', bank_transfer: 'Bank transfer', bank: 'Bank transfer' };
-
+const isoDay = (d = new Date()) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+const PAY_MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', other: 'Bank or card', bank_transfer: 'Bank transfer', bank: 'Bank transfer' };
+const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : '');
 
 const roomLabel = (r, groupList = []) => {
   const g = groupList.find((x) => x._id === (r.groupId?._id || r.groupId));
@@ -43,965 +42,590 @@ const roomLabel = (r, groupList = []) => {
   return [g?.name, f?.name, `Room ${r.roomNo}`].filter(Boolean).join(' · ');
 };
 
+// "done for today" ticks live on this phone and reset each day
+function useDoneToday(bizId) {
+  const key = `@done:${bizId}:${isoDay()}`;
+  const [done, setDone] = useState(() => new Set());
+  useEffect(() => {
+    let alive = true;
+    AsyncStorage.getItem(key).then((v) => { if (alive && v) setDone(new Set(JSON.parse(v))); }).catch(() => {});
+    // forget earlier days' ticks
+    AsyncStorage.getAllKeys().then((keys) => {
+      const old = keys.filter((k) => k.startsWith(`@done:${bizId}:`) && k !== key);
+      if (old.length) AsyncStorage.multiRemove(old);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [key, bizId]);
+  const toggle = (id) => setDone((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    AsyncStorage.setItem(key, JSON.stringify([...next])).catch(() => {});
+    return next;
+  });
+  return [done, toggle];
+}
+
 export default function DashboardScreen({ navigation }) {
   const { biz, currentBizId } = useBiz();
   const { theme } = useTheme();
+  const c = theme.colors;
+  const dark = theme.isDark;
 
-  const [dashboardData, setDashboardData] = useState(null);
-  const [monthReport, setMonthReport] = useState(null);
-  const [attendanceToday, setAttendanceToday] = useState(null);
+  const [data, setData] = useState(null);
+  const [month, setMonth] = useState(null);
+  const [attendance, setAttendance] = useState(null);
+  const [notComing, setNotComing] = useState(null);
+  const [enquiries, setEnquiries] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [catalogue, setCatalogue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Modals
+  const [tab, setTab] = useState('late');
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
-  const [recordPaymentMember, setRecordPaymentMember] = useState(null);
-  const [bulkRemindOpen, setBulkRemindOpen] = useState(false);
+  const [sellOpen, setSellOpen] = useState(false);
+  const [picking, setPicking] = useState(false); // Payment: choose who paid
+  const [paying, setPaying] = useState(null);
+  const [bulk, setBulk] = useState(null); // { title, people }
+  const [done, toggleDone] = useDoneToday(currentBizId);
 
   const isHostel = biz?.type === 'hostel';
+  const attendanceOn = biz?.attendanceEnabled !== false;
+  const salesOn = biz?.salesEnabled !== false;
   const w = words(biz?.type);
 
-  const fetchDashboardData = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!currentBizId) return;
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+    const soft = (p, fallback) => p.catch(() => fallback); // optional parts never break the screen
     try {
-      const now = new Date();
-      const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
-      const tz = now.getTimezoneOffset();
-
-      const promises = [
+      const [dash, report, att, away, enq, r, g, cat] = await Promise.all([
         api(`/businesses/${currentBizId}/dashboard`),
-        api(`/businesses/${currentBizId}/report?from=${from}&to=${to}&tz=${tz}`),
-      ];
-
-      if (biz?.attendanceEnabled !== false) {
-        promises.push(api(`/businesses/${currentBizId}/attendance`));
-      } else {
-        promises.push(Promise.resolve(null));
-      }
-
-      if (biz?.type === 'hostel') {
-        promises.push(api(`/businesses/${currentBizId}/rooms`));
-        promises.push(api(`/businesses/${currentBizId}/groups`));
-      } else {
-        promises.push(Promise.resolve([]));
-        promises.push(Promise.resolve([]));
-      }
-
-      const [dash, report, att, r, g] = await Promise.all(promises);
-      setDashboardData(dash);
-      setMonthReport(report);
-      setAttendanceToday(att);
-      setRooms(Array.isArray(r) ? r : []);
-      setGroups(Array.isArray(g) ? g : []);
+        soft(api(`/businesses/${currentBizId}/report?from=${from}&to=${to}&tz=${now.getTimezoneOffset()}`), null),
+        attendanceOn ? soft(api(`/businesses/${currentBizId}/attendance`), null) : null,
+        attendanceOn ? soft(api(`/businesses/${currentBizId}/attendance/not-coming?days=7`), null) : null,
+        soft(api(`/businesses/${currentBizId}/enquiries`), []),
+        isHostel ? soft(api(`/businesses/${currentBizId}/rooms`), []) : [],
+        isHostel ? soft(api(`/businesses/${currentBizId}/groups`), []) : [],
+        salesOn ? soft(api(`/businesses/${currentBizId}/catalogue`), []) : [],
+      ]);
+      setData(dash); setMonth(report); setAttendance(att); setNotComing(away);
+      setEnquiries(Array.isArray(enq) ? enq : []);
+      setRooms(Array.isArray(r) ? r : []); setGroups(Array.isArray(g) ? g : []); setCatalogue(Array.isArray(cat) ? cat : []);
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [currentBizId, biz?.type, biz?.attendanceEnabled]);
+  }, [currentBizId, isHostel, attendanceOn, salesOn]);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+  // loads on first view and again whenever the tab comes back into view
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
-    setRefreshing(false);
-  };
+  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
   if (!biz) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.centerBox}>
-          <Text style={{ color: theme.colors.textSecondary }}>No workspace selected</Text>
-        </View>
+      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+        <View style={styles.center}><Text style={{ color: c.textSecondary }}>No workspace selected</Text></View>
+      </SafeAreaView>
+    );
+  }
+  if (loading && !data) return <ScreenSkeleton navigation={navigation} kind="dashboard" />;
+
+  const now = new Date();
+  const todayText = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+  const pending = data?.pending || [];
+  const pendingTotal = data?.pendingTotal || 0;
+  const activeMembers = data?.activeMembers || 0;
+  const membersTable = data?.membersTable || [];
+  const home = data?.home || {};
+
+  // ---- quick buttons (the web's tiles) ----
+  const actions = [
+    { key: 'pay', label: 'Payment', icon: 'cash-outline', primary: true, go: () => setPicking(true) },
+    salesOn && catalogue.length > 0 && { key: 'sell', label: 'Sell', icon: 'pricetag-outline', go: () => setSellOpen(true) },
+    { key: 'member', label: cap(w.member), icon: 'add', go: () => setAddMemberOpen(true) },
+    { key: 'enq', label: 'Enquiry', icon: 'person-add-outline', go: () => navigation.navigate('Enquiries', { add: 1 }) },
+    { key: 'exp', label: 'Expense', icon: 'wallet-outline', go: () => setAddExpenseOpen(true) },
+  ].filter(Boolean);
+  const quick = (
+    <View style={styles.quickRow}>
+      {actions.map((a) => (
+        <TouchableOpacity key={a.key} activeOpacity={0.8} onPress={a.go} accessibilityRole="button" accessibilityLabel={a.label}
+          style={[styles.quick, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={[styles.quickIcon, { backgroundColor: a.primary ? c.primary : c.primarySoft }]}>
+            <Icon name={a.icon} size={16} color={a.primary ? '#FFFFFF' : c.primaryDark} />
+          </View>
+          <Text style={[styles.quickText, { color: c.text }]} numberOfLines={1}>{a.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  if (!membersTable.length) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+        <TopBar title="Dashboard" navigation={navigation} />
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={[styles.date, { color: c.textMuted }]}>{todayText}</Text>
+          {quick}
+          <View style={[styles.card, styles.hero, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[styles.heroLabel, { color: c.textMuted }]}>Welcome to {biz.name}</Text>
+            <Text style={[styles.heroText, { color: c.text }]}>Add your first {w.member} to start tracking fees.</Text>
+            <TouchableOpacity style={[styles.btn, { backgroundColor: c.primary, alignSelf: 'flex-start' }]} onPress={() => setAddMemberOpen(true)}>
+              <Icon name="add" size={16} color="#FFFFFF" /><Text style={styles.btnText}>Add {w.member}</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+        <AddMemberModal visible={addMemberOpen} biz={biz} onClose={() => setAddMemberOpen(false)} onMemberAdded={() => { setAddMemberOpen(false); load(); navigation.navigate('Members'); }} />
       </SafeAreaView>
     );
   }
 
-  const pending = dashboardData?.pending || [];
-  const pendingTotal = dashboardData?.pendingTotal || 0;
-  const activeMembers = dashboardData?.activeMembers || 0;
-  const membersTable = dashboardData?.membersTable || [];
-
-  const now = new Date();
+  // ---- the month ----
+  const received = month?.received ?? 0;
+  const spent = month?.expenses ?? 0;
+  const profit = month?.profit ?? 0;
+  const billed = received + pendingTotal;
+  const collectedPct = billed > 0 ? Math.round((received / billed) * 100) : 100;
   const monthName = now.toLocaleDateString('en-IN', { month: 'long' });
-  const todayFormatted = now.toLocaleDateString('en-IN', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const lastMonthName = new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('en-IN', { month: 'long' });
+  const lastMonth = home.lastMonthCollected || 0;
+  const vsLast = lastMonth > 0 ? Math.round(((received - lastMonth) / lastMonth) * 100) : null;
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const pace = dayOfMonth >= 3 && received > 0 ? Math.min(billed, Math.round(((received / dayOfMonth) * daysInMonth) / 100) * 100) : null;
 
-  const received = monthReport?.received ?? 0;
-  const spent = monthReport?.expenses ?? 0;
-  const profit = monthReport?.profit ?? 0;
-  const collectedPct =
-    received + pendingTotal > 0
-      ? Math.round((received / (received + pendingTotal)) * 100)
-      : 100;
+  // ---- today ----
+  const dueToday = pending.filter((m) => m.dueSince && daysSince(m.dueSince) === 0);
+  const openEnq = enquiries.filter((e) => e.status === 'new' || e.status === 'follow_up');
+  const newEnqToday = enquiries.filter((e) => daysSince(e.createdAt) === 0);
+  const callEnq = openEnq
+    .filter((e) => !e.followUpOn || daysUntil(e.followUpOn) <= 0)
+    .sort((a, b) => (a.followUpOn ? daysUntil(a.followUpOn) : 1) - (b.followUpOn ? daysUntil(b.followUpOn) : 1));
+  const present = attendance?.counts?.present ?? 0;
+  const total = attendance?.counts?.total ?? 0;
+  const todayCards = [
+    { key: 'paid', icon: 'cash-outline', tone: c.success, label: 'Collected today', value: rupees(home.today?.collected || 0), go: () => navigation.navigate('Reports') },
+    attendanceOn && total > 0 && { key: 'in', icon: 'checkmark', tone: c.purple, label: biz.type === 'gym' ? 'Came in today' : 'Present today', value: `${present}`, note: `of ${total}`, go: () => navigation.navigate('Attendance') },
+    { key: 'enq', icon: 'person-add-outline', tone: c.info, label: 'New enquiries', value: String(newEnqToday.length), go: () => navigation.navigate('Enquiries') },
+    { key: 'due', icon: 'alert-circle-outline', tone: c.warning, label: 'Fees due today', value: rupees(dueToday.reduce((s, m) => s + m.balance, 0)), go: () => navigation.navigate('Members', { filter: 'owing' }) },
+  ].filter(Boolean);
 
-  // Hostel beds calculation matching web DashboardHome.jsx
-  const totalBeds = rooms.reduce((s, r) => s + r.capacity, 0);
-  const filledBeds = rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0);
-  const freeRooms = rooms
-    .filter((r) => (r.occupied || 0) < r.capacity)
-    .sort(
-      (a, b) =>
-        b.capacity - (b.occupied || 0) - (a.capacity - (a.occupied || 0)) ||
-        natural(a.roomNo, b.roomNo)
-    );
+  // ---- follow up today ----
+  const roomOf = (m) => rooms.find((r) => r._id === String(m.roomId?._id || m.roomId || ''));
+  const late = [...pending].sort((a, b) => daysSince(b.dueSince || now) - daysSince(a.dueSince || now) || b.balance - a.balance);
+  const expiring = membersTable
+    .filter((m) => m.status === 'active' && m.statusBadge !== 'paused' && m.balance <= 0 && m.nextRenewal)
+    .map((m) => ({ ...m, inDays: daysUntil(m.nextRenewal) }))
+    .filter((m) => m.inDays >= 0 && m.inDays <= 7)
+    .sort((a, b) => a.inDays - b.inDays);
+  const away = notComing?.members || [];
+  const TABS = [
+    { id: 'late', label: 'Expired', dot: '#DC2626', list: late, hint: 'Plan ended and the fee is still unpaid' },
+    { id: 'soon', label: 'Expiring', dot: '#D97706', list: expiring, hint: 'Remind them before the plan ends' },
+    attendanceOn && { id: 'away', label: 'Not coming', dot: '#7C3AED', list: away, hint: 'Away 7+ days: a quick call keeps them coming' },
+    { id: 'enq', label: 'Enquiries', dot: '#2563EB', list: callEnq, hint: 'People who asked about joining, due a call back' },
+  ].filter(Boolean);
+  const current = TABS.find((t) => t.id === tab) || TABS[0];
+  const shown = current.list.slice(0, 6);
+  const doneKey = (t, m) => `${t}:${m._id}`;
+  const allKeys = TABS.flatMap((t) => t.list.slice(0, 6).map((m) => doneKey(t.id, m)));
+  const doneCount = allKeys.filter((k) => done.has(k)).length;
 
-  // Renewing soon matching web DashboardHome.jsx
-  const upcoming = membersTable
-    .filter(
-      (m) =>
-        m.status === 'active' &&
-        m.balance <= 0 &&
-        m.nextRenewal &&
-        daysUntil(m.nextRenewal) >= 0
-    )
-    .sort((a, b) => new Date(a.nextRenewal) - new Date(b.nextRenewal));
-  const renewingSoon = upcoming.filter((m) => daysUntil(m.nextRenewal) <= 14).slice(0, 6);
+  const renewMsg = (m) => `Hi ${m.name}, your ${biz.name} plan renews on ${shortDate(m.nextRenewal)}${m.planAmount ? ` (${rupees(m.planAmount)})` : ''}. Please pay on time to keep going. Thank you!`;
+  const openWa = (phone, text) => Linking.openURL(waLink(phone, text));
+  const call = (phone) => Linking.openURL(`tel:${phone}`);
+  const remindLate = () => setBulk({ title: 'who owe', people: late.map((m) => ({ ...m, message: remindMsg(biz, m, m.balance) })) });
+  const remindSoon = () => setBulk({ title: 'renewing soon', people: expiring.map((m) => ({ ...m, message: renewMsg(m) })) });
 
-  // first load: placeholders in the dashboard's shape
-  if (loading && !dashboardData) return <ScreenSkeleton navigation={navigation} kind="dashboard" />;
+  const rowFor = (m) => {
+    const open = () => navigation.navigate('MemberDetail', { id: m._id });
+    if (current.id === 'late') {
+      const d = m.dueSince ? daysSince(m.dueSince) : 0;
+      const room = isHostel && roomOf(m);
+      return { sub: `${d > 0 ? `Expired ${plural(d, 'day')} ago` : 'Due today'}${room ? ` · ${roomLabel(room, groups)}` : ''}`, tone: c.moneyRed, open, cta: { label: 'Collect', primary: true, go: () => setPaying(m) } };
+    }
+    if (current.id === 'soon') {
+      const when = m.inDays === 0 ? 'Expires today' : m.inDays === 1 ? 'Expires tomorrow' : `Expires in ${m.inDays} days`;
+      return { sub: `${when} · ${shortDate(m.nextRenewal)}`, tone: c.moneyAmber, open, cta: m.phone ? { label: 'Remind', go: () => openWa(m.phone, renewMsg(m)) } : { label: 'Open', go: open } };
+    }
+    if (current.id === 'away') {
+      return { sub: m.lastPresent ? `Not come for ${plural(m.daysAway, 'day')}` : `Never came · joined ${plural(m.daysAway, 'day')} ago`, tone: c.purpleDark, open, cta: m.phone ? { label: 'Call', icon: 'call-outline', go: () => call(m.phone) } : { label: 'Open', go: open } };
+    }
+    const d = m.followUpOn ? daysUntil(m.followUpOn) : null;
+    const goEnq = () => navigation.navigate('Enquiries');
+    return {
+      sub: d === null ? `Asked ${shortDate(m.createdAt)}${m.planId ? ` · ${m.planId.name}` : ''}` : d === 0 ? `Call back today${m.planId ? ` · ${m.planId.name}` : ''}` : `Call back missed ${plural(-d, 'day')} ago`,
+      tone: d !== null && d < 0 ? c.moneyRed : c.infoDark, open: goEnq,
+      cta: m.phone ? { label: 'Call', icon: 'call-outline', go: () => call(m.phone) } : { label: 'Open', go: goEnq },
+    };
+  };
+
+  // ---- suggestions ----
+  const longLate = late.find((m) => m.dueSince && daysSince(m.dueSince) >= 30);
+  const away30 = away.filter((m) => m.daysAway >= 30);
+  const missedEnq = openEnq.filter((e) => e.followUpOn && daysUntil(e.followUpOn) < 0);
+  const tips = [
+    expiring.length > 0 && { key: 'soon', text: `${plural(expiring.length, 'plan')} ${expiring.length === 1 ? 'expires' : 'expire'} this week (${rupees(expiring.reduce((s, m) => s + (m.planAmount || 0), 0))}). Remind them before they lapse.`, cta: expiring.some((m) => m.phone) ? { label: `Remind ${expiring.length}`, go: remindSoon } : null },
+    longLate && { key: 'late', text: `${longLate.name} owes ${rupees(longLate.balance)} for ${plural(daysSince(longLate.dueSince), 'day')}. A call works better than a message.`, cta: longLate.phone ? { label: 'Call', go: () => call(longLate.phone) } : { label: 'Open', go: () => navigation.navigate('MemberDetail', { id: longLate._id }) } },
+    away30.length > 0 && { key: 'away', text: `${plural(away30.length, w.member)} ${away30.length === 1 ? "hasn't" : "haven't"} come in for 30+ days. They may be about to quit.`, cta: { label: 'See who', go: () => setTab('away') } },
+    missedEnq.length > 0 && { key: 'enq', text: `${missedEnq.length} ${missedEnq.length === 1 ? 'enquiry' : 'enquiries'} missed ${missedEnq.length === 1 ? 'its' : 'their'} call-back date.`, cta: { label: 'Show', go: () => setTab('enq') } },
+    late.length > 1 && !longLate && { key: 'all', text: `${plural(late.length, w.member)} owe ${rupees(pendingTotal)}. One message reminds them all.`, cta: { label: 'Remind all', go: remindLate } },
+  ].filter(Boolean).slice(0, 3);
+
+  // ---- week, beds, growth, payments ----
+  const week = home.week || null;
+  const weekMax = Math.max(1, ...(week || []).map((d) => d.present));
+  const weekAvg = week ? Math.round(week.reduce((s, d) => s + d.present, 0) / week.length) : 0;
+  const dayLabel = (iso, i) => (i === 6 ? 'Today' : new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short' }).slice(0, 2));
+  const beds = rooms.reduce((s, r) => s + r.capacity, 0);
+  const filled = rooms.reduce((s, r) => s + Math.min(r.occupied || 0, r.capacity), 0);
+  const freeRooms = rooms.filter((r) => (r.occupied || 0) < r.capacity)
+    .sort((a, b) => (b.capacity - (b.occupied || 0)) - (a.capacity - (a.occupied || 0)) || natural(a.roomNo, b.roomNo));
+  const recent = (data?.recentPayments || []).slice(0, 4);
+
+  const card = [styles.card, { backgroundColor: c.card, borderColor: c.border }];
+  const head = (children, link, onLink) => (
+    <View style={styles.headRow}>
+      <Text style={[styles.h2, { color: c.text }]}>{children}</Text>
+      {link ? <TouchableOpacity onPress={onLink} hitSlop={8}><Text style={[styles.link, { color: c.primary }]}>{link}</Text></TouchableOpacity> : null}
+    </View>
+  );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
-      {/* TopBar with Brand + Sun/Moon theme toggle */}
+    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
       <TopBar title="Dashboard" navigation={navigation} />
-
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary} colors={[theme.colors.primary]} progressBackgroundColor={theme.colors.card}
-          />
-        }>
-        {/* TODAY HEADER & QUICK ACTIONS */}
-        <View style={styles.todayHeader}>
-          <Text style={[styles.todayTitle, { color: theme.colors.text }]}>Today</Text>
-          <Text style={[styles.todayDate, { color: theme.colors.textMuted }]}>
-            {todayFormatted}
-          </Text>
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.card} />}>
+        <Text style={[styles.date, { color: c.textMuted }]}>{todayText}</Text>
 
-          <View style={styles.todayActions}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.btnActionSecondary,
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-              ]}
-              onPress={() => setAddExpenseOpen(true)}>
-              <Text style={[styles.btnActionSecondaryText, { color: theme.colors.text }]}>
-                ₹  Expense
-              </Text>
-            </TouchableOpacity>
+        {/* 1. one tap each */}
+        {quick}
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.btnActionSecondary,
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-              ]}
-              onPress={() => navigation.navigate('Enquiries', { add: 1 })}>
-              <Text style={[styles.btnActionSecondaryText, { color: theme.colors.text }]}>
-                +  Enquiry
+        {/* 2. today at a glance */}
+        <View style={styles.todayRow}>
+          {todayCards.map((t) => (
+            <TouchableOpacity key={t.key} activeOpacity={0.8} onPress={t.go} style={[styles.todayCard, { backgroundColor: c.card, borderColor: c.border }]}>
+              <View style={[styles.todayIcon, { backgroundColor: tint(t.tone, dark ? 0.18 : 0.12, c.card) }]}>
+                <Icon name={t.icon} size={15} color={t.tone} />
+              </View>
+              <Text style={[styles.todayLabel, { color: c.textMuted }]} numberOfLines={2}>{t.label}</Text>
+              <Text style={[styles.todayValue, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                {t.value}{t.note ? <Text style={[styles.todayNote, { color: c.textMuted }]}> {t.note}</Text> : null}
               </Text>
-            </TouchableOpacity>
-
-            {biz?.salesEnabled !== false && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[
-                  styles.btnActionSecondary,
-                  { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-                ]}
-                onPress={() => navigation.navigate('Sales')}>
-                <Text style={[styles.btnActionSecondaryText, { color: theme.colors.text }]}>
-                  Sales
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.btnActionPrimary, { backgroundColor: theme.colors.primary }]}
-              onPress={() => setAddMemberOpen(true)}>
-              <Text style={styles.btnActionPrimaryText}>
-                + {w.member ? w.member[0].toUpperCase() + w.member.slice(1) : 'Member'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 1. THE MONTH IN FOUR NUMBERS (.dash-kpis); each opens the detail */}
-        <View style={styles.kpiGrid}>
-          {[
-            {
-              key: 'collect',
-              tone: pendingTotal > 0 ? '#EF4444' : '#10B981',
-              label: 'TO COLLECT',
-              value: rupees(pendingTotal),
-              valueColor: pendingTotal > 0 ? theme.colors.danger : theme.colors.text,
-              sub: pendingTotal > 0 ? `${plural(pending.length, w.member)} owe` : 'Everyone has paid',
-              go: () => navigation.navigate('Members', { filter: 'owing' }),
-            },
-            {
-              key: 'collected',
-              tone: '#3B82F6',
-              label: `COLLECTED · ${monthName.toUpperCase()}`,
-              value: rupees(received),
-              bar: collectedPct,
-              sub: `${collectedPct}% of this month's fees`,
-              go: () => navigation.navigate('Reports'),
-            },
-            {
-              key: 'spent',
-              tone: '#F59E0B',
-              label: `SPENT · ${monthName.toUpperCase()}`,
-              value: rupees(spent),
-              sub: spent ? 'rent, salaries, bills' : 'no expenses yet',
-              go: () => navigation.navigate('Reports', { view: 'expenses' }),
-            },
-            {
-              key: 'profit',
-              tone: profit < 0 ? '#EF4444' : '#8B5CF6',
-              label: `${profit < 0 ? 'LOSS' : 'PROFIT'} · ${monthName.toUpperCase()}`,
-              value: `${profit < 0 ? '−' : ''}${rupees(Math.abs(profit))}`,
-              valueColor: profit < 0 ? theme.colors.danger : theme.colors.text,
-              sub: 'received minus spent',
-              go: () => navigation.navigate('Reports'),
-            },
-          ].map((k) => (
-            <TouchableOpacity
-              key={k.key}
-              activeOpacity={0.8}
-              onPress={k.go}
-              style={[
-                styles.kpiCard,
-                {
-                  backgroundColor: tint(k.tone, theme.isDark ? 0.1 : 0.06, theme.colors.card),
-                  borderColor: tint(k.tone, theme.isDark ? 0.3 : 0.28, theme.colors.card),
-                  borderTopColor: k.tone,
-                },
-              ]}>
-              <Text style={[styles.kpiLabel, { color: theme.colors.textMuted }]} numberOfLines={1}>
-                {k.label}
-              </Text>
-              <Text style={[styles.kpiValue, { color: k.valueColor || theme.colors.text }]} numberOfLines={1}>
-                {k.value}
-              </Text>
-              {k.bar !== undefined && (
-                <View style={[styles.kpiTrack, { backgroundColor: theme.colors.border }]}>
-                  <View style={[styles.kpiFill, { width: `${k.bar}%`, backgroundColor: k.tone }]} />
-                </View>
-              )}
-              <Text style={[styles.kpiSub, { color: theme.colors.textMuted }]}>{k.sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* 2. WHO OWES, or a short all-clear line */}
-        {pending.length > 0 ? (
-          <Card
-            style={[
-              styles.sectionCard,
-              {
-                backgroundColor: tint('#EF4444', theme.isDark ? 0.07 : 0.035, theme.colors.card),
-                borderColor: tint('#EF4444', 0.2, theme.colors.card),
-              },
-            ]}>
-            <View style={styles.sectionHead}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Needs payment</Text>
-                <View style={[styles.countPill, { backgroundColor: theme.colors.dangerSoft }]}>
-                  <Text style={[styles.countPillText, { color: theme.colors.danger }]}>{pending.length}</Text>
+        {/* 3. the month */}
+        <View style={[card, { padding: 0, overflow: 'hidden' }]}>
+          <View style={{ padding: 16 }}>
+            <View style={styles.headRow}>
+              <Text style={[styles.label, { color: c.textMuted }]}>Collected in {monthName}</Text>
+              {vsLast !== null && (
+                <View style={[styles.delta, { backgroundColor: vsLast >= 0 ? c.successSoft : c.dangerSoft }]}>
+                  <Text style={[styles.deltaText, { color: vsLast >= 0 ? c.moneyGreen : c.moneyRed }]}>{vsLast >= 0 ? '▲' : '▼'} {Math.abs(vsLast)}% vs {lastMonthName}</Text>
                 </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                {pending.length > 1 && (
-                  <TouchableOpacity
-                    onPress={() => setBulkRemindOpen(true)}
-                    style={[styles.remindAllBtn, { backgroundColor: theme.colors.warningSoft, borderColor: theme.colors.warningBorder }]}>
-                    <Icon name="logo-whatsapp" size={13} color={theme.colors.warningDark} />
-                    <Text style={[styles.remindAllText, { color: theme.colors.warningDark }]}>Remind all</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => navigation.navigate('Members', { filter: 'owing' })}>
-                  <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>
-                    {pending.length > 6 ? `See all ${pending.length}` : 'Open list'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              )}
             </View>
-
-            <View style={{ marginTop: 4 }}>
-              {pending.slice(0, 6).map((m, i) => {
-                const late = m.dueSince ? daysSince(m.dueSince) : 0;
-                const room = isHostel && rooms.find((r) => r._id === String(m.roomId?._id || m.roomId || ''));
-                return (
-                  <View
-                    key={m._id}
-                    style={[styles.oweRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => navigation.navigate('MemberDetail', { id: m._id })}
-                      style={styles.personInfo}>
-                      <Avatar name={m.name} />
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={[styles.personName, { color: theme.colors.text }]} numberOfLines={1}>
-                          {m.name}
-                        </Text>
-                        {room ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Icon name="bed-outline" size={12} color={theme.colors.primary} />
-                            <Text style={[styles.personSub, { color: theme.colors.textMuted }]} numberOfLines={1}>
-                              {roomLabel(room, groups)}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text style={[styles.personSub, { color: theme.colors.textMuted }]}>{m.phone || 'No phone'}</Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-
-                    <View style={styles.oweBottom}>
-                      <View>
-                        <Text style={[styles.dueAmount, { color: theme.colors.danger }]}>{rupees(m.balance)}</Text>
-                        <Text style={[styles.dueLateText, { color: late > 0 ? theme.colors.danger : theme.colors.textMuted }]}>
-                          {late > 0 ? `${plural(late, 'day')} late` : 'due today'}
-                        </Text>
-                      </View>
-                      <View style={styles.actionBtns}>
-                        {m.phone ? (
-                          <TouchableOpacity
-                            accessibilityLabel={`Send WhatsApp reminder to ${m.name}`}
-                            onPress={() => Linking.openURL(waLink(m.phone, remindMsg(biz, m, m.balance)))}
-                            style={[styles.waBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
-                            <Icon name="logo-whatsapp" size={17} color="#25D366" />
-                          </TouchableOpacity>
-                        ) : null}
-                        <TouchableOpacity onPress={() => setRecordPaymentMember(m)} style={styles.collectBtn}>
-                          <Icon name="checkmark" size={14} color="#FFFFFF" />
-                          <Text style={styles.collectText}>Collect</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </Card>
-        ) : (
-          <View
-            style={[
-              styles.clearLine,
-              { backgroundColor: tint('#10B981', 0.1, theme.colors.card), borderColor: tint('#10B981', 0.3, theme.colors.card) },
-            ]}>
-            <Icon name="checkmark-circle-outline" size={18} color="#10B981" />
-            <Text style={[styles.clearText, { color: theme.colors.textSecondary }]}>
-              <Text style={{ fontWeight: '700', color: theme.colors.text }}>All fees are paid.</Text> Nobody owes anything right now.
+            <Text style={{ marginTop: 6 }}>
+              <Text style={[styles.big, { color: c.text }]}>{rupees(received)}</Text>
+              <Text style={[styles.bigSub, { color: c.textMuted }]}>  of {rupees(billed)} · {collectedPct}%</Text>
             </Text>
-          </View>
-        )}
-
-        {/* 2b. RECENT PAYMENTS */}
-        <Card
-          style={[
-            styles.sectionCard,
-            {
-              backgroundColor: tint('#10B981', theme.isDark ? 0.06 : 0.03, theme.colors.card),
-              borderColor: tint('#10B981', 0.2, theme.colors.card),
-            },
-          ]}>
-          <View style={styles.sectionHead}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent payments</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Reports')}>
-              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>Reports</Text>
-            </TouchableOpacity>
-          </View>
-          {(dashboardData?.recentPayments || []).length ? (
-            (dashboardData.recentPayments || []).map((p, i) => (
-              <TouchableOpacity
-                key={p._id}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('MemberDetail', { id: p.memberId })}
-                style={[styles.payRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
-                <Avatar name={p.name} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.personName, { color: theme.colors.text }]} numberOfLines={1}>{p.name}</Text>
-                  <Text style={[styles.personSub, { color: theme.colors.textMuted }]}>
-                    {shortDate(p.date)} · {PAY_MODE[p.mode] || 'Cash'}
-                  </Text>
-                </View>
-                <Text style={styles.payAmount}>+{rupees(p.amount)}</Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={[styles.emptySectionText, { color: theme.colors.textMuted, marginTop: 8 }]}>
-              No payments yet. They'll show up here as you collect them.
-            </Text>
-          )}
-        </Card>
-
-        {/* 3. BEDS (Hostel) OR ACTIVE MEMBERS (Gym/Mess/Tuition) */}
-        {isHostel && totalBeds > 0 ? (
-          <Card
-            style={[
-              styles.sectionCard,
-              {
-                backgroundColor: tint('#8B5CF6', theme.isDark ? 0.08 : 0.04, theme.colors.card),
-                borderColor: tint('#8B5CF6', 0.22, theme.colors.card),
-              },
-            ]}
-            onPress={() => navigation.navigate('RoomsTab')}>
-            <View style={styles.sectionHead}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Beds</Text>
-              <Icon name="chevron-forward" size={15} color={theme.colors.textMuted} />
+            <View style={[styles.bar, { backgroundColor: c.cardSubtle }]}>
+              <View style={[styles.barFill, { width: `${Math.min(100, collectedPct)}%`, backgroundColor: c.success }]} />
             </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8, gap: 4 }}>
-              <Text style={[styles.bedsCountNumber, { color: theme.colors.text }]}>
-                {filledBeds}
-              </Text>
-              <Text style={[styles.bedsCountLabel, { color: theme.colors.textMuted }]}>
-                of {plural(totalBeds, 'bed')} filled
-              </Text>
-            </View>
-
-            {/* Purple Occupancy Bar */}
-            <View
-              style={[
-                styles.progressTrack,
-                { backgroundColor: theme.colors.cardSubtle, marginTop: 10, marginBottom: 14 },
-              ]}>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: `${totalBeds > 0 ? Math.round((filledBeds / totalBeds) * 100) : 0}%`,
-                    backgroundColor: '#8B5CF6',
-                  },
-                ]}
-              />
-            </View>
-
-            {freeRooms.length > 0 ? (
-              <View>
-                {freeRooms.slice(0, 4).map((r) => (
-                  <View key={r._id} style={styles.freeRoomRow}>
-                    <Text
-                      style={[styles.freeRoomName, { color: theme.colors.text }]}
-                      numberOfLines={1}>
-                      {roomLabel(r, groups)}
-                    </Text>
-                    <Text style={[styles.freeBedsBadge, { color: '#10B981' }]}>
-                      {plural(r.capacity - (r.occupied || 0), 'free bed')}
-                    </Text>
-                  </View>
-                ))}
-                {freeRooms.length > 4 && (
-                  <Text style={[styles.moreRoomsText, { color: theme.colors.text }]}>
-                    +{freeRooms.length - 4} more rooms with space
-                  </Text>
-                )}
-              </View>
-            ) : (
-              <Text style={[styles.emptySectionText, { color: theme.colors.textMuted }]}>
-                Every bed is taken.
+            {pace !== null && collectedPct < 100 && (
+              <Text style={[styles.pace, { color: c.textMuted }]}>
+                {pace >= billed ? "At this pace you'll collect everything by month end." : <>{"At this pace you'll reach "}<Text style={{ fontWeight: '700', color: c.text }}>{rupees(pace)}</Text> by {daysInMonth} {now.toLocaleDateString('en-IN', { month: 'short' })}.</>}
               </Text>
             )}
-          </Card>
-        ) : (
-          <Card style={styles.sectionCard} onPress={() => navigation.navigate('Members')}>
-            <View style={styles.sectionHead}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Active {w.members}
+          </View>
+          <View style={[styles.cells, { borderTopColor: c.border }]}>
+            {[
+              { key: 'owe', label: 'To collect', value: pendingTotal > 0 ? rupees(pendingTotal) : 'All paid', ink: pendingTotal > 0 ? c.moneyRed : c.moneyGreen, bg: pendingTotal > 0 ? c.dangerSoft : 'transparent', labelInk: pendingTotal > 0 ? c.moneyRed : c.textMuted, go: () => navigation.navigate('Members', { filter: 'owing' }) },
+              { key: 'spent', label: 'Spent', value: rupees(spent), ink: c.text, go: () => navigation.navigate('Reports', { view: 'expenses' }) },
+              { key: 'profit', label: profit < 0 ? 'Loss' : 'Profit', value: `${profit < 0 ? '−' : ''}${rupees(Math.abs(profit))}`, ink: profit < 0 ? c.moneyRed : c.moneyGreen, go: () => navigation.navigate('Reports') },
+            ].map((x, i) => (
+              <TouchableOpacity key={x.key} activeOpacity={0.8} onPress={x.go} style={[styles.cell, { backgroundColor: x.bg || 'transparent' }, i > 0 && { borderLeftWidth: 1, borderLeftColor: c.border }]}>
+                <Text style={[styles.cellLabel, { color: x.labelInk || c.textMuted }]}>{x.label}</Text>
+                <Text style={[styles.cellValue, { color: x.ink }]} numberOfLines={1}>{x.value}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* 4. follow up today */}
+        <View style={[card, { paddingHorizontal: 0, paddingBottom: 0 }]}>
+          <View style={{ paddingHorizontal: 16 }}>
+            <Text style={[styles.h1, { color: c.text }]}>Follow up today</Text>
+            <Text style={[styles.hint, { color: c.textMuted }]}>{current.hint}</Text>
+            {allKeys.length > 0 && (
+              <View style={styles.progressRow}>
+                <Text style={[styles.progressText, { color: c.textMuted }]}>{doneCount} of {allKeys.length} done</Text>
+                <View style={[styles.progressTrack, { backgroundColor: c.cardSubtle }]}>
+                  <View style={[styles.barFill, { width: `${Math.round((doneCount / allKeys.length) * 100)}%`, backgroundColor: c.success }]} />
+                </View>
+              </View>
+            )}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabs, { borderBottomColor: c.border }]} contentContainerStyle={{ paddingHorizontal: 6 }}>
+            {TABS.map((t) => {
+              const on = current.id === t.id;
+              return (
+                <TouchableOpacity key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                  style={[styles.tab, { borderBottomColor: on ? c.primary : 'transparent' }]}>
+                  <View style={[styles.dot, { backgroundColor: t.dot }]} />
+                  <Text style={[styles.tabText, { color: on ? c.primaryDark : c.textMuted, fontWeight: on ? '700' : '500' }]}>{t.label}</Text>
+                  <View style={[styles.tabCount, { backgroundColor: on ? c.primary : c.cardSubtle }]}>
+                    <Text style={[styles.tabCountText, { color: on ? '#FFFFFF' : c.textSecondary }]}>{t.list.length}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {shown.length ? shown.map((m, i) => {
+            const r = rowFor(m);
+            const k = doneKey(current.id, m);
+            const isDone = done.has(k);
+            return (
+              <View key={m._id} style={[styles.row, i > 0 && { borderTopWidth: 1, borderTopColor: c.borderSubtle }, isDone && { opacity: 0.55 }]}>
+                <TouchableOpacity onPress={() => toggleDone(k)} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: isDone }} accessibilityLabel={`${isDone ? 'Undo' : 'Mark'} ${m.name} done for today`}
+                  style={[styles.tick, { borderColor: isDone ? c.success : c.borderSolid, backgroundColor: isDone ? c.success : 'transparent' }]}>
+                  {isDone && <Icon name="checkmark" size={13} color="#FFFFFF" />}
+                </TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.7} onPress={r.open} style={styles.who}>
+                  <Avatar name={m.name} size={30} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[styles.name, { color: c.text, textDecorationLine: isDone ? 'line-through' : 'none' }]} numberOfLines={1}>{m.name}</Text>
+                    <Text style={[styles.sub, { color: r.tone }]} numberOfLines={1}>{r.sub}</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={r.cta.go} style={[styles.cta, r.cta.primary ? { backgroundColor: c.primary } : { backgroundColor: c.card, borderWidth: 1, borderColor: c.border }]}>
+                  {r.cta.icon ? <Icon name={r.cta.icon} size={13} color={c.text} /> : null}
+                  <Text style={[styles.ctaText, { color: r.cta.primary ? '#FFFFFF' : c.text }]}>{r.cta.label}</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }) : (
+            <View style={styles.empty}>
+              <Icon name="checkmark-circle-outline" size={18} color={c.success} />
+              <Text style={[styles.emptyText, { color: c.textMuted }]}>
+                {{ late: 'Nobody owes anything right now.', soon: 'No plans expire this week.', away: `Every ${w.member} came in this week.`, enq: 'No enquiries to call back today.' }[current.id]}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.foot, { borderTopColor: c.border }]}>
+            <TouchableOpacity onPress={() => (current.id === 'enq' ? navigation.navigate('Enquiries') : navigation.navigate('Members', { filter: { late: 'owing', soon: 'soon', away: 'away' }[current.id] }))}>
+              <Text style={[styles.link, { color: c.primary }]}>{current.list.length > shown.length ? `See all ${current.list.length} →` : 'See all →'}</Text>
+            </TouchableOpacity>
+            {((current.id === 'late' && late.length > 1) || (current.id === 'soon' && expiring.length > 1)) && (
+              <TouchableOpacity onPress={current.id === 'late' ? remindLate : remindSoon} style={[styles.waAll, { backgroundColor: c.successSoft, borderColor: c.successBorder }]}>
+                <Icon name="logo-whatsapp" size={14} color={c.moneyGreen} />
+                <Text style={[styles.waAllText, { color: c.moneyGreen }]}>Remind all {current.list.length}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* 5. suggestions */}
+        {tips.length > 0 && (
+          <View style={[styles.card, { backgroundColor: c.purpleSoft, borderColor: c.purpleBorder }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <View style={[styles.tipsBadge, { backgroundColor: c.primary }]}><Icon name="sparkles-outline" size={13} color="#FFFFFF" /></View>
+              <Text style={[styles.h2, { color: c.text }]}>Suggestions</Text>
+            </View>
+            {tips.map((t) => (
+              <View key={t.key} style={[styles.tip, { backgroundColor: c.card, borderColor: c.border }]}>
+                <Text style={[styles.tipText, { color: c.textSecondary }]}>{t.text}</Text>
+                {t.cta && (
+                  <TouchableOpacity onPress={t.cta.go} style={[styles.tipBtn, { backgroundColor: c.primarySoft }]}>
+                    <Text style={[styles.tipBtnText, { color: c.primaryDark }]}>{t.cta.label}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* 6. attendance this week */}
+        {attendanceOn && total > 0 && (
+          <View style={card}>
+            {head(biz.type === 'gym' ? 'Came in' : 'Attendance', 'Mark today →', () => navigation.navigate('Attendance'))}
+            <Text style={{ marginTop: 6 }}>
+              <Text style={[styles.mid, { color: c.text }]}>{present}</Text>
+              <Text style={[styles.midSub, { color: c.textMuted }]}>  of {total} today{weekAvg ? ` · avg ${weekAvg} a day` : ''}</Text>
+            </Text>
+            {week && (
+              <View style={styles.week}>
+                {week.map((d, i) => (
+                  <View key={d.day} style={styles.weekCol}>
+                    <View style={[styles.weekBar, { height: Math.max(3, Math.round((d.present / weekMax) * 52)), backgroundColor: i === 6 ? c.primary : c.primaryBorder }]} />
+                    <Text style={[styles.weekLabel, { color: i === 6 ? c.text : c.textMuted }]}>{dayLabel(d.day, i)}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* 7. beds (hostels) */}
+        {isHostel && beds > 0 && (
+          <TouchableOpacity activeOpacity={0.85} style={card} onPress={() => navigation.navigate('Rooms')}>
+            <View style={styles.headRow}>
+              <Text style={[styles.h2, { color: c.text }]}>Beds filled</Text>
+              <Icon name="chevron-forward" size={15} color={c.textMuted} />
+            </View>
+            <Text style={{ marginTop: 6 }}>
+              <Text style={[styles.mid, { color: c.text }]}>{filled}</Text>
+              <Text style={[styles.midSub, { color: c.textMuted }]}>  of {plural(beds, 'bed')}</Text>
+            </Text>
+            <View style={[styles.bar, { backgroundColor: c.cardSubtle }]}>
+              <View style={[styles.barFill, { width: `${Math.round((filled / beds) * 100)}%`, backgroundColor: c.primary }]} />
+            </View>
+            {freeRooms.length > 0 && (
+              <Text style={[styles.pace, { color: c.textMuted }]}>
+                Free: {freeRooms.slice(0, 3).map((r) => roomLabel(r, groups)).join(', ')}{freeRooms.length > 3 ? ` +${freeRooms.length - 3}` : ''}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* 8. joined · left · active */}
+        <View style={[card, styles.growth]}>
+          {[
+            { label: 'Joined', value: `+${home.joinedThisMonth ?? 0}`, ink: c.moneyGreen, go: () => navigation.navigate('Members', { filter: 'new' }) },
+            { label: 'Left', value: home.leftThisMonth ? `−${home.leftThisMonth}` : '0', ink: home.leftThisMonth ? c.moneyRed : c.text, go: () => navigation.navigate('Members', { filter: 'left' }) },
+            { label: 'Active now', value: String(activeMembers), ink: c.text, go: () => navigation.navigate('Members') },
+          ].map((g, i) => (
+            <TouchableOpacity key={g.label} activeOpacity={0.8} onPress={g.go} style={[styles.growthCell, i > 0 && { borderLeftWidth: 1, borderLeftColor: c.border }]}>
+              <Text style={[styles.cellLabel, { color: c.textMuted }]}>{g.label}</Text>
+              <Text style={[styles.cellValue, { color: g.ink }]}>{g.value}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* 9. recent payments */}
+        <View style={card}>
+          {head('Recent payments', 'Money →', () => navigation.navigate('Reports'))}
+          {recent.length ? recent.map((p, i) => (
+            <TouchableOpacity key={p._id} activeOpacity={0.7} onPress={() => navigation.navigate('MemberDetail', { id: p.memberId })}
+              style={[styles.payRow, { borderTopColor: c.borderSubtle }, i === 0 && { marginTop: 6 }]}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{p.name}</Text>
+                <Text style={[styles.sub, { color: c.textMuted }]}>
+                  {daysSince(p.date) === 0 ? 'Today' : daysSince(p.date) === 1 ? 'Yesterday' : shortDate(p.date)} · {PAY_MODE[p.mode] || 'Cash'}
                 </Text>
               </View>
-              <Icon name="chevron-forward" size={15} color={theme.colors.textMuted} />
-            </View>
-            <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 8 }}>
-              <Text style={{ fontWeight: '700', fontSize: 18, color: theme.colors.text }}>
-                {activeMembers}
-              </Text>{' '}
-              currently enrolled
-            </Text>
-          </Card>
-        )}
-
-        {/* 4. RENEWING SOON */}
-        <Card
-          style={[
-            styles.sectionCard,
-            {
-              backgroundColor: tint('#F59E0B', theme.isDark ? 0.07 : 0.04, theme.colors.card),
-              borderColor: tint('#F59E0B', 0.22, theme.colors.card),
-            },
-          ]}>
-          <View style={styles.sectionHead}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Renewing soon</Text>
-          </View>
-
-          {renewingSoon.length > 0 ? (
-            <View style={{ marginTop: 8 }}>
-              {renewingSoon.map((m) => {
-                const days = daysUntil(m.nextRenewal);
-                return (
-                  <View
-                    key={m._id}
-                    style={[styles.rowItem, { borderBottomColor: theme.colors.border }]}>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => navigation.navigate('MemberDetail', { id: m._id })}
-                      style={styles.personInfo}>
-                      <Avatar name={m.name} />
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={[styles.personName, { color: theme.colors.text }]} numberOfLines={1}>
-                          {m.name}
-                        </Text>
-                        <Text style={[styles.personSub, { color: theme.colors.textMuted }]}>
-                          {rupees(m.planAmount)} on {shortDate(m.nextRenewal)} · in {days} days
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    {m.phone && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          const msg = `Hi ${m.name}, your ${biz?.name || 'membership'} plan renews on ${shortDate(m.nextRenewal)} (${rupees(m.planAmount)}). Thank you!`;
-                          Linking.openURL(waLink(m.phone, msg));
-                        }}
-                        style={[styles.waBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, marginLeft: 8 }]}>
-                        <Icon name="logo-whatsapp" size={17} color="#25D366" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <Text style={[styles.renewingEmptyText, { color: theme.colors.textMuted }]}>
-              Nobody renews in the next 2 weeks.
-              {upcoming[0] && (
-                <>
-                  {' '}Next:{' '}
-                  <Text style={{ fontWeight: '700', color: theme.colors.text }}>
-                    {upcoming[0].name}
-                  </Text>{' '}
-                  on {shortDate(upcoming[0].nextRenewal)}.
-                </>
-              )}
-            </Text>
+              <Text style={[styles.payAmt, { color: c.moneyGreen }]}>+{rupees(p.amount)}</Text>
+            </TouchableOpacity>
+          )) : (
+            <Text style={[styles.pace, { color: c.textMuted }]}>No payments yet. They show up here as you collect them.</Text>
           )}
-        </Card>
-
-        {/* 5. ATTENDANCE TODAY (if enabled) */}
-        {biz?.attendanceEnabled !== false && attendanceToday && attendanceToday.counts?.total > 0 && (
-          <Card style={styles.sectionCard} onPress={() => navigation.navigate('AttendanceTab')}>
-            <View style={styles.sectionHead}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Attendance today</Text>
-              </View>
-              <Icon name="chevron-forward" size={15} color={theme.colors.textMuted} />
-            </View>
-
-            <Text style={{ fontSize: 13, color: theme.colors.textMuted, marginTop: 8 }}>
-              <Text style={{ fontWeight: '700', fontSize: 18, color: theme.colors.text }}>
-                {attendanceToday.counts?.present || 0}
-              </Text>{' '}
-              of {attendanceToday.counts?.total || 0} {biz?.type === 'gym' ? 'checked in' : 'present'}
-            </Text>
-          </Card>
-        )}
+        </View>
       </ScrollView>
 
-      {/* Modals */}
-      <AddMemberModal
-        visible={addMemberOpen}
-        biz={biz}
-        onClose={() => setAddMemberOpen(false)}
-        onMemberAdded={fetchDashboardData}
-      />
-
-      <AddExpenseModal
-        visible={addExpenseOpen}
-        biz={biz}
-        onClose={() => setAddExpenseOpen(false)}
-        onSaved={fetchDashboardData}
-      />
-
-      <RecordPaymentModal
-        visible={Boolean(recordPaymentMember)}
-        member={recordPaymentMember}
-        biz={biz}
-        onClose={() => setRecordPaymentMember(null)}
-        onPaymentRecorded={fetchDashboardData}
-      />
-
-      <BulkRemindModal
-        visible={bulkRemindOpen}
-        title="who owe"
-        people={pending}
-        biz={biz}
-        onClose={() => setBulkRemindOpen(false)}
-      />
+      <PickMember visible={picking} members={membersTable.filter((m) => m.status === 'active')} word={w.member}
+        onClose={() => setPicking(false)} onPick={(m) => { setPicking(false); setPaying(m); }} />
+      <RecordPaymentModal visible={Boolean(paying)} member={paying} biz={biz} onClose={() => setPaying(null)} onPaymentRecorded={load} />
+      <AddMemberModal visible={addMemberOpen} biz={biz} onClose={() => setAddMemberOpen(false)}
+        onMemberAdded={() => { setAddMemberOpen(false); load(); navigation.navigate('Members'); }} />
+      <AddExpenseModal visible={addExpenseOpen} biz={biz} onClose={() => setAddExpenseOpen(false)} onSaved={load} />
+      {salesOn && <SellModal visible={sellOpen} biz={biz} onClose={() => setSellOpen(false)} onSold={load} />}
+      {bulk && <BulkRemindModal visible title={bulk.title} people={bulk.people} biz={biz} onClose={() => setBulk(null)} />}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  centerBox: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 36,
-  },
-  todayHeader: {
-    marginBottom: 16,
-  },
-  todayTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-  },
-  todayDate: {
-    fontSize: 13.5,
-    marginTop: 2,
-    marginBottom: 12,
-  },
-  todayActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  btnActionSecondary: {
-    flex: 1,
-    height: 42,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnActionSecondaryText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-  },
-  btnActionPrimary: {
-    flex: 1,
-    height: 42,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnActionPrimaryText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '600',
-  },
-  heroCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  heroMain: {
-    marginBottom: 16,
-  },
-  heroLabel: {
-    fontSize: 13.5,
-    fontWeight: '500',
-  },
-  heroAmount: {
-    fontSize: 34,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  heroAmountSmall: {
-    fontSize: 21,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  heroSub: {
-    fontSize: 13.5,
-    marginTop: 3,
-  },
-  progressWrap: {
-    marginTop: 14,
-  },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12.5,
-    marginTop: 7,
-    fontWeight: '400',
-  },
-  monthCard: {
-    borderTopWidth: 1,
-    paddingTop: 16,
-  },
-  monthCardTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  monthMetricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  monthMetric: {
-    flex: 1,
-  },
-  metricLabel: {
-    fontSize: 12,
-    marginBottom: 3,
-  },
-  metricVal: {
-    fontSize: 19,
-    fontWeight: '800',
-  },
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 12,
-  },
-  kpiCard: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderTopWidth: 3,
-    gap: 4,
-  },
-  kpiLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-  kpiValue: {
-    fontSize: 21,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  kpiTrack: {
-    height: 5,
-    borderRadius: 99,
-    overflow: 'hidden',
-    marginVertical: 2,
-  },
-  kpiFill: {
-    height: '100%',
-    borderRadius: 99,
-  },
-  kpiSub: {
-    fontSize: 12.5,
-  },
-  countPill: {
-    minWidth: 22,
-    height: 20,
-    paddingHorizontal: 6,
-    borderRadius: 99,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  remindAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    height: 30,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  remindAllText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  oweRow: {
-    paddingVertical: 12,
-    gap: 8,
-  },
-  oweBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 42,
-  },
-  waBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  collectBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 38,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    backgroundColor: '#5B3DF5',
-  },
-  collectText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  clearLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 12,
-  },
-  clearText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  payRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-  },
-  payAmount: {
-    color: '#10B981',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  sectionCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  sectionHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 15.5,
-    fontWeight: '700',
-  },
-  seeAllText: {
-    fontSize: 12.5,
-    fontWeight: '500',
-  },
-  bedsCountNumber: {
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  bedsCountLabel: {
-    fontSize: 13.5,
-  },
-  freeRoomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 7,
-  },
-  freeRoomName: {
-    fontSize: 13,
-    fontWeight: '500',
-    flex: 1,
-    marginRight: 8,
-  },
-  freeBedsBadge: {
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  moreRoomsText: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  emptySectionText: {
-    fontSize: 13,
-    marginTop: 8,
-  },
-  renewingEmptyText: {
-    fontSize: 13.5,
-    lineHeight: 20,
-    marginTop: 8,
-  },
-  rowItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  personInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    minWidth: 0,
-  },
-  personName: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  personSub: {
-    fontSize: 12,
-    marginTop: 1,
-  },
-  dueCol: {
-    alignItems: 'flex-end',
-    marginRight: 8,
-  },
-  dueAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  dueLateText: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  actionBtns: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  actionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  safe: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
+  date: { fontSize: 13, marginBottom: 10 },
+
+  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  quick: { flex: 1, height: 66, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  quickIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  quickText: { fontSize: 12, fontWeight: '600' },
+
+  todayRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  todayCard: { flex: 1, minWidth: 0, borderRadius: 14, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 8, gap: 3 },
+  todayIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  todayLabel: { fontSize: 11.5, lineHeight: 14 },
+  todayValue: { fontSize: 15, fontWeight: '800', marginTop: 'auto', letterSpacing: -0.3 },
+  todayNote: { fontSize: 11.5, fontWeight: '500' },
+
+  card: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  label: { fontSize: 13, fontWeight: '600' },
+  delta: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 },
+  deltaText: { fontSize: 11.5, fontWeight: '700' },
+  big: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  bigSub: { fontSize: 13 },
+  bar: { height: 7, borderRadius: 99, overflow: 'hidden', marginTop: 12 },
+  barFill: { height: '100%', borderRadius: 99 },
+  pace: { fontSize: 12.5, marginTop: 8, lineHeight: 18 },
+  cells: { flexDirection: 'row', borderTopWidth: 1 },
+  cell: { flex: 1, paddingVertical: 12, paddingHorizontal: 14, gap: 4 },
+  cellLabel: { fontSize: 12.5, fontWeight: '600' },
+  cellValue: { fontSize: 17, fontWeight: '800' },
+
+  h1: { fontSize: 17, fontWeight: '700' },
+  h2: { fontSize: 15.5, fontWeight: '700' },
+  hint: { fontSize: 12.5, marginTop: 2 },
+  link: { fontSize: 13, fontWeight: '600' },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  progressText: { fontSize: 12.5 },
+  progressTrack: { width: 70, height: 5, borderRadius: 99, overflow: 'hidden' },
+  tabs: { flexGrow: 0, marginTop: 10, borderBottomWidth: 1 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, paddingHorizontal: 10, borderBottomWidth: 2, marginBottom: -1 },
+  dot: { width: 7, height: 7, borderRadius: 99 },
+  tabText: { fontSize: 13.5 },
+  tabCount: { minWidth: 20, height: 18, paddingHorizontal: 5, borderRadius: 99, alignItems: 'center', justifyContent: 'center' },
+  tabCountText: { fontSize: 11, fontWeight: '700' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 16 },
+  tick: { width: 22, height: 22, borderRadius: 99, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  who: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  name: { fontSize: 14.5, fontWeight: '600' },
+  sub: { fontSize: 12, marginTop: 1 },
+  cta: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 36, paddingHorizontal: 13, borderRadius: 10 },
+  ctaText: { fontSize: 13, fontWeight: '700' },
+  empty: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 18 },
+  emptyText: { fontSize: 13.5, flex: 1 },
+  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingHorizontal: 16, paddingVertical: 12, minHeight: 56 },
+  waAll: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1 },
+  waAllText: { fontSize: 13, fontWeight: '700' },
+
+  tipsBadge: { width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  tip: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 8 },
+  tipText: { flex: 1, fontSize: 13.5, lineHeight: 19 },
+  tipBtn: { paddingHorizontal: 11, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  tipBtnText: { fontSize: 12.5, fontWeight: '700' },
+
+  mid: { fontSize: 24, fontWeight: '800' },
+  midSub: { fontSize: 13 },
+  week: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, marginTop: 12, height: 72 },
+  weekCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
+  weekBar: { width: '70%', borderRadius: 5 },
+  weekLabel: { fontSize: 10.5 },
+
+  growth: { flexDirection: 'row', padding: 0, overflow: 'hidden' },
+  growthCell: { flex: 1, paddingVertical: 14, paddingHorizontal: 14, gap: 4 },
+
+  payRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderTopWidth: 1 },
+  payAmt: { fontSize: 14.5, fontWeight: '700' },
+
+  hero: { gap: 8 },
+  heroLabel: { fontSize: 13, fontWeight: '600' },
+  heroText: { fontSize: 17, fontWeight: '700' },
+  btn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, paddingHorizontal: 16, borderRadius: 10, marginTop: 6 },
+  btnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+
 });

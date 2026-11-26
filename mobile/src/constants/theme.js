@@ -97,6 +97,11 @@ export const getTheme = (isDark = false) => {
       // UPI
       upi: '#5A31F4',
 
+      // money amounts, exactly as the web shows them (--mx-green / --mx-red / --mx-amber)
+      moneyGreen: isDark ? '#34D399' : '#066B3F',
+      moneyRed: isDark ? '#F87171' : '#B42318',
+      moneyAmber: isDark ? '#FBBF24' : '#B45309',
+
       // Surfaces & Backgrounds matching web styles.css
       // Web Light: --bg: #F8FAFC, --card-bg: #FFFFFF, --bg-subtle: #F1F5F9
       // Web Dark:  --bg: #0B0F19, --card-bg: #1E293B, --bg-subtle: #131B2E

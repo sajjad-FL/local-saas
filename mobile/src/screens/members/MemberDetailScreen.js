@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,6 @@ import * as Clipboard from 'expo-clipboard';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, formatDate, waLink, remindMsg, WEB_URL } from '../../api/api';
-import Card from '../../components/Card';
-import Badge from '../../components/Badge';
-import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
 import Loader, { Spinner } from '../../components/Loader';
@@ -33,7 +30,7 @@ import SellModal from '../modals/SellModal';
 export default function MemberDetailScreen({ route, navigation }) {
   const { id } = route.params;
   const { biz, isOwner } = useBiz();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
 
   const [data, setData] = useState(null);
   const [shareToken, setShareToken] = useState(null);
@@ -246,7 +243,6 @@ export default function MemberDetailScreen({ route, navigation }) {
   }
 
   const { member, dues = [], payments = [], balance = 0, subscription } = data;
-  const isOwing = balance > 0;
   const isPaused = subscription?.status === 'paused';
   const statementUrl = shareToken ? `${WEB_URL}/s/${shareToken}` : null;
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
@@ -283,6 +279,37 @@ export default function MemberDetailScreen({ route, navigation }) {
     biz?.type === 'hostel' && { id: 'deposit', label: 'Deposit' },
   ].filter(Boolean);
   const current = tabs.some((t) => t.id === tab) ? tab : 'overview';
+  const c = theme.colors;
+  const isActive = member.status === 'active';
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const planText = subscription?.planId
+    ? `${subscription.planId.name} · ${rupees(subscription.amount ?? subscription.planId.amount)}${subscription.amount ? ' (custom)' : ''}`
+    : 'No active plan';
+  const dueDate = subscription?.periodEnd ? new Date(subscription.periodEnd) : null;
+  const dueLate = dueDate && dueDate <= new Date();
+  const ledgerList = (items) => items.map((item, i) => {
+    const isPayment = item.kind === 'payment';
+    return (
+      <View key={item._id} style={[styles.lrow, i > 0 && { borderTopWidth: 1, borderTopColor: c.borderSubtle, paddingTop: 10 }]}>
+        <View style={[styles.licon, { backgroundColor: isPayment ? c.successSoft : c.warningSoft }]}>
+          <Icon name={isPayment ? 'cash-outline' : 'card-outline'} size={15} color={isPayment ? c.moneyGreen : c.moneyAmber} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[styles.lwhat, { color: c.text }]} numberOfLines={1}>{isPayment ? 'Payment received' : item.label || 'Fee due'}</Text>
+          <Text style={[styles.lsub, { color: c.textMuted }]}>{fmtDate(item.when)}{item.mode ? ` · ${item.mode === 'upi' ? 'UPI' : item.mode[0].toUpperCase() + item.mode.slice(1)}` : ''}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.lamt, { color: isPayment ? c.moneyGreen : c.moneyRed }]}>{isPayment ? '+' : '−'}{rupees(item.amount)}</Text>
+          <Text style={[styles.lsub, { color: c.textMuted }]}>Balance {rupees(item.balanceAfter)}</Text>
+        </View>
+        {isOwner && isPayment ? (
+          <TouchableOpacity onPress={() => handleReversePayment(item._id, item.amount)} accessibilityLabel={`Reverse payment of ${rupees(item.amount)}`} style={styles.ltrash}>
+            <Icon name="trash-outline" size={14} color={c.textMuted} />
+          </TouchableOpacity>
+        ) : <View style={{ width: 32 }} />}
+      </View>
+    );
+  });
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
@@ -296,423 +323,234 @@ export default function MemberDetailScreen({ route, navigation }) {
         }>
         {/* Back to the list, same pill as the web; edit and delete on the right */}
         <View style={styles.topRow}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => navigation.goBack()}
-          style={[styles.backPill, { backgroundColor: tint(theme.colors.primary, 0.08, theme.colors.card), borderColor: tint(theme.colors.primary, 0.35, theme.colors.card) }]}>
-          <Icon name="chevron-back" size={13} color={theme.colors.primary} />
-          <Text style={[styles.backPillText, { color: theme.colors.primary }]}>Members</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.goBack()}
+            style={[styles.backPill, { backgroundColor: tint(c.primary, 0.08, c.card), borderColor: tint(c.primary, 0.35, c.card) }]}>
+            <Icon name="chevron-back" size={13} color={c.primary} />
+            <Text style={[styles.backPillText, { color: c.primary }]}>Members</Text>
+          </TouchableOpacity>
           <View style={styles.topIcons}>
-            <TouchableOpacity
-              accessibilityLabel="Edit member"
-              activeOpacity={0.7}
-              onPress={() => setEditOpen(true)}
-              style={[styles.iconBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
-              <Icon name="create-outline" size={16} color={theme.colors.textSecondary} />
+            <TouchableOpacity accessibilityLabel="Edit member" activeOpacity={0.7} onPress={() => setEditOpen(true)}
+              style={[styles.iconBtn, { borderColor: c.border, backgroundColor: c.card }]}>
+              <Icon name="create-outline" size={16} color={c.textSecondary} />
             </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityLabel="Delete member"
-              activeOpacity={0.7}
-              onPress={handleDelete}
-              style={[styles.iconBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}>
-              <Icon name="trash-outline" size={16} color={theme.colors.danger} />
+            <TouchableOpacity accessibilityLabel="Delete member" activeOpacity={0.7} onPress={handleDelete}
+              style={[styles.iconBtn, { borderColor: c.border, backgroundColor: c.card }]}>
+              <Icon name="trash-outline" size={16} color={c.danger} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Member Profile Card */}
-        <View style={[styles.profileCard, tinted(theme, theme.colors.primary, 0.6)]}>
-          <View style={styles.profileTopRow}>
-            <Avatar name={member.name} size={34} />
-            <Text style={[styles.profileName, { color: theme.colors.text }]} numberOfLines={1}>{member.name}</Text>
-
-            <View style={[styles.balanceBadge, { backgroundColor: balance > 0 ? theme.colors.dangerSoft : theme.colors.successSoft }]}>
-              <View style={[styles.badgeDot, { backgroundColor: balance > 0 ? '#EF4444' : '#10B981' }]} />
-              <Text style={[styles.balanceBadgeText, { color: balance > 0 ? theme.colors.danger : theme.colors.successDark }]}>
-                {balance > 0
-                  ? `Unpaid ${rupees(balance)}`
-                  : balance < 0
-                  ? `Advance ${rupees(-balance)}`
-                  : 'Paid Up'}
+        {/* who, what they owe, and the things you do most (the web's md-head) */}
+        <View style={[styles.head, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={styles.who}>
+            <Avatar name={member.name} size={30} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.nameRow}>
+                <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{member.name}</Text>
+                {member.status === 'left' && <View style={[styles.badge, { backgroundColor: c.cardSubtle }]}><Text style={[styles.badgeText, { color: c.textMuted }]}>Left</Text></View>}
+                {isPaused && <View style={[styles.badge, { backgroundColor: c.warningSoft }]}><Text style={[styles.badgeText, { color: c.moneyAmber }]}>Paused</Text></View>}
+              </View>
+              <Text style={[styles.whoSub, { color: c.textMuted }]} numberOfLines={1}>
+                {member.phone ? <Text style={{ color: c.textSecondary, fontWeight: '600' }} onPress={() => Linking.openURL(`tel:${member.phone}`)}>{member.phone}</Text> : 'No phone'}
+                {' · '}{planText}
               </Text>
             </View>
           </View>
 
-          {owingSince ? (
-            <Text style={[styles.lateLine, { color: theme.colors.danger }]}>
-              {daysLate > 0 ? `${daysLate} day${daysLate === 1 ? '' : 's'} late` : 'Due today'} · since {formatDate(owingSince)}
-            </Text>
-          ) : null}
-
-          {/* Details, each box in its own colour like the web */}
-          <View style={styles.metaGrid}>
-            <MetaBox theme={theme} color="#10B981" icon="call-outline" label="Mobile Phone">
-              {member.phone ? (
-                <TouchableOpacity onPress={() => Linking.openURL(`tel:${member.phone}`)}>
-                  <Text style={[styles.metaValue, { color: theme.colors.primary }]}>{member.phone}</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={[styles.metaValue, { color: theme.colors.textMuted }]}>Not added</Text>
-              )}
-            </MetaBox>
-
-            <MetaBox theme={theme} color="#3B82F6" icon="card-outline" label="Current Plan">
-              <Text style={[styles.metaValue, { color: theme.colors.text }]}>
-                {subscription?.planId
-                  ? `${subscription.planId.name} (${rupees(subscription.amount ?? subscription.planId.amount)}${subscription.amount ? ', custom' : ''})`
-                  : 'No plan'}
+          <View style={[styles.balance, { borderTopColor: c.border }]}>
+            <Text style={[styles.balanceLabel, { color: c.textMuted }]}>{balance > 0 ? 'OWES' : balance < 0 ? 'ADVANCE' : 'BALANCE'}</Text>
+            <Text style={[styles.balanceBig, { color: balance > 0 ? c.moneyRed : c.moneyGreen }]}>{balance === 0 ? 'Paid up' : rupees(Math.abs(balance))}</Text>
+            {owingSince ? (
+              <Text style={[styles.balanceSub, { color: c.moneyRed }]}>
+                {daysLate > 0 ? `${daysLate} day${daysLate === 1 ? '' : 's'} late` : 'Due today'} · since {fmtDate(owingSince)}
               </Text>
-            </MetaBox>
-
-            <MetaBox theme={theme} color="#8B5CF6" icon="cash-outline" label="Total Paid">
-              <Text style={[styles.metaValue, { color: theme.colors.text }]}>{rupees(totalPaid)}</Text>
-            </MetaBox>
-
-            <MetaBox theme={theme} color="#F59E0B" icon="calendar-outline" label="Joined On">
-              <Text style={[styles.metaValue, { color: theme.colors.text }]}>
-                {member.joinDate ? formatDate(member.joinDate) : '—'}
-              </Text>
-            </MetaBox>
-
-            {subscription?.periodEnd ? (
-              <MetaBox theme={theme} color="#EC4899" icon="time-outline" label={isPaused ? 'Paused' : 'Next Due Date'}>
-                <Text style={[styles.metaValue, { color: theme.colors.text }]}>
-                  {isPaused ? 'Renewals on hold' : formatDate(subscription.periodEnd)}
-                </Text>
-              </MetaBox>
+            ) : dueDate && isActive && !isPaused ? (
+              <Text style={[styles.balanceSub, { color: dueLate ? c.moneyRed : c.textMuted }]}>Next due {fmtDate(dueDate)}</Text>
             ) : null}
-            {/* keeps an odd last box half width */}
-            <View style={styles.metaSpacer} />
           </View>
 
-          {member.roomMoves?.length > 0 && (
-            <View style={styles.historyBox}>
-              <Text style={[styles.historyTitle, { color: theme.colors.textMuted }]}>ROOM HISTORY</Text>
-              {[...member.roomMoves].reverse().map((mv, i) => (
-                <View key={i} style={styles.historyRow}>
-                  <Icon name="bed-outline" size={13} color={theme.colors.primary} style={{ marginTop: 2 }} />
-                  <Text style={[styles.historyText, { color: theme.colors.text }]}>
-                    <Text style={{ fontWeight: '700' }}>{shortLabel(mv.fromLabel) || 'No room'} → {shortLabel(mv.toLabel)}</Text>
-                    <Text style={{ color: theme.colors.textMuted }}> on {formatDate(mv.on)}</Text>
-                    {mv.rentBefore != null && mv.rentAfter != null && mv.rentBefore !== mv.rentAfter ? (
-                      <Text style={{ color: theme.colors.textMuted }}> · rent {rupees(mv.rentBefore)} → {rupees(mv.rentAfter)}</Text>
-                    ) : null}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Actions */}
-          <View style={[styles.actionToolbar, { borderTopColor: theme.colors.border }]}>
+          <View style={styles.actions}>
+            {isActive && (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => setTab('payments')} style={[styles.act, { backgroundColor: c.primary, borderColor: c.primary }]}>
+                <Icon name="checkmark" size={15} color="#fff" />
+                <Text style={[styles.actText, { color: '#fff' }]}>Record payment</Text>
+              </TouchableOpacity>
+            )}
+            {isActive && biz?.salesEnabled !== false && (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => setSellOpen(true)} style={[styles.act, { backgroundColor: c.card, borderColor: c.border }]}>
+                <Icon name="pricetag-outline" size={15} color={c.text} />
+                <Text style={[styles.actText, { color: c.text }]}>Sell</Text>
+              </TouchableOpacity>
+            )}
             {member.phone && balance > 0 && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.btnWhatsapp}
-                onPress={() => {
-                  const msg = remindMsg(biz, member, balance, statementUrl);
-                  Linking.openURL(waLink(member.phone, msg));
-                }}>
-                <Icon name="logo-whatsapp" size={15} color="#FFFFFF" />
-                <Text style={styles.btnWhatsappText}>Send WhatsApp Reminder</Text>
+              <TouchableOpacity activeOpacity={0.85} onPress={() => Linking.openURL(waLink(member.phone, remindMsg(biz, member, balance, statementUrl)))}
+                style={[styles.act, { backgroundColor: '#10B981', borderColor: '#10B981' }]}>
+                <Icon name="logo-whatsapp" size={15} color="#fff" />
+                <Text style={[styles.actText, { color: '#fff' }]}>Remind</Text>
               </TouchableOpacity>
             )}
-
-            {member.status === 'active' && biz?.salesEnabled !== false && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.btnOutlineAction, { borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
-                onPress={() => setSellOpen(true)}>
-                <Icon name="pricetag-outline" size={14} color={theme.colors.text} />
-                <Text style={[styles.btnOutlineActionText, { color: theme.colors.text }]}>Sell something</Text>
-              </TouchableOpacity>
-            )}
-
             {statementUrl && (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.btnOutlineAction, { flex: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
-                  onPress={handleShareStatement}>
-                  <Icon name="link-outline" size={14} color={theme.colors.text} />
-                  <Text style={[styles.btnOutlineActionText, { color: theme.colors.text }]}>Share Statement</Text>
-                </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.7} onPress={handleResetLink} style={styles.resetLink}>
-                  <Text style={[styles.resetLinkText, { color: theme.colors.textMuted }]}>Reset link</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {member.status === 'active' && (
-              <View style={styles.actionRow}>
-                {biz?.type === 'hostel' && (
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.btnOutlineAction, { flex: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
-                    onPress={() => setMoveRoomOpen(true)}>
-                    <Icon name="swap-horizontal" size={14} color={theme.colors.text} />
-                    <Text style={[styles.btnOutlineActionText, { color: theme.colors.text }]}>Move</Text>
-                  </TouchableOpacity>
-                )}
-                {subscription && (
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.btnOutlineAction, { flex: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
-                    onPress={handlePauseResume}>
-                    <Icon name={isPaused ? 'play' : 'pause'} size={13} color={theme.colors.text} />
-                    <Text style={[styles.btnOutlineActionText, { color: theme.colors.text }]}>
-                      {isPaused ? 'Resume' : 'Pause'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.btnOutlineAction, { flex: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
-                  onPress={handleMarkLeft}>
-                  <Text style={[styles.btnOutlineActionText, { color: theme.colors.danger }]}>Mark as Left</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity activeOpacity={0.85} onPress={handleShareStatement} style={[styles.act, { backgroundColor: c.card, borderColor: c.border }]}>
+                <Icon name="link-outline" size={14} color={c.text} />
+                <Text style={[styles.actText, { color: c.text }]}>Share statement</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
 
-        {/* Tabs, like the web: the long page split into parts */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+        {/* tabs, underlined like the web */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabs, { borderBottomColor: c.border }]}>
           {tabs.map((t) => {
             const on = current === t.id;
             return (
-              <TouchableOpacity
-                key={t.id}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-                onPress={() => setTab(t.id)}
-                style={[styles.tabBtn, { backgroundColor: on ? theme.colors.primarySoft : theme.colors.card, borderColor: on ? theme.colors.primary : theme.colors.border }]}>
-                <Text style={{ fontSize: 13, fontWeight: on ? '700' : '500', color: on ? theme.colors.primaryDark : theme.colors.textSecondary }}>{t.label}</Text>
-                {t.count > 0 ? <Text style={{ fontSize: 11.5, color: theme.colors.textMuted }}>{t.count}</Text> : null}
+              <TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => setTab(t.id)}
+                style={[styles.tab, { borderBottomColor: on ? c.primary : 'transparent' }]}>
+                <Text style={{ fontSize: 14.5, fontWeight: '600', color: on ? c.primaryDark : c.textMuted }}>{t.label}</Text>
+                {t.count > 0 ? (
+                  <View style={[styles.tabCount, { backgroundColor: c.cardSubtle }]}><Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary }}>{t.count}</Text></View>
+                ) : null}
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        {/* Record Payment Card */}
-        {current === 'overview' && member.status === 'active' && (
-          <View style={[styles.recordPayCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <View style={styles.cardHead}>
-              <View style={[styles.cardHeadIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.14)' }]}>
-                <Icon name="cash-outline" size={16} color="#10B981" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardHeadTitle, { color: theme.colors.text }]}>
-                  Record Payment Received
-                </Text>
-                <Text style={[styles.cardHeadSub, { color: theme.colors.textSecondary }]}>
-                  Record a payment received in cash, UPI or card
-                </Text>
-              </View>
-            </View>
-
-            {/* Quick Fill Chips */}
-            <View style={styles.quickChipsRow}>
-              <Text style={[styles.quickChipsLabel, { color: theme.colors.textSecondary }]}>Quick fill:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsScroll}>
-                {balance > 0 && (
-                  <TouchableOpacity
-                    onPress={() => setAmount(String(balance))}
-                    style={[styles.quickChip, { backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primary }]}>
-                    <Text style={[styles.quickChipText, { color: theme.colors.primaryDark, fontWeight: '700' }]}>
-                      Clear {rupees(balance)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {[1000, 1500, 2000, 2500, 3000, 5000].map((amtVal) => (
-                  <TouchableOpacity
-                    key={amtVal}
-                    onPress={() => setAmount(String(amtVal))}
-                    style={[styles.quickChip, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border }]}>
-                    <Text style={[styles.quickChipText, { color: theme.colors.text }]}>
-                      +{rupees(amtVal)}
-                    </Text>
-                  </TouchableOpacity>
+        {current === 'overview' && (
+          <>
+            <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={[styles.cardTitle, { color: c.text }]}>Details</Text>
+              <View style={styles.facts}>
+                {[
+                  ['Phone', member.phone || '—'],
+                  ['Plan', planText],
+                  owingSince && ['Unpaid since', `${fmtDate(owingSince)}${daysLate > 0 ? ` (${daysLate} days)` : ''}`, c.moneyRed],
+                  ['Next renewal', dueDate ? fmtDate(dueDate) : '—'],
+                  ['Joined', member.joinDate ? fmtDate(member.joinDate) : '—'],
+                  ['Total paid', rupees(totalPaid), c.moneyGreen],
+                  ['Member ID', member._id.slice(-6).toUpperCase(), null, true],
+                ].filter(Boolean).map(([k, v, ink, mono], i) => (
+                  <View key={k} style={[styles.fact, i > 1 && { borderTopWidth: 1, borderTopColor: c.borderSubtle, paddingTop: 10 }]}>
+                    <Text style={[styles.factKey, { color: c.textMuted }]}>{k}</Text>
+                    <Text style={[styles.factVal, { color: ink || c.text }, mono && { fontFamily: 'monospace', fontSize: 13.5 }]}>{v}</Text>
+                  </View>
                 ))}
-              </ScrollView>
+              </View>
+              {member.roomMoves?.length > 0 && (
+                <View style={[styles.historyBox, { borderTopColor: c.borderSubtle }]}>
+                  <Text style={[styles.historyTitle, { color: c.textMuted }]}>ROOM HISTORY</Text>
+                  {[...member.roomMoves].reverse().map((mv, i) => (
+                    <View key={i} style={styles.historyRow}>
+                      <Icon name="bed-outline" size={13} color={c.primary} style={{ marginTop: 2 }} />
+                      <Text style={[styles.historyText, { color: c.text }]}>
+                        <Text style={{ fontWeight: '700' }}>{shortLabel(mv.fromLabel) || 'No room'} → {shortLabel(mv.toLabel)}</Text>
+                        <Text style={{ color: c.textMuted }}> on {formatDate(mv.on)}</Text>
+                        {mv.rentBefore != null && mv.rentAfter != null && mv.rentBefore !== mv.rentAfter ? (
+                          <Text style={{ color: c.textMuted }}> · rent {rupees(mv.rentBefore)} → {rupees(mv.rentAfter)}</Text>
+                        ) : null}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
 
-            {/* Form Inputs */}
-            <View style={styles.payFormRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Amount (₹) *</Text>
-                <TextInput
-                  value={amount}
-                  onChangeText={setAmount}
-                  placeholder="e.g. 1500"
-                  keyboardType="numeric"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[styles.payInput, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                />
+            <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+              <View style={styles.cardHeadRow}>
+                <Text style={[styles.cardTitle, { color: c.text }]}>Recent activity</Text>
+                {ledger.length > 3 && <TouchableOpacity onPress={() => setTab('payments')}><Text style={[styles.link, { color: c.primaryDark }]}>See all {ledger.length}</Text></TouchableOpacity>}
               </View>
+              {ledger.length ? ledgerList(ledger.slice(0, 3)) : <Text style={[styles.empty, { color: c.textMuted }]}>No fees or payments yet.</Text>}
+            </View>
 
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Payment Mode *</Text>
-                <View style={styles.modePills}>
-                  {['cash', 'upi', 'other'].map((m) => {
-                    const active = mode === m;
-                    const label = m === 'cash' ? '💵 Cash' : m === 'upi' ? '⚡ UPI' : '🏦 Card';
+            {(statementUrl || isActive) && (
+              <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+                <Text style={[styles.cardTitle, { color: c.text }]}>Manage</Text>
+                {[
+                  statementUrl && { key: 'link', title: 'Statement link', sub: 'A read-only page with every due and payment, no login needed.', btn: 'Reset link', go: handleResetLink },
+                  subscription && isActive && { key: 'pause', title: isPaused ? 'Paused' : 'Pause membership', sub: isPaused ? 'No fees while paused. Resuming adds the paused days to the due date.' : 'Stops fees for a while, for example when they go home.', btn: isPaused ? 'Resume' : 'Pause', icon: isPaused ? 'play' : 'pause', go: handlePauseResume },
+                  isActive && biz?.type === 'hostel' && { key: 'move', title: 'Move to another bed', sub: 'Their rent changes from the move date if the new room costs more or less.', btn: 'Move', icon: 'swap-horizontal', go: () => setMoveRoomOpen(true) },
+                  isActive && { key: 'left', title: 'Mark as left', sub: 'No more fees are added. Their payment history is kept.', btn: 'Mark as left', danger: true, go: handleMarkLeft },
+                ].filter(Boolean).map((r, i) => (
+                  <View key={r.key} style={[styles.manageRow, i > 0 && { borderTopWidth: 1, borderTopColor: c.borderSubtle, paddingTop: 12 }]}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[styles.manageTitle, { color: c.text }]}>{r.title}</Text>
+                      <Text style={[styles.manageSub, { color: c.textMuted }]}>{r.sub}</Text>
+                    </View>
+                    <TouchableOpacity onPress={r.go} style={[styles.small, { borderColor: c.border, backgroundColor: c.card }]}>
+                      {r.icon ? <Icon name={r.icon} size={12} color={c.text} /> : null}
+                      <Text style={{ fontSize: 13, fontWeight: '500', color: r.danger ? c.danger : c.text }}>{r.btn}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        )}
+
+        {current === 'payments' && (
+          <>
+            {isActive && (
+              <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+                <Text style={[styles.cardTitle, { color: c.text }]}>Record a payment</Text>
+                <View style={styles.chips}>
+                  {balance > 0 && (
+                    <TouchableOpacity onPress={() => setAmount(String(balance))} style={[styles.chip, { backgroundColor: c.primarySoft, borderColor: c.primaryBorder }]}>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: c.primaryDark }}>Full {rupees(balance)}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {[1000, 1500, 2000, 3000, 5000].map((v) => (
+                    <TouchableOpacity key={v} onPress={() => setAmount(String(v))} style={[styles.chip, { backgroundColor: c.card, borderColor: c.border }]}>
+                      <Text style={{ fontSize: 13, fontWeight: '500', color: c.textSecondary }}>{rupees(v)}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={[styles.inputLabel, { color: c.textSecondary }]}>Amount (₹)</Text>
+                <TextInput value={amount} onChangeText={setAmount} placeholder="e.g. 1500" keyboardType="numeric" placeholderTextColor={c.textMuted}
+                  style={[styles.payInput, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text }]} />
+                <Text style={[styles.inputLabel, { color: c.textSecondary, marginTop: 12 }]}>Paid by</Text>
+                <View style={styles.modes}>
+                  {[['cash', 'Cash'], ['upi', 'UPI'], ['other', 'Bank or card']].map(([m, label]) => {
+                    const on = mode === m;
                     return (
-                      <TouchableOpacity
-                        key={m}
-                        onPress={() => setMode(m)}
-                        style={[
-                          styles.modePill,
-                          {
-                            backgroundColor: active ? theme.colors.primarySoft : theme.colors.cardSubtle,
-                            borderColor: active ? theme.colors.primary : theme.colors.border,
-                          },
-                        ]}>
-                        <Text style={[styles.modePillText, { color: active ? theme.colors.primaryDark : theme.colors.textSecondary, fontWeight: active ? '700' : '500' }]}>
-                          {label}
-                        </Text>
+                      <TouchableOpacity key={m} onPress={() => setMode(m)} style={[styles.modeBtn, { backgroundColor: on ? c.primarySoft : c.card, borderColor: on ? c.primary : c.border }]}>
+                        <Text style={{ fontSize: 13.5, fontWeight: on ? '600' : '500', color: on ? c.primaryDark : c.textSecondary }}>{label}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
-              </View>
-            </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              disabled={payLoading || !amount}
-              style={[
-                styles.btnRecordPayment,
-                { backgroundColor: theme.colors.primary, opacity: !amount || payLoading ? 0.6 : 1 },
-              ]}
-              onPress={handleRecordPayment}>
-              {payLoading
-                ? <Spinner size={16} color="#FFFFFF" track="rgba(255, 255, 255, 0.3)" />
-                : <Icon name="checkmark-sharp" size={15} color="#FFFFFF" />}
-              <Text style={styles.btnRecordPaymentText}>
-                {payLoading ? 'Recording Payment…' : 'Record Payment'}
-              </Text>
-            </TouchableOpacity>
-
-            {lastPayment && member.phone && (
-              <View style={[styles.receiptBox, { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: '#10B981' }]}>
-                <Icon name="checkmark-circle" size={16} color="#10B981" />
-                <Text style={[styles.receiptText, { color: theme.colors.text }]}>
-                  Recorded {rupees(lastPayment.amount)}.
-                </Text>
-                <TouchableOpacity
-                  style={styles.btnSendReceipt}
-                  onPress={() => {
-                    const msg = `Hi ${member.name}, received ${rupees(lastPayment.amount)} (${(lastPayment.mode || 'cash').toUpperCase()}) on ${formatDate(lastPayment.date)} for ${biz?.name || 'us'}. Thank you!`;
-                    Linking.openURL(waLink(member.phone, msg));
-                    setLastPayment(null);
-                  }}>
-                  <Icon name="logo-whatsapp" size={13} color="#FFFFFF" />
-                  <Text style={styles.btnSendReceiptText}>Send Receipt</Text>
+                <TouchableOpacity activeOpacity={0.85} disabled={payLoading || !amount} onPress={handleRecordPayment}
+                  style={[styles.save, { backgroundColor: c.primary, opacity: !amount || payLoading ? 0.6 : 1 }]}>
+                  {payLoading ? <Spinner size={16} color="#FFFFFF" track="rgba(255, 255, 255, 0.3)" /> : <Icon name="checkmark" size={15} color="#FFFFFF" />}
+                  <Text style={styles.saveText}>{payLoading ? 'Saving…' : amount ? `Save ${rupees(Number(amount))} payment` : 'Save payment'}</Text>
                 </TouchableOpacity>
+                {lastPayment && member.phone && (
+                  <View style={[styles.receipt, { backgroundColor: c.successSoft }]}>
+                    <Icon name="checkmark-circle" size={15} color={c.moneyGreen} />
+                    <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: c.moneyGreen }}>Saved {rupees(lastPayment.amount)}.</Text>
+                    <TouchableOpacity style={styles.receiptBtn} onPress={() => {
+                      const msg = `Hi ${member.name}, received ${rupees(lastPayment.amount)} (${(lastPayment.mode || 'cash').toUpperCase()}) on ${formatDate(lastPayment.date)} for ${biz?.name || 'us'}. Thank you!`;
+                      Linking.openURL(waLink(member.phone, msg));
+                      setLastPayment(null);
+                    }}>
+                      <Icon name="logo-whatsapp" size={13} color="#FFFFFF" />
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Send receipt</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
-          </View>
+            <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={[styles.cardTitle, { color: c.text }]}>History <Text style={{ fontSize: 13, fontWeight: '500', color: c.textMuted }}>· newest first</Text></Text>
+              {ledger.length ? ledgerList(ledger) : <Text style={[styles.empty, { color: c.textMuted }]}>No fees or payments yet. Fees appear here as each cycle is billed.</Text>}
+            </View>
+          </>
         )}
 
         {current === 'deposit' && biz?.type === 'hostel' && <DepositNotice key={member._id} member={member} theme={theme} onSaved={fetchMember} />}
 
         {current === 'attendance' && biz?.attendanceEnabled !== false && (
           <MemberAttendance memberId={member._id} isGym={biz?.type === 'gym'} machineId={member.biometricId} theme={theme} />
-        )}
-
-        {/* Transaction Ledger Timeline */}
-        {current === 'payments' && (
-        <View style={[styles.ledgerCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <View style={styles.cardHead}>
-            <View style={[styles.cardHeadIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.14)' }]}>
-              <Icon name="time-outline" size={16} color="#3B82F6" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardHeadTitle, { color: theme.colors.text }]}>
-                Transaction Ledger ({ledger.length})
-              </Text>
-              <Text style={[styles.cardHeadSub, { color: theme.colors.textSecondary }]}>
-                Chronological timeline of billed subscription cycles and payments
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.timelineList}>
-            {ledger.map((item) => {
-              const isPayment = item.kind === 'payment';
-              return (
-                <View
-                  key={item._id}
-                  style={[
-                    styles.ledgerRow,
-                    { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.border },
-                  ]}>
-                  {/* Icon */}
-                  <View
-                    style={[
-                      styles.ledgerIconWrap,
-                      {
-                        backgroundColor: isPayment
-                          ? 'rgba(16, 185, 129, 0.14)'
-                          : 'rgba(239, 68, 68, 0.14)',
-                      },
-                    ]}>
-                    <Icon
-                      name={isPayment ? 'arrow-down' : 'card-outline'}
-                      size={15}
-                      color={isPayment ? '#10B981' : '#EF4444'}
-                    />
-                  </View>
-
-                  {/* Title & Date */}
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.ledgerTitle, { color: theme.colors.text }]}>
-                      {isPayment ? 'Payment Received' : 'Fee Due'}
-                    </Text>
-                    <Text style={[styles.ledgerSub, { color: theme.colors.textSecondary }]}>
-                      {formatDate(item.when)}
-                      {item.mode ? ` · Mode: ${item.mode.toUpperCase()}` : ''}
-                    </Text>
-                  </View>
-
-                  {/* Amount & Running Balance */}
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text
-                      style={[
-                        styles.ledgerAmount,
-                        { color: isPayment ? '#10B981' : '#EF4444' },
-                      ]}>
-                      {isPayment ? '+' : '-'}{rupees(item.amount)}
-                    </Text>
-                    <Text style={[styles.ledgerBalance, { color: theme.colors.textSecondary }]}>
-                      Bal {rupees(item.balanceAfter)}
-                    </Text>
-                  </View>
-
-                  {/* Reverse Payment Button (Owner only) */}
-                  {isOwner && isPayment && (
-                    <TouchableOpacity
-                      onPress={() => handleReversePayment(item._id, item.amount)}
-                      style={[styles.btnTrash, { borderColor: theme.colors.border }]}>
-                      <Icon name="trash-outline" size={13} color={theme.colors.danger} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
-
-            {ledger.length === 0 && (
-              <View style={styles.emptyLedger}>
-                <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
-                  No transaction ledger entries recorded yet.
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
         )}
       </ScrollView>
 
@@ -749,18 +587,6 @@ const shortLabel = (label) => {
   return parts.length > 2 ? `${parts[0]} · ${parts[parts.length - 1]}` : label;
 };
 
-// One coloured detail box (phone, plan, paid...)
-function MetaBox({ theme, color, icon, label, children }) {
-  return (
-    <View style={[styles.metaItem, tinted(theme, color, 1.6)]}>
-      <View style={styles.metaLabelRow}>
-        <Icon name={icon} size={13} color={color} />
-        <Text style={[styles.metaLabel, { color: theme.colors.textMuted }]}>{label}</Text>
-      </View>
-      {children}
-    </View>
-  );
-}
 
 const ymd = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
 
@@ -906,6 +732,50 @@ function MemberAttendance({ memberId, isGym, machineId, theme }) {
 }
 
 const styles = StyleSheet.create({
+  head: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 14, gap: 14 },
+  who: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  name: { fontSize: 22, fontWeight: '800', letterSpacing: -0.2, flexShrink: 1 },
+  badge: { paddingHorizontal: 8, height: 20, borderRadius: 99, justifyContent: 'center' },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  whoSub: { fontSize: 14, marginTop: 3 },
+  balance: { borderTopWidth: 1, paddingTop: 12, gap: 2 },
+  balanceLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.4 },
+  balanceBig: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  balanceSub: { fontSize: 12.5 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  act: { flexBasis: '48%', flexGrow: 1, minHeight: 40, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12 },
+  actText: { fontSize: 14, fontWeight: '600' },
+  tabs: { flexGrow: 0, borderBottomWidth: 1, marginBottom: 16 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 12, borderBottomWidth: 2, marginBottom: -1 },
+  tabCount: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  card: { borderWidth: 1, borderRadius: 14, padding: 16, marginBottom: 14 },
+  cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  cardTitle: { fontSize: 16, fontWeight: '700', marginBottom: 14 },
+  link: { fontSize: 13, fontWeight: '600' },
+  empty: { textAlign: 'center', paddingVertical: 20, fontSize: 14 },
+  facts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20 },
+  fact: { width: '46%', flexGrow: 1, paddingBottom: 10 },
+  factKey: { fontSize: 12 },
+  factVal: { fontSize: 14.5, fontWeight: '600', marginTop: 2 },
+  lrow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 10 },
+  licon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  lwhat: { fontSize: 14, fontWeight: '600' },
+  lsub: { fontSize: 12 },
+  lamt: { fontSize: 14.5, fontWeight: '700' },
+  ltrash: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  manageRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingBottom: 12 },
+  manageTitle: { fontSize: 14, fontWeight: '600' },
+  manageSub: { fontSize: 13, marginTop: 1, lineHeight: 18 },
+  small: { minHeight: 36, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
+  chip: { height: 32, paddingHorizontal: 12, borderRadius: 99, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  modes: { flexDirection: 'row', gap: 6 },
+  modeBtn: { flex: 1, height: 42, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  save: { height: 44, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 },
+  saveText: { color: '#fff', fontSize: 14.5, fontWeight: '600' },
+  receipt: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, borderRadius: 10 },
+  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#10B981', height: 34, paddingHorizontal: 10, borderRadius: 8 },
   lateLine: { fontSize: 12.5, fontWeight: '600', marginTop: 8 },
   tabBar: { gap: 6, paddingVertical: 2, marginBottom: 12 },
   tabBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1 },
