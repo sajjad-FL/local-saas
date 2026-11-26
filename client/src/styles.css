@@ -6803,3 +6803,85 @@ i.owe, .mr-legend i.owe { background: #FCD34D; }
 .fs-chips { clear: both; gap: 8px; }
 .fs-chips .en-choice { height: 36px; padding: 0 14px; white-space: nowrap; }
 .fs-done { margin-top: 4px; box-shadow: 0 -12px 0 var(--card-bg), 0 -16px 14px -6px rgba(15, 23, 42, .06); }
+
+/* Tuition attendance: pick a batch, then take its roll call */
+.at-daypick { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; }
+.at-daypick > button, .at-daypick-other { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-2); font-size: 13px; font-weight: 600; position: relative; }
+.at-daypick > button.on, .at-daypick-other.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.at-daypick > button:focus-visible, .at-daypick-other:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.at-daypick-other input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.at-daypick-other input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+
+.at-batch-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.at-batch { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--card-bg); transition: border-color .15s, box-shadow .15s; }
+.at-batch:hover { border-color: var(--primary); box-shadow: 0 2px 10px rgba(91, 61, 245, .08); }
+.at-batch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.at-batch.todo { border-left: 4px solid var(--amber); }
+.at-batch.part { border-left: 4px solid var(--primary); }
+.at-batch.done { border-left: 4px solid var(--green); }
+.at-batch.nokids { opacity: .75; }
+.at-batch-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.at-batch-top b { font-size: 15px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.at-batch-tag { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--bg-subtle); color: var(--text-3); }
+.at-batch-tag.todo { background: var(--amber-soft); color: var(--amber-hover); }
+.at-batch-tag.part { background: var(--primary-soft); color: var(--primary); }
+.at-batch-tag.done { background: var(--green-soft); color: var(--green-hover); }
+.at-batch-sub { font-size: 13px; color: var(--text-3); }
+.at-batch-sub i, .at-progress-text i { font-style: normal; font-weight: 600; }
+i.g { color: var(--green-hover); }
+i.r { color: var(--red); }
+.at-batch-go { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--primary); }
+.at-progress-bar { display: flex; height: 6px; border-radius: 99px; background: var(--bg-subtle); overflow: hidden; }
+.at-progress-bar i { display: block; height: 100%; transition: width .25s; }
+.at-progress-bar i.g { background: var(--green); }
+.at-progress-bar i.r { background: var(--red); }
+
+.at-nobatch { text-align: center; padding: 36px 20px; color: var(--text-3); }
+.at-nobatch h2 { font-size: 18px; margin: 10px 0 6px; color: var(--text); }
+.at-nobatch p { margin: 0 auto 16px; max-width: 420px; }
+.at-nobatch-note { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--amber-soft); color: var(--text-2); font-size: 13px; }
+.at-nobatch-note svg { flex: none; color: var(--amber-hover); margin-top: 2px; }
+
+.at-roll-head { margin-bottom: 14px; }
+.at-roll-head .db-date { margin: 8px 0 2px; }
+.at-roll-head .db-hello { margin: 0; font-size: 26px; line-height: 1.2; }
+.at-back { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); }
+.at-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.at-progress { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 14px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.at-progress-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--text-3); }
+.at-progress-text b { font-size: 15px; color: var(--text); }
+.at-progress .at-progress-bar { grid-column: 1 / -1; grid-row: 2; }
+.at-progress-btns { grid-column: 2; grid-row: 1; display: flex; gap: 8px; }
+.at-done { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 16px; background: var(--green-soft); color: var(--green-hover); font-weight: 600; font-size: 14px; }
+.at-done > span { display: inline-flex; align-items: center; gap: 6px; }
+.at-roll-row { gap: 10px; }
+.at-roll-row.present { background: color-mix(in srgb, var(--green-soft) 55%, transparent); }
+.at-roll-row.absent { background: color-mix(in srgb, var(--red-soft) 55%, transparent); }
+.at-roll-no { flex: none; width: 22px; text-align: right; font-size: 12px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.at-roll-row .at-who { flex: 1; min-width: 0; }
+.at-pa button { min-width: 46px; min-height: 40px; padding: 0; font-weight: 700; font-size: 14px; }
+.at-parent { display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--mx-wa-border, #CDEFDD); background: var(--mx-wa-bg, #F0FBF5); color: var(--mx-green, #066B3F); font-weight: 600; font-size: 12.5px; text-decoration: none; flex: none; }
+.sheet-group-select { max-width: 60%; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; }
+
+/* First batch, inside Add student */
+.fb-hero { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--primary-soft); margin-bottom: 14px; }
+.fb-hero b { color: var(--text); font-size: 15px; }
+.fb-hero p { margin: 3px 0 0; font-size: 13px; color: var(--text-2); }
+.fb-icon { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--primary); color: #fff; }
+.fb-ideas { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+@media (max-width: 767px) {
+  .at-batch-grid { grid-template-columns: 1fr; gap: 10px; }
+  .at-daypick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 12px; padding: 0 16px; }
+  .at-daypick > button, .at-daypick-other { flex: none; padding: 0 12px; }
+  .at-progress { grid-template-columns: 1fr; padding: 12px 14px; }
+  .at-progress-btns { grid-column: 1; grid-row: 3; }
+  .at-progress-btns .at-all { flex: 1; justify-content: center; }
+  .at-roll-row { flex-wrap: nowrap; padding: 10px 12px; }
+  .at-parent span { display: none; }
+  .at-parent { width: 34px; padding: 0; justify-content: center; }
+  .at-roll .at-week { margin-bottom: 12px; }
+}
+.fb-idea { all: unset; box-sizing: border-box; cursor: pointer; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; }
+.fb-idea:hover { border-color: var(--primary); color: var(--primary); }
+.fb-idea:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

@@ -31,6 +31,27 @@ export default function AddMemberModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [optionsLoading, setOptionsLoading] = useState(false);
+  const needsBatch = biz?.type === 'tuition'; // a tuition student always sits in a batch
+  const [batchName, setBatchName] = useState('');
+  const [making, setMaking] = useState(false);
+
+  // tuition with no batches yet: make the first one here, then carry on to the student
+  const makeBatch = async () => {
+    const n = batchName.trim();
+    if (!n) return;
+    setMaking(true);
+    setError('');
+    try {
+      const g = await api(`/businesses/${biz._id}/groups`, { method: 'POST', body: { name: n } });
+      setGroups([g]);
+      setGroupId(g._id);
+      setBatchName('');
+    } catch (err) {
+      setError(err.message || 'Could not create the batch');
+    } finally {
+      setMaking(false);
+    }
+  };
 
   useEffect(() => {
     if (visible && biz?._id) {
@@ -52,6 +73,7 @@ export default function AddMemberModal({
           ]);
           setPlans(Array.isArray(p) ? p : []);
           setGroups(Array.isArray(g) ? g : []);
+          if (biz?.type === 'tuition' && g?.length) setGroupId(initial?.groupId || g[0]._id);
           if (initial?.planId && p?.some((x) => x._id === initial.planId)) setPlanId(initial.planId);
           else if (p?.length > 0) setPlanId(p[0]._id);
 
@@ -79,6 +101,10 @@ export default function AddMemberModal({
     }
     if (!phone.trim()) {
       setError('Phone number is required');
+      return;
+    }
+    if (needsBatch && !groupId) {
+      setError('Pick a batch for this student');
       return;
     }
 
@@ -119,6 +145,41 @@ export default function AddMemberModal({
   };
 
   if (!visible) return null;
+
+  if (needsBatch && !optionsLoading && !groups.length) {
+    return (
+      <Modal visible={visible} onClose={onClose} title="Add student" subtitle="First, create a batch">
+        <View>
+          <View style={[styles.fbHero, { backgroundColor: theme.colors.primarySoft }]}>
+            <View style={[styles.fbIcon, { backgroundColor: theme.colors.primary }]}>
+              <Icon name="layers-outline" size={18} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.fbTitle, { color: theme.colors.text }]}>First, create a batch</Text>
+              <Text style={[styles.fbText, { color: theme.colors.textSecondary }]}>
+                Every student sits in a batch, like a class or a timing. Attendance is then taken batch by batch.
+              </Text>
+            </View>
+          </View>
+          {error ? <Text style={[styles.errorText, { color: theme.colors.danger }]}>{error}</Text> : null}
+          <Input label="Batch name *" value={batchName} onChangeText={setBatchName} placeholder="e.g. Class 10, 5 PM"
+            icon={<Icon name="pricetag-outline" size={18} />} />
+          <View style={[styles.chipRow, { marginBottom: 14 }]}>
+            {['Class 10 · 5 PM', 'Class 12 Science', 'Morning batch'].map((i) => (
+              <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setBatchName(i)}
+                style={[styles.chip, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.borderSubtle }]}>
+                <Text style={[styles.chipText, { color: theme.colors.textSecondary }]}>{i}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Button title="Create batch & continue" variant="primary" loading={making} disabled={!batchName.trim()} onPress={makeBatch} />
+          <Text style={[styles.fbText, { color: theme.colors.textMuted, marginTop: 10, textAlign: 'center' }]}>
+            You can add more batches any time in Setup.
+          </Text>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -205,7 +266,7 @@ export default function AddMemberModal({
         {groups.length > 0 && (
           <View style={styles.sectionWrap}>
             <Text style={[styles.sectionLabel, { color: theme.colors.text }]}>
-              {biz?.type === 'gym' ? 'Workout Batch / Slot' : biz?.type === 'tuition' ? 'Class Batch' : 'Batch / Shift'}
+              {biz?.type === 'gym' ? 'Workout Batch / Slot' : biz?.type === 'tuition' ? 'Batch *' : 'Batch / Shift'}
             </Text>
             <View style={styles.chipRow}>
               {groups.map((g) => {
@@ -214,7 +275,7 @@ export default function AddMemberModal({
                   <TouchableOpacity
                     key={g._id}
                     activeOpacity={0.7}
-                    onPress={() => setGroupId(selected ? '' : g._id)}
+                    onPress={() => setGroupId(selected && !needsBatch ? '' : g._id)}
                     style={[
                       styles.chip,
                       {
@@ -330,5 +391,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  fbHero: { flexDirection: 'row', gap: 12, padding: 12, borderRadius: 12, marginBottom: 14, alignItems: 'flex-start' },
+  fbIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  fbTitle: { fontSize: 15, fontWeight: '700' },
+  fbText: { fontSize: 12.5, marginTop: 3, lineHeight: 18 },
 });
 

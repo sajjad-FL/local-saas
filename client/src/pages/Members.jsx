@@ -1086,6 +1086,15 @@ export function MemberProfileSheet({ biz, memberId, plans, rooms = [], groups = 
                 </span>
               </div>
 
+              {biz.type !== 'hostel' && groups.length > 0 && (
+                <div className="sheet-contact-item">
+                  <span className="sheet-contact-label">
+                    <TagIcon size={14} /> {words(biz.type).group}
+                  </span>
+                  <ChangeGroup member={member} groups={groups} required={biz.type === 'tuition'} />
+                </div>
+              )}
+
               {rooms.length > 0 && (
                 <div className="sheet-contact-item">
                   <span className="sheet-contact-label">
@@ -1496,8 +1505,11 @@ const sortRooms = (rooms, groups = []) => {
 
 // The "Add member / tenant" popup, shared by the Members page and the Rooms board
 // initial: name / phone / planId to start with (e.g. from an enquiry)
-export function AddMemberModal({ biz, plans, groups, rooms, roomId, initial, onClose, onAdded }) {
+export function AddMemberModal({ biz, plans, groups: givenGroups, rooms, roomId, initial, onClose, onAdded }) {
   const qc = useQueryClient();
+  const needsBatch = biz.type === 'tuition'; // a tuition student always sits in a batch
+  const [made, setMade] = useState(null); // a batch created right here, before the first student
+  const groups = made ? [...givenGroups.filter((g) => g._id !== made._id), made] : givenGroups;
   const add = useMutation({
     mutationFn: async (form) => {
       const member = await api(`/businesses/${biz._id}/members`, { method: 'POST', body: form });
@@ -1541,21 +1553,77 @@ export function AddMemberModal({ biz, plans, groups, rooms, roomId, initial, onC
           </div>
         )}
 
-        <AddMemberForm plans={plans} groups={groups} rooms={rooms} roomId={roomId} initial={initial}
-          onClose={onClose} onSubmit={(f) => add.mutate(f)} busy={add.isPending} />
+        {needsBatch && !groups.length ? (
+          <FirstBatch biz={biz} onMade={(g) => { setMade(g); qc.invalidateQueries({ queryKey: ['groups', biz._id] }); }} onClose={onClose} />
+        ) : (
+          <AddMemberForm plans={plans} groups={groups} rooms={rooms} roomId={roomId} initial={initial} requireGroup={needsBatch}
+            onClose={onClose} onSubmit={(f) => add.mutate(f)} busy={add.isPending} />
+        )}
       </motion.div>
     </div>
   );
 }
 
-function AddMemberForm({ plans, groups, rooms, roomId, initial, busy, onClose, onSubmit }) {
+// The batch / group a member is in, changed in place from the profile
+function ChangeGroup({ member, groups, required }) {
+  const qc = useQueryClient();
+  const current = String(member.groupId?._id || member.groupId || '');
+  const save = useMutation({
+    mutationFn: (groupId) => api(`/members/${member._id}`, { method: 'PATCH', body: { groupId: groupId || null } }),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+  return (
+    <select className="sheet-group-select" value={save.isPending ? save.variables : current} disabled={save.isPending}
+      aria-label="Batch" onChange={(e) => save.mutate(e.target.value)}>
+      {(!required || !current) && <option value="">{required ? 'Pick one…' : 'None'}</option>}
+      {groups.map((g) => <option key={g._id} value={g._id}>{g.name}</option>)}
+    </select>
+  );
+}
+
+// Tuition with no batches yet: students go into a batch, so make the first one here
+function FirstBatch({ biz, onMade, onClose }) {
+  const [name, setName] = useState('');
+  const make = useMutation({
+    mutationFn: (n) => api(`/businesses/${biz._id}/groups`, { method: 'POST', body: { name: n } }),
+    onSuccess: onMade,
+  });
+  const ideas = ['Class 10 · 5 PM', 'Class 12 Science', 'Morning batch'];
+  return (
+    <form className="fb" onSubmit={(e) => { e.preventDefault(); if (name.trim()) make.mutate(name.trim()); }}>
+      <div className="fb-hero">
+        <span className="fb-icon" aria-hidden="true"><TagIcon size={18} /></span>
+        <div>
+          <b>First, create a batch</b>
+          <p>Every student sits in a batch, like a class or a timing. Attendance is then taken batch by batch.</p>
+        </div>
+      </div>
+      <Field label="Batch name *" icon={TagIcon}>
+        <input autoFocus placeholder="e.g. Class 10, 5 PM" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <div className="fb-ideas" aria-label="Ideas">
+        {ideas.map((i) => <button key={i} type="button" className="fb-idea" onClick={() => setName(i)}>{i}</button>)}
+      </div>
+      {make.error && <p className="small red-text">{make.error.message}</p>}
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+        <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn" disabled={!name.trim() || make.isPending}>
+          <CheckIcon size={15} /> {make.isPending ? 'Creating…' : 'Create batch & continue'}
+        </button>
+      </div>
+      <p className="small muted" style={{ margin: '10px 0 0' }}>You can add more batches any time in Setup.</p>
+    </form>
+  );
+}
+
+function AddMemberForm({ plans, groups, rooms, roomId, initial, requireGroup = false, busy, onClose, onSubmit }) {
   const w = words(useBiz().type);
   const chosenRoom = roomId && rooms.find((r) => r._id === roomId);
   const [form, setForm] = useState({
     name: initial?.name || '',
     phone: initial?.phone || '',
     planId: initial?.planId || plans[0]?._id || '',
-    groupId: (chosenRoom && String(chosenRoom.groupId?._id || chosenRoom.groupId || '')) || groups[0]?._id || '',
+    groupId: initial?.groupId || (chosenRoom && String(chosenRoom.groupId?._id || chosenRoom.groupId || '')) || groups[0]?._id || '',
     roomId: roomId || rooms.find((r) => r.occupied < r.capacity)?._id || '', // the bed they tapped, else the first room with space
     startDate: new Date().toISOString().slice(0, 10),
   });
@@ -1586,6 +1654,7 @@ function AddMemberForm({ plans, groups, rooms, roomId, initial, busy, onClose, o
       errs.phone = 'Phone must be exactly 10 digits';
     }
     if (plans.length > 0 && !form.planId) errs.planId = 'Please pick a plan';
+    if (requireGroup && !form.groupId) errs.groupId = `Pick a ${w.group.toLowerCase()}`;
     if (!form.startDate) errs.startDate = 'Start date is required';
     if (selectedPlan && (!Number.isInteger(rentNumber) || rentNumber < 1)) errs.rent = 'Enter the amount in whole rupees';
     setErrors(errs);
@@ -1657,14 +1726,15 @@ function AddMemberForm({ plans, groups, rooms, roomId, initial, busy, onClose, o
 
         {groups.length > 0 && (
           <div>
-            <Field label={w.group} icon={TagIcon}>
+            <Field label={requireGroup ? `${w.group} *` : w.group} icon={TagIcon}>
               <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })}>
-                <option value="">None</option>
+                {!requireGroup && <option value="">None</option>}
                 {groups.map((g) => (
                   <option key={g._id} value={g._id}>{g.name}</option>
                 ))}
               </select>
             </Field>
+            {errors.groupId && <span className="small red-text" style={{ marginTop: 3, display: 'block' }}>{errors.groupId}</span>}
           </div>
         )}
 

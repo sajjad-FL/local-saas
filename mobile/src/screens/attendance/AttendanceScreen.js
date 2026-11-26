@@ -25,6 +25,7 @@ import { ScreenSkeleton } from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import QrCode, { qrSvg } from '../../components/QrCode';
 import AttendanceImportModal from '../modals/AttendanceImportModal';
+import TuitionAttendance from './TuitionAttendance';
 
 const addDays = (day, n) => {
   const d = new Date(`${day}T00:00:00Z`);
@@ -36,7 +37,14 @@ const timeOf = (at) => new Date(at).toLocaleTimeString('en-IN', { hour: 'numeric
 const fmtShort = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 
-export default function AttendanceScreen({ navigation }) {
+// Tuition takes the roll batch by batch; everyone else keeps the daily list
+export default function AttendanceScreen(props) {
+  const { biz } = useBiz();
+  if (biz?.type === 'tuition' && biz.attendanceEnabled !== false) return <TuitionAttendance {...props} biz={biz} />;
+  return <DailyAttendance {...props} />;
+}
+
+function DailyAttendance({ navigation }) {
   const { biz, isOwner } = useBiz();
   const { theme } = useTheme();
   const c = theme.colors;

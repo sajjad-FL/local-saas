@@ -91,7 +91,12 @@ export async function getMembers(req, res, next) {
 export async function createMember(req, res, next) {
   try {
     const { name, phone, groupId, joinDate, roomId } = req.body;
-    if (groupId && !(await Group.exists({ _id: groupId, businessId: req.business._id }))) {
+    // tuition: every student sits in a batch, so attendance can be taken batch by batch
+    if (req.business.type === 'tuition' && !groupId) {
+      const any = await Group.exists({ businessId: req.business._id });
+      return res.status(400).json({ error: any ? 'pick a batch for this student' : 'create a batch first, then add students to it' });
+    }
+    if (groupId &&!(await Group.exists({ _id: groupId, businessId: req.business._id }))) {
       return res.status(400).json({ error: 'group not found' });
     }
     if (roomId) {

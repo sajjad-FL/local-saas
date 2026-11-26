@@ -32,7 +32,7 @@ export async function getAttendanceDay(req, res, next) {
       Group.find({ businessId: req.business._id }, 'name'),
       // the 7 days ending on this day, for the week strip
       Attendance.aggregate([
-        { $match: { businessId: req.business._id, status: 'present', day: { $gte: weekStart, $lte: day } } },
+        { $match: { businessId: req.business._id, status: 'present', day: { $gte: weekStart, $lte: day }, ...(req.query.groupId && { memberId: { $in: ids } }) } },
         { $group: { _id: '$day', present: { $sum: 1 } } },
       ]),
     ]);
@@ -99,6 +99,7 @@ export async function markAllPresent(req, res, next) {
   try {
     if (turnedOff(req.business, res)) return;
     const { day, groupId } = req.body ?? {};
+    const status = req.body?.status === 'absent' ? 'absent' : 'present'; // 'absent' = "rest absent" after a roll call
     if (!isDay(day)) return res.status(400).json({ error: 'day must be YYYY-MM-DD' });
     if (day > todayFor(req.business)) return res.status(400).json({ error: "can't mark attendance for a future day" });
     const filter = { businessId: req.business._id, status: 'active' };
@@ -108,7 +109,7 @@ export async function markAllPresent(req, res, next) {
     const ops = members.filter((m) => !paused.has(String(m._id))).map((m) => ({
       updateOne: {
         filter: { memberId: m._id, day },
-        update: { $setOnInsert: { businessId: req.business._id, status: 'present', method: 'staff', markedBy: req.userId, at: new Date() } },
+        update: { $setOnInsert: { businessId: req.business._id, status, method: 'staff', markedBy: req.userId, at: new Date() } },
         upsert: true,
       },
     }));

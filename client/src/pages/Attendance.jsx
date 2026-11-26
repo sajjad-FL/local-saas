@@ -1,12 +1,12 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
 import { AnimatePresence } from 'framer-motion';
 import { api, userId, waLink, rupees, can, ADD } from '../api.js';
 import { useBiz } from '../contexts.js';
 import { words } from '../wording.js';
-import { Avatar, ChevronIcon, CheckIcon, XIcon, SearchIcon, PrinterIcon, ConfirmDialog, CalendarCheckIcon, DownloadIcon, PhoneIcon, WhatsAppIcon, AlertIcon, TrendingUpIcon, ClockIcon } from '../ui.jsx';
+import { Avatar, ChevronIcon, CheckIcon, XIcon, SearchIcon, PrinterIcon, ConfirmDialog, CalendarCheckIcon, DownloadIcon, PhoneIcon, WhatsAppIcon, AlertIcon, TrendingUpIcon, ClockIcon, LayersIcon, ChevronDownIcon } from '../ui.jsx';
 import { PickMember } from './Members.jsx';
 
 const AttendanceImport = lazy(() => import('./AttendanceImport.jsx')); // brings in the Excel reader only when used
@@ -48,9 +48,12 @@ function AttendanceOn({ biz }) {
   const isOwner = biz.ownerId === userId();
   const canMark = can(biz, ADD);
   const [day, setDay] = useState(null); // null = today (the server decides "today" in the business's timezone)
-  const [groupId, setGroupId] = useState('');
+  const isTuition = biz.type === 'tuition'; // a teacher takes the roll one batch at a time
+  const [params, setParams] = useSearchParams();
+  const groupId = params.get('batch') || ''; // in the URL, so Back returns to the batch list
   const [q, setQ] = useState('');
-  const [tab, setTab] = useState('notin'); // 'notin' | 'in' | 'absent' | 'away'
+  const [tab, setTab] = useState(isTuition ? 'all' : 'notin'); // 'all' (tuition roll call) | 'notin' | 'in' | 'absent' | 'away'
+  const setGroupId = (id) => { setParams(id ? { batch: id } : {}, { replace: !isTuition }); setQ(''); setTab(isTuition ? 'all' : 'notin'); };
   const [awayDays, setAwayDays] = useState(7);
   const [importing, setImporting] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -89,12 +92,33 @@ function AttendanceOn({ biz }) {
       qc.invalidateQueries({ queryKey: ['not-coming', biz._id] });
     },
   });
+  // every batch's numbers for the day, for the batch list and "next batch"
+  const { data: everyone } = useQuery({
+    queryKey: ['attendance', biz._id, day, ''],
+    queryFn: () => api(`/businesses/${biz._id}/attendance?${new URLSearchParams({ ...(day && { day }) })}`),
+    enabled: isTuition,
+    placeholderData: (prev) => prev,
+  });
   const allPresent = useMutation({
-    mutationFn: () => api(`/businesses/${biz._id}/attendance/all-present`, { method: 'POST', body: { day: data.day, groupId: groupId || undefined } }),
+    mutationFn: (status = 'present') => api(`/businesses/${biz._id}/attendance/all-present`, { method: 'POST', body: { day: data.day, groupId: groupId || undefined, status } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance', biz._id] }),
   });
 
   if (!data) return <div className="card skeleton" style={{ minHeight: 320 }} aria-hidden="true" />;
+  if (isTuition && !groupId) {
+    return (
+      <>
+        <BatchList W={W} groups={groups} data={everyone || data} canMark={canMark} onDay={setDay} onPick={setGroupId} onImport={() => setImporting(true)} />
+        <AnimatePresence>
+          {importing && (
+            <Suspense fallback={null}>
+              <AttendanceImport biz={biz} onClose={() => setImporting(false)} />
+            </Suspense>
+          )}
+        </AnimatePresence>
+      </>
+    );
+  }
 
   const today = data.today;
   const current = data.day;
@@ -125,6 +149,7 @@ function AttendanceOn({ biz }) {
   const sub = (m) => [m.groupName, m.planName].filter(Boolean).join(' · ');
 
   const tabs = [
+    isTuition && { id: 'all', label: 'Everyone', dot: 'var(--primary)', count: members.length },
     { id: 'notin', label: isGym ? (isToday ? 'Not in yet' : 'Didn\'t come') : 'Not marked', dot: '#D97706', count: notIn.length },
     { id: 'in', label: isGym ? 'Checked in' : 'Present', dot: '#16A34A', count: present.length },
     !isGym && { id: 'absent', label: 'Absent', dot: '#94A3B8', count: absent.length },
@@ -137,8 +162,142 @@ function AttendanceOn({ biz }) {
     { id: null, icon: TrendingUpIcon, tone: 'blue', label: 'Average day', short: 'Avg/day', value: avg, note: busiest?.present ? `busiest ${fmtDay(busiest.day, { weekday: 'short' })}` : 'this week' },
   ];
 
-  const rows = tab === 'notin' ? notIn : tab === 'in' ? [...present].sort((a, b) => new Date(b.at) - new Date(a.at)) : tab === 'absent' ? absent : [];
+  const rows = tab === 'all' ? members : tab === 'notin' ? notIn : tab === 'in' ? [...present].sort((a, b) => new Date(b.at) - new Date(a.at)) : tab === 'absent' ? absent : [];
   const subtitle = `${isToday ? fmtDay(current, { weekday: 'long', day: 'numeric', month: 'long' }) : fmtDay(current, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${present.length} of ${members.length} ${isGym ? 'in' : 'present'}${isToday ? ' so far' : ''}`;
+
+  const batch = groups.find((g) => g._id === groupId);
+  const marked = present.length + absent.length;
+  const done = isTuition && members.length > 0 && !notIn.length;
+  // the next batch still to be taken this day, so the teacher can go straight on
+  const nextBatch = isTuition && everyone && groups.find((g) => {
+    if (g._id === groupId) return false;
+    const inG = everyone.members.filter((m) => String(m.groupId) === g._id && !m.paused);
+    return inG.some((m) => !m.status);
+  });
+  const parentMsg = (m) => `Hi, ${m.name.split(' ')[0]} was absent from ${batch?.name || 'class'} at ${biz.name} on ${fmtDay(current, { day: 'numeric', month: 'short' })}. Please let us know if all is well.`;
+  const weekStrip = (
+    <section className="at-week" aria-label="This week">
+      <button type="button" className="at-week-step" aria-label="Earlier week" onClick={() => setDay(addDays(current, -7))}><ChevronIcon size={16} style={{ transform: 'rotate(180deg)' }} /></button>
+      {week.map((d) => (
+        <button key={d.day} type="button" className={`at-day ${d.day === current ? 'on' : ''}`} aria-pressed={d.day === current}
+          aria-label={`${fmtDay(d.day, { weekday: 'long', day: 'numeric', month: 'long' })}: ${d.present} came`}
+          onClick={() => setDay(d.day === today ? null : d.day)}>
+          <span className="at-day-label">{dayLabel(d.day, today)}</span>
+          <span className="at-day-bar"><i style={{ height: `${Math.max(4, (d.present / peak) * 100)}%` }} /></span>
+          <b>{d.present}</b>
+        </button>
+      ))}
+      <button type="button" className="at-week-step" aria-label="Later week" disabled={current >= today}
+        onClick={() => { const n = addDays(current, 7); setDay(n >= today ? null : n); }}><ChevronIcon size={16} /></button>
+    </section>
+  );
+
+  // Tuition: the roll call for one batch
+  if (isTuition) {
+    const Member = W.member[0].toUpperCase() + W.member.slice(1);
+    return (
+      <div className="at at-roll">
+        <div className="at-roll-head">
+          <button type="button" className="at-back" onClick={() => setGroupId('')}>
+            <ChevronIcon size={15} style={{ transform: 'rotate(180deg)' }} /> All {W.groups.toLowerCase()}
+          </button>
+          <p className="db-date">{fmtDay(current, { weekday: 'long', day: 'numeric', month: 'long', ...(!isToday && { year: 'numeric' }) })}</p>
+          <h1 className="db-hello">{batch?.name || W.group}</h1>
+        </div>
+
+        {weekStrip}
+
+        <section className="mx-list mx2 at-list" aria-label={`${Member}s`}>
+          <div className="at-progress">
+            <span className="at-progress-text">
+              <b>{marked} of {members.length} marked</b>
+              <span><i className="g">{present.length} present</i> · <i className="r">{absent.length} absent</i>{notIn.length ? ` · ${notIn.length} left` : ''}</span>
+            </span>
+            <span className="at-progress-bar" aria-hidden="true">
+              <i className="g" style={{ width: `${members.length ? (present.length / members.length) * 100 : 0}%` }} />
+              <i className="r" style={{ width: `${members.length ? (absent.length / members.length) * 100 : 0}%` }} />
+            </span>
+            {canMark && notIn.length > 0 && (
+              <span className="at-progress-btns">
+                <button type="button" className="btn at-all" disabled={allPresent.isPending} onClick={() => allPresent.mutate('present')}>
+                  <CheckIcon size={14} /> {marked ? `Rest present (${notIn.length})` : `All present (${notIn.length})`}
+                </button>
+                {marked > 0 && (
+                  <button type="button" className="btn-secondary at-all" disabled={allPresent.isPending} onClick={() => allPresent.mutate('absent')}>
+                    <XIcon size={14} /> Rest absent
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
+
+          {done && (
+            <div className="at-done" role="status">
+              <span><CheckIcon size={15} /> Done · {present.length} present, {absent.length} absent</span>
+              {nextBatch
+                ? <button type="button" className="btn" onClick={() => setGroupId(nextBatch._id)}>Next: {nextBatch.name} <ChevronIcon size={14} /></button>
+                : <button type="button" className="btn-secondary" onClick={() => setGroupId('')}>All {W.groups.toLowerCase()}</button>}
+            </div>
+          )}
+
+          <div className="db-tabs mx2-tabs" role="tablist" aria-label="Show">
+            {tabs.filter((t) => t.id !== 'away').map((t) => (
+              <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`db-tab ${tab === t.id ? 'on' : ''}`} onClick={() => setTab(t.id)}>
+                <i className="db-dot" style={{ background: t.dot }} aria-hidden="true" />{t.label}<span className="db-tab-count">{t.count}</span>
+              </button>
+            ))}
+          </div>
+          {members.length > 8 && (
+            <div className="at-tools">
+              <label className="mx-search">
+                <SearchIcon size={15} />
+                <span className="sr-only">Search {W.member}s</span>
+                <input type="search" placeholder={`Search a ${W.member}`} value={q} onChange={(e) => setQ(e.target.value)} />
+                {q && <button type="button" className="mx-icon-btn" onClick={() => setQ('')} aria-label="Clear search"><XIcon size={14} /></button>}
+              </label>
+            </div>
+          )}
+
+          <ul className="at-rows">
+            {!members.length && <li className="at-empty">No {W.member}s in this {W.group.toLowerCase()} yet. Add them from the {Member}s page.</li>}
+            {members.length > 0 && !rows.filter(match).length && (
+              <li className="at-empty">{query ? `Nobody matches “${q}”.` : tab === 'notin' ? 'Everyone is marked.' : tab === 'in' ? 'Nobody yet.' : 'Nobody absent.'}</li>
+            )}
+            {rows.filter(match).map((m, i) => {
+              const last = lastText(m);
+              return (
+                <li key={m._id} className={`at-row at-roll-row ${m.status || ''}`}>
+                  <span className="at-roll-no" aria-hidden="true">{i + 1}</span>
+                  <span className="at-who">
+                    <span className="at-name-row"><b>{m.name}</b>{m.due > 0 && <span className="at-owes">owes {rupees(m.due)}</span>}</span>
+                    <span className={!m.status && last.tone === 'red' ? 'red' : ''}>
+                      {m.status
+                        ? `${m.status === 'present' ? 'Present' : 'Absent'} · ${timeOf(m.at)}${m.markedBy && m.markedBy !== 'you' ? ` · by ${m.markedBy}` : ''}`
+                        : last.text}
+                    </span>
+                  </span>
+                  {m.status === 'absent' && m.phone && (
+                    <a className="at-parent" target="_blank" rel="noreferrer" href={waLink(m.phone, parentMsg(m))} aria-label={`Tell ${m.name}'s parent on WhatsApp`}>
+                      <WhatsAppIcon size={15} /><span>Tell parent</span>
+                    </a>
+                  )}
+                  {canMark && (
+                    <span className="att-toggle at-pa" role="group" aria-label={`${m.name} attendance`}>
+                      <button type="button" aria-pressed={m.status === 'present'} aria-label={`${m.name} present`} className={m.status === 'present' ? 'on present' : ''}
+                        onClick={() => mark.mutate({ memberId: m._id, status: m.status === 'present' ? null : 'present' })}>P</button>
+                      <button type="button" aria-pressed={m.status === 'absent'} aria-label={`${m.name} absent`} className={m.status === 'absent' ? 'on absent' : ''}
+                        onClick={() => mark.mutate({ memberId: m._id, status: m.status === 'absent' ? null : 'absent' })}>A</button>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {(mark.error || allPresent.error) && <p className="error" role="alert" style={{ margin: '8px 16px' }}>{(mark.error || allPresent.error).message}</p>}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="at">
@@ -332,6 +491,111 @@ function AttendanceOn({ biz }) {
         )}
       </AnimatePresence>
       {showQr && <DoorQR biz={biz} onClose={() => setShowQr(false)} />}
+    </div>
+  );
+}
+
+// Tuition: the day starts here. One card per batch with how far its roll call has got;
+// tap one to take attendance for just that batch.
+function BatchList({ W, groups, data, canMark, onDay, onPick, onImport }) {
+  const { today, day: current } = data;
+  const Member = W.member[0].toUpperCase() + W.member.slice(1);
+  const live = data.members.filter((m) => !m.paused);
+  const batches = groups.map((g) => {
+    const inG = live.filter((m) => String(m.groupId) === g._id);
+    const p = inG.filter((m) => m.status === 'present').length;
+    const a = inG.filter((m) => m.status === 'absent').length;
+    return { ...g, total: inG.length, present: p, absent: a, left: inG.length - p - a };
+  });
+  const noBatch = live.filter((m) => !groups.some((g) => g._id === String(m.groupId || '')));
+  const withKids = batches.filter((b) => b.total);
+  const doneCount = withKids.filter((b) => !b.left).length;
+  const first = withKids.find((b) => b.left);
+  const older = current < addDays(today, -2);
+
+  return (
+    <div className="at at-batches">
+      <div className="page-header home-header db-head">
+        <div className="page-title-wrap">
+          <p className="db-date">{fmtDay(current, { weekday: 'long', day: 'numeric', month: 'long' })}{withKids.length ? ` · ${doneCount} of ${withKids.length} ${W.groups.toLowerCase()} done` : ''}</p>
+          <h1 className="db-hello">Attendance</h1>
+        </div>
+        <nav className="db-quick" aria-label="Quick actions">
+          {canMark && first && (
+            <button type="button" className="db-quick-btn pri" onClick={() => onPick(first._id)}>
+              <span className="db-quick-icon"><CheckIcon size={15} /></span>
+              <span className="db-quick-long">Take {first.name}</span><span className="db-quick-short">Start</span>
+            </button>
+          )}
+          {canMark && (
+            <button type="button" className="db-quick-btn q-import" onClick={onImport}>
+              <span className="db-quick-icon"><DownloadIcon size={15} /></span>
+              <span className="db-quick-long">Import from machine</span><span className="db-quick-short">Import</span>
+            </button>
+          )}
+        </nav>
+      </div>
+
+      <div className="at-daypick" role="radiogroup" aria-label="Day">
+        {[0, -1, -2].map((n) => {
+          const d = addDays(today, n);
+          return (
+            <button key={d} type="button" role="radio" aria-checked={current === d} className={current === d ? 'on' : ''} onClick={() => onDay(n === 0 ? null : d)}>
+              {dayLabel(d, today)}
+            </button>
+          );
+        })}
+        <label className={`at-daypick-other ${older ? 'on' : ''}`}>
+          <CalendarCheckIcon size={14} />
+          <span>{older ? fmtDay(current, { day: 'numeric', month: 'short' }) : 'Other day'}</span>
+          <ChevronDownIcon size={13} />
+          <input type="date" max={today} value={current} aria-label="Pick a day" onChange={(e) => e.target.value && onDay(e.target.value === today ? null : e.target.value)} />
+        </label>
+      </div>
+
+      {!groups.length ? (
+        <section className="analytics-card at-nobatch">
+          <LayersIcon size={26} />
+          <h2>Create your first {W.group.toLowerCase()}</h2>
+          <p className="muted">Attendance is taken {W.group.toLowerCase()} by {W.group.toLowerCase()}. Make one like “Class 10 · 5 PM”, put {W.member}s in it, then take the roll here.</p>
+          <Link to="/setup" className="btn">Create a {W.group.toLowerCase()}</Link>
+        </section>
+      ) : (
+        <ul className="at-batch-grid">
+          {batches.map((b) => {
+            const state = !b.total ? 'nokids' : !b.left ? 'done' : b.present + b.absent ? 'part' : 'todo';
+            return (
+              <li key={b._id}>
+                <button type="button" className={`at-batch ${state}`} onClick={() => onPick(b._id)}>
+                  <span className="at-batch-top">
+                    <b>{b.name}</b>
+                    <span className={`at-batch-tag ${state}`}>
+                      {state === 'done' ? <><CheckIcon size={12} /> Done</> : state === 'part' ? `${b.left} left` : state === 'todo' ? 'Not taken' : `No ${W.member}s`}
+                    </span>
+                  </span>
+                  <span className="at-batch-sub">
+                    {b.total
+                      ? <>{b.total} {W.member}{b.total === 1 ? '' : 's'}{b.present + b.absent > 0 && <> · <i className="g">{b.present} present</i>{b.absent > 0 && <> · <i className="r">{b.absent} absent</i></>}</>}</>
+                      : `Add ${W.member}s to this ${W.group.toLowerCase()} first`}
+                  </span>
+                  <span className="at-progress-bar" aria-hidden="true">
+                    <i className="g" style={{ width: `${b.total ? (b.present / b.total) * 100 : 0}%` }} />
+                    <i className="r" style={{ width: `${b.total ? (b.absent / b.total) * 100 : 0}%` }} />
+                  </span>
+                  <span className="at-batch-go">{state === 'done' ? 'View or change' : state === 'part' ? 'Continue' : state === 'todo' ? 'Take attendance' : 'Open'} <ChevronIcon size={14} /></span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {noBatch.length > 0 && groups.length > 0 && (
+        <p className="at-nobatch-note">
+          <AlertIcon size={14} />
+          <span>{noBatch.length} {W.member}{noBatch.length === 1 ? ' has' : 's have'} no {W.group.toLowerCase()} and {noBatch.length === 1 ? 'is' : 'are'} not listed here. Open them on the <Link to="/members">{Member}s</Link> page and pick a {W.group.toLowerCase()}.</span>
+        </p>
+      )}
     </div>
   );
 }
