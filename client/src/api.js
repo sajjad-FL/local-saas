@@ -52,7 +52,19 @@ export async function downloadNow(path, filename) {
     const { error } = await res.json().catch(() => ({}));
     throw new Error(error || `${res.status} ${res.statusText}`);
   }
-  const url = URL.createObjectURL(await res.blob());
+  const blob = await res.blob();
+  // phones: open the share sheet (Save to Files, WhatsApp, Sheets…) instead of a bare preview page
+  const file = typeof File === 'function' && new File([blob], filename, { type: blob.type || 'text/csv' });
+  if (file && matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // they closed the sheet
+      // NotAllowedError etc.: fall back to a normal download
+    }
+  }
+  const url = URL.createObjectURL(blob);
   Object.assign(document.createElement('a'), { href: url, download: filename }).click();
   URL.revokeObjectURL(url);
 }

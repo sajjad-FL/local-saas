@@ -15,8 +15,8 @@ const EXPORTS = {
     text: 'Every fee not yet fully paid, oldest first, with the amount still owed and days overdue.',
   },
   'balances.csv': {
-    title: 'Download member balances?',
-    text: 'Each member with phone, group, room, status and what they owe right now.',
+    title: 'Download the member list?',
+    text: 'Everyone, one row each: phone, plan and fee, joined, status, next due date, total paid, what they owe and since when, last payment and last visit. People who owe are at the top.',
   },
   'expenses.csv': {
     title: 'Download all expenses?',

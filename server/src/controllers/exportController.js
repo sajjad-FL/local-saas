@@ -102,30 +102,88 @@ export async function exportExpensesCsv(req, res, next) {
   }
 }
 
+// The full member list, one row each: who they are, their plan and fee, what they have paid,
+// what they owe and since when, and when they last came. Columns that don't apply to this
+// kind of business (rooms outside a hostel, batches when there are none) are left out.
 export async function exportBalancesCsv(req, res, next) {
   try {
-    const [members, bal] = await Promise.all([
-      Member.find({ businessId: req.business._id })
-        .populate('groupId roomId', 'name roomNo')
-        .sort('name'),
-      memberBalances(req.business._id),
-    ]);
-
-    const csvContent = csv([
-      ['Name', 'Phone', 'Group', 'Room', 'Status', 'Balance'],
-      ...members.map((m) => [
-        m.name,
-        m.phone,
-        m.groupId?.name,
-        m.roomId?.roomNo,
-        m.status,
-        bal.get(String(m._id)) || 0,
+    const biz = req.business;
+    const businessId = biz._id;
+    const tz = biz.timezone || 'Asia/Kolkata';
+    const members = await Member.find({ businessId }).populate('groupId', 'name').populate('roomId', 'roomNo').sort('name');
+    const ids = members.map((m) => m._id);
+    const [subs, dues, payments, lastSeen, groupCount] = await Promise.all([
+      Subscription.find({ memberId: { $in: ids }, status: { $in: ['active', 'paused'] } }).populate('planId', 'name amount cycleDays'),
+      Due.find({ businessId }).sort('dueDate'),
+      Payment.find({ businessId }).sort('date'),
+      biz.attendanceEnabled === false ? [] : Attendance.aggregate([
+        { $match: { businessId, status: 'present' } },
+        { $group: { _id: '$memberId', last: { $max: '$day' } } },
       ]),
+      Group.countDocuments({ businessId }),
     ]);
 
-    res.type('text/csv').attachment('balances.csv').send(csvContent);
+    const subBy = new Map(subs.map((s) => [String(s.memberId), s]));
+    const lastBy = new Map(lastSeen.map((l) => [String(l._id), l.last]));
+    const group = (list, key) => {
+      const out = new Map();
+      for (const x of list) { const k = String(x[key]); if (!out.has(k)) out.set(k, []); out.get(k).push(x); }
+      return out;
+    };
+    const duesBy = group(dues, 'memberId');
+    const paysBy = group(payments, 'memberId');
+    const day = (d) => (d ? new Date(d).toLocaleDateString('en-CA', { timeZone: tz }) : ''); // YYYY-MM-DD, sorts and opens in Excel
+    const today = day(new Date());
+    const daysSince = (d) => Math.max(0, Math.round((new Date(`${today}T00:00:00Z`) - new Date(`${day(d)}T00:00:00Z`)) / 86400000));
+
+    const isHostel = biz.type === 'hostel';
+    const groupWord = { gym: 'Batch', tuition: 'Batch', mess: 'Group', hostel: 'Building' }[biz.type] || 'Group';
+    const showGroup = groupCount > 0;
+    const showAttendance = biz.attendanceEnabled !== false;
+
+    const header = [
+      'Name', 'Phone',
+      ...(showGroup ? [groupWord] : []),
+      ...(isHostel ? ['Room'] : []),
+      'Plan', 'Fee (₹)', 'Every (days)', 'Joined', 'Status',
+      'Next due on', 'Total billed (₹)', 'Total paid (₹)', 'Owes now (₹)', 'Advance (₹)', 'Unpaid since', 'Days overdue',
+      'Last paid on', 'Last payment (₹)',
+      ...(showAttendance ? ['Last came on'] : []),
+    ];
+    const rows = members.map((m) => {
+      const id = String(m._id);
+      const sub = subBy.get(id);
+      const plan = sub?.planId;
+      const myDues = duesBy.get(id) || [];
+      const myPays = paysBy.get(id) || [];
+      const billed = myDues.reduce((n, d) => n + d.amount, 0);
+      const paid = myPays.reduce((n, p) => n + p.amount, 0);
+      const owes = billed - paid;
+      const left = dueRemaining(myDues, paid);
+      const oldest = myDues.find((d, i) => left[i] > 0);
+      const lastPay = myPays[myPays.length - 1];
+      const status = m.status === 'left' ? 'Left' : sub?.status === 'paused' ? 'Paused' : !sub ? 'Active, no plan' : 'Active';
+      const overdue = oldest && new Date(oldest.dueDate) <= new Date() ? daysSince(oldest.dueDate) : '';
+      return [
+        m.name, m.phone,
+        ...(showGroup ? [m.groupId?.name] : []),
+        ...(isHostel ? [m.roomId?.roomNo] : []),
+        plan?.name, sub ? (sub.amount ?? plan?.amount) : '', plan?.cycleDays, day(m.joinDate), status,
+        m.status === 'active' && sub?.status === 'active' ? day(sub.periodEnd) : '',
+        billed, paid, Math.max(0, owes), Math.max(0, -owes), oldest ? day(oldest.dueDate) : '', overdue,
+        lastPay ? day(lastPay.date) : '', lastPay ? lastPay.amount : '',
+        ...(showAttendance ? [lastBy.get(id) || ''] : []),
+      ];
+    });
+    // people who owe come first (most overdue on top), then everyone else by name
+    rows.sort((a, b) => {
+      const o = header.indexOf('Days overdue');
+      return (Number(b[o]) || -1) - (Number(a[o]) || -1) || String(a[0]).localeCompare(String(b[0]));
+    });
+
+    // the BOM makes Excel read ₹ and Indian names correctly
+    res.type('text/csv; charset=utf-8').attachment('members.csv').send('﻿' + csv([header, ...rows]));
   } catch (err) {
     next(err);
   }
 }
-
