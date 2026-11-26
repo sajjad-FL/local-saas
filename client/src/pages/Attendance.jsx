@@ -90,6 +90,7 @@ function AttendanceOn({ biz }) {
       qc.invalidateQueries({ queryKey: ['attendance', biz._id] });
       qc.invalidateQueries({ queryKey: ['member-attendance'] });
       qc.invalidateQueries({ queryKey: ['not-coming', biz._id] });
+      qc.invalidateQueries({ queryKey: ['dashboard', biz._id] });
     },
   });
   // every batch's numbers for the day, for the batch list and "next batch"
@@ -101,7 +102,7 @@ function AttendanceOn({ biz }) {
   });
   const allPresent = useMutation({
     mutationFn: (status = 'present') => api(`/businesses/${biz._id}/attendance/all-present`, { method: 'POST', body: { day: data.day, groupId: groupId || undefined, status } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance', biz._id] }),
+    onSuccess: () => ['attendance', 'dashboard'].forEach((k) => qc.invalidateQueries({ queryKey: [k, biz._id] })),
   });
 
   if (!data) return <div className="card skeleton" style={{ minHeight: 320 }} aria-hidden="true" />;

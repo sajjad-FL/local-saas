@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { queryClient, freshFor } from './queryClient';
 
 const DEFAULT_PORT = '4000';
 // Android emulator uses 10.0.2.2 to access host machine; iOS simulator / web uses localhost
@@ -41,11 +42,28 @@ export async function setApiBaseUrl(url) {
     cleaned = cleaned.replace(/\/+$/, '') + '/api';
   }
   await AsyncStorage.setItem(STORAGE_KEYS.API_BASE, cleaned);
+  queryClient.clear(); // another server: nothing cached from the old one applies
   return cleaned;
 }
 
-// Core API caller
+// Core API caller. Reads (GET) go through the shared React Query cache: a read made again
+// within its fresh window returns the cached copy, and identical reads in flight share one
+// request. Pass { fresh: true } to skip the cache (pull-to-refresh, polling). Any write
+// empties the cache so the next read is fresh.
 export async function api(path, opts = {}) {
+  const { fresh, ...rest } = opts;
+  const method = (rest.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    const out = await request(path, rest);
+    queryClient.invalidateQueries();
+    return out;
+  }
+  const queryKey = ['api', path];
+  if (fresh) await queryClient.invalidateQueries({ queryKey, refetchType: 'none' });
+  return queryClient.fetchQuery({ queryKey, queryFn: () => request(path, rest), staleTime: freshFor(path) });
+}
+
+async function request(path, opts = {}) {
   const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
   const baseUrl = await getApiBaseUrl();
 

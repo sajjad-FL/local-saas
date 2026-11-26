@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, parseToken, STORAGE_KEYS } from '../api/api';
+import { queryClient } from '../api/queryClient';
 
 const AuthContext = createContext(null);
 
@@ -77,6 +78,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    queryClient.clear(); // the next person must not see this one's cached data
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
       await AsyncStorage.removeItem(STORAGE_KEYS.BIZ_ID);

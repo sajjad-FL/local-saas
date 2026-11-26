@@ -13,6 +13,7 @@ import {
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
@@ -82,7 +83,7 @@ export default function SalesScreen({ navigation }) {
   useEffect(() => { loadCatalogue(); }, [loadCatalogue]);
   useEffect(() => { loadSales(); }, [loadSales]);
   const reload = () => { loadCatalogue(); loadSales(); };
-  const onRefresh = async () => { setRefreshing(true); await Promise.all([loadCatalogue(), loadSales()]); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await refreshAll(); await Promise.all([loadCatalogue(), loadSales()]); setRefreshing(false); };
 
   if (biz?.salesEnabled === false) {
     return (

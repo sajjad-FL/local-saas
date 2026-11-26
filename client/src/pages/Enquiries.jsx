@@ -66,11 +66,11 @@ export default function Enquiries() {
 
   const patch = useMutation({
     mutationFn: ({ id, body }) => api(`/businesses/${biz._id}/enquiries/${id}`, { method: 'PATCH', body }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['enquiries', biz._id] }),
+    onSuccess: () => ['enquiries', 'dashboard'].forEach((k) => qc.invalidateQueries({ queryKey: [k, biz._id] })),
   });
   const remove = useMutation({
     mutationFn: (id) => api(`/businesses/${biz._id}/enquiries/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['enquiries', biz._id] }),
+    onSuccess: () => ['enquiries', 'dashboard'].forEach((k) => qc.invalidateQueries({ queryKey: [k, biz._id] })),
   });
 
   const all = enquiries || [];
@@ -489,7 +489,7 @@ export function EnquiryModal({ biz, plans, enquiry, canDelete, onDelete, onJoine
         ? api(`/businesses/${biz._id}/enquiries/${enquiry._id}`, { method: 'PATCH', body })
         : api(`/businesses/${biz._id}/enquiries`, { method: 'POST', body });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['enquiries', biz._id] }); onClose(); onSaved?.(); },
+    onSuccess: () => { ['enquiries', 'dashboard'].forEach((k) => qc.invalidateQueries({ queryKey: [k, biz._id] })); onClose(); onSaved?.(); },
   });
   const quick = [['Tomorrow', 1], ['In 3 days', 3], ['Next week', 7]];
 

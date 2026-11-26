@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, S
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { api, waLink, rupees } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import { words } from '../../constants/wording';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
@@ -61,7 +62,7 @@ export default function TuitionAttendance({ navigation, biz }) {
     return () => sub.remove();
   }, [batchId]);
 
-  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await refreshAll(); await load(); setRefreshing(false); };
 
   const mark = async (memberId, status) => {
     setData((prev) => prev && { ...prev, members: prev.members.map((m) => (m._id === memberId ? { ...m, status, method: status && 'staff', markedBy: status && 'you', at: status && new Date().toISOString() } : m)) });

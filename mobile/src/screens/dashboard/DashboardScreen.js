@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, waLink, remindMsg } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import { words } from '../../constants/wording';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
@@ -126,7 +127,7 @@ export default function DashboardScreen({ navigation }) {
   // loads on first view and again whenever the tab comes back into view
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await refreshAll(); await load(); setRefreshing(false); };
 
   if (!biz) {
     return (

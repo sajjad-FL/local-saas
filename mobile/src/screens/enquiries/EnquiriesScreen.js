@@ -13,6 +13,7 @@ import {
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, waLink } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import { words } from '../../constants/wording';
 import { tint } from '../../constants/theme';
 import TopBar from '../../components/TopBar';
@@ -108,7 +109,7 @@ export default function EnquiriesScreen({ navigation, route }) {
     }
   }, [route?.params?.add, navigation]);
 
-  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await refreshAll(); await load(); setRefreshing(false); };
 
   const patch = async (id, body) => {
     try {

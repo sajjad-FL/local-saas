@@ -88,13 +88,13 @@ export default function HostelProperty({ biz, step }) {
   const qc = useQueryClient();
   const gPath = `/businesses/${biz._id}/groups`;
   const rPath = `/businesses/${biz._id}/rooms`;
-  const { data: groups } = useQuery({ queryKey: [gPath], queryFn: () => api(gPath) });
-  const { data: rooms } = useQuery({ queryKey: [rPath], queryFn: () => api(rPath) });
+  const { data: groups } = useQuery({ queryKey: ['groups', biz._id], queryFn: () => api(gPath) });
+  const { data: rooms } = useQuery({ queryKey: ['rooms', biz._id], queryFn: () => api(rPath) });
   const [addingBuilding, setAddingBuilding] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null); // the room being edited
-  const refresh = () => { qc.invalidateQueries({ queryKey: [gPath] }); qc.invalidateQueries({ queryKey: [rPath] }); qc.invalidateQueries({ queryKey: ['groups', biz._id] }); };
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['groups', biz._id] }); qc.invalidateQueries({ queryKey: ['rooms', biz._id] }) };
   const run = (fn) => async (...args) => {
     setError('');
     try { await fn(...args); refresh(); return true; } catch (e) { setError(e.message); refresh(); return false; }

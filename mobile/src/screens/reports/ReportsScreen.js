@@ -14,6 +14,7 @@ import { downloadFile } from '../../api/download';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, formatDate } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import Card from '../../components/Card';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
@@ -141,6 +142,7 @@ export default function ReportsScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await refreshAll(); // pull-to-refresh always asks the server
     await fetchReports();
     setRefreshing(false);
   };

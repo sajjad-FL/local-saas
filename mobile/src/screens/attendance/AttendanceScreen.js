@@ -16,6 +16,7 @@ import * as Print from 'expo-print';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, waLink, WEB_URL, rupees } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import { useFocusEffect } from '@react-navigation/native';
 import { words } from '../../constants/wording';
 import PickMember from '../../components/PickMember';
@@ -91,7 +92,7 @@ function DailyAttendance({ navigation }) {
     return () => clearInterval(t);
   }, [isGym, fetchAttendance]);
 
-  const onRefresh = async () => { setRefreshing(true); await Promise.all([fetchAttendance(), fetchAway()]); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await refreshAll(); await Promise.all([fetchAttendance(), fetchAway()]); setRefreshing(false); };
 
   const handleMark = async (memberId, status) => {
     setData((prev) => prev && { ...prev, members: prev.members.map((m) => (m._id === memberId ? { ...m, status, method: status && 'staff', markedBy: status && 'you', at: status && new Date().toISOString() } : m)) });

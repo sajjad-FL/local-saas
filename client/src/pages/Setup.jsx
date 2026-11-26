@@ -51,8 +51,8 @@ export default function Setup() {
   const openTab = (t) => setParams((p) => { p.set('tab', t); return p; }, { replace: true });
   const [addKey, setAddKey] = useState({ plans: 0, outlets: 0, staff: 0 }); // bump to open that tab's add form
 
-  const { data: plans } = useQuery({ queryKey: [`/businesses/${biz._id}/plans`], queryFn: () => api(`/businesses/${biz._id}/plans`) });
-  const { data: groups } = useQuery({ queryKey: [`/businesses/${biz._id}/groups`], queryFn: () => api(`/businesses/${biz._id}/groups`) });
+  const { data: plans } = useQuery({ queryKey: ['plans', biz._id], queryFn: () => api(`/businesses/${biz._id}/plans`) });
+  const { data: groups } = useQuery({ queryKey: ['groups', biz._id], queryFn: () => api(`/businesses/${biz._id}/groups`) });
   const { data: outlets } = useQuery({ queryKey: ['outlets'], queryFn: () => api('/businesses/summary') });
   const { data: staff } = useQuery({ queryKey: ['staff-all'], queryFn: () => api('/staff'), enabled: isOwner });
 
@@ -143,7 +143,7 @@ function PlansTab({ biz, plans, groups, addKey }) {
 
   const addGroup = useMutation({
     mutationFn: () => api(`/businesses/${biz._id}/groups`, { method: 'POST', body: { name: groupName.trim() } }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [`/businesses/${biz._id}/groups`] }); setGroupName(''); setAddingGroup(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['groups', biz._id] }); setGroupName(''); setAddingGroup(false); },
   });
 
   const sorted = [...(plans || [])].sort((x, y) => x.amount - y.amount || natural(x.name, y.name));
@@ -625,7 +625,7 @@ function PlanModal({ biz, plan, members, onClose }) {
         ? api(`/businesses/${biz._id}/plans/${plan._id}`, { method: 'PATCH', body })
         : api(`/businesses/${biz._id}/plans`, { method: 'POST', body });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [`/businesses/${biz._id}/plans`] }); qc.invalidateQueries({ queryKey: ['members', biz._id] }); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['plans', biz._id] }); qc.invalidateQueries({ queryKey: ['members', biz._id] }); onClose(); },
   });
   const implied = mismatch({ name: form.name, cycleDays: Number(form.cycleDays) });
   const options = CYCLES.some(([d]) => d === Number(form.cycleDays)) ? CYCLES : [...CYCLES, [Number(form.cycleDays), `${form.cycleDays} days`]];

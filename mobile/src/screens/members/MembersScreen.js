@@ -18,6 +18,7 @@ import {
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, waLink, remindMsg } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import { downloadFile } from '../../api/download';
 import { words } from '../../constants/wording';
 import Icon from '../../components/Icon';
@@ -105,7 +106,7 @@ export default function MembersScreen({ navigation, route }) {
   useEffect(() => navigation.addListener('focus', () => { load(); }), [navigation, load]);
   useEffect(() => { if (!toast) return undefined; const t = setTimeout(() => setToast(null), 8000); return () => clearTimeout(t); }, [toast]);
 
-  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await refreshAll(); await load(); setRefreshing(false); };
 
   // ---- who is in which tab ----
   const isPaused = (m) => m.subscription?.status === 'paused';

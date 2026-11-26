@@ -324,7 +324,7 @@ function OutletCard({ isOwner }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['businesses'] }),
     onError: (_e, on) => setAttOn(!on),
   });
-  const { data: plans } = useQuery({ queryKey: [`/businesses/${biz._id}/plans`], queryFn: () => api(`/businesses/${biz._id}/plans`) });
+  const { data: plans } = useQuery({ queryKey: ['plans', biz._id], queryFn: () => api(`/businesses/${biz._id}/plans`) });
   const { data: staff } = useQuery({ queryKey: ['staff-all'], queryFn: () => api('/staff'), enabled: isOwner });
   const myStaff = (staff || []).filter((s) => s.allOutlets || s.businessIds.map(String).includes(biz._id));
   const initialsOf = (biz.name || '?').trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();

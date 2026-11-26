@@ -13,6 +13,7 @@ import {
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import Button from '../../components/Button';
 import Modal from '../../components/Modal';
 import Input from '../../components/Input';
@@ -177,6 +178,7 @@ export default function SetupScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await refreshAll(); // pull-to-refresh always asks the server
     await fetchSetupData();
     setRefreshing(false);
   };

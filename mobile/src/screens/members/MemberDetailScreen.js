@@ -16,6 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, formatDate, waLink, remindMsg, WEB_URL } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import Icon from '../../components/Icon';
 import TopBar from '../../components/TopBar';
 import Loader, { Spinner } from '../../components/Loader';
@@ -72,6 +73,7 @@ export default function MemberDetailScreen({ route, navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await refreshAll(); // pull-to-refresh always asks the server
     await fetchMember();
     setRefreshing(false);
   };

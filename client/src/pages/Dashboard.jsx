@@ -94,6 +94,7 @@ export default function Dashboard() {
               // this month's Spent / Profit on the home screen, and the Reports page
               qc.invalidateQueries({ queryKey: ['report', biz._id] });
               qc.invalidateQueries({ queryKey: ['expenses', biz._id] });
+              qc.invalidateQueries({ queryKey: ['dashboard', biz._id] });
             }}
           />
         )}

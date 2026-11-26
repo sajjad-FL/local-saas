@@ -16,6 +16,7 @@ import {
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, waLink, remindMsg } from '../../api/api';
+import { refreshAll } from '../../api/queryClient';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
@@ -311,6 +312,7 @@ export default function RoomsScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await refreshAll(); // pull-to-refresh always asks the server
     await fetchRoomsData();
     setRefreshing(false);
   };
