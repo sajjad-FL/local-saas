@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "LocalSaaS",
-    "slug": "local-saas-mobile",
+    "slug": "drivek",
     "scheme": "localsaas",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -26,6 +26,12 @@
     "plugins": [
       "expo-sharing",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "dc5ec37c-d358-432b-aaaf-323e9d8dcc71"
+      }
+    },
+    "owner": "salam17"
   }
 }

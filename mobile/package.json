@@ -34,7 +34,17 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:dev:android": "eas build --profile dev --platform android",
+    "build:dev:ios": "eas build --profile dev --platform ios",
+    "build:dev": "eas build --profile dev --platform all",
+    "build:prod:android": "eas build --profile production --platform android",
+    "build:prod:ios": "eas build --profile production --platform ios",
+    "build:prod": "eas build --profile production --platform all",
+    "submit:android": "eas submit --profile production --platform android --latest",
+    "submit:ios": "eas submit --profile production --platform ios --latest",
+    "release:android": "eas build --profile production --platform android --auto-submit",
+    "release:ios": "eas build --profile production --platform ios --auto-submit"
   },
   "private": true,
   "devDependencies": {
