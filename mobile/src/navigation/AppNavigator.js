@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Loader from '../components/Loader';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -55,6 +56,7 @@ export default function AppNavigator() {
   const noBusiness = loaded && businesses.length === 0;
   const paused = biz?.status === 'suspended';
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (isLoading) {
     return (
@@ -69,7 +71,8 @@ export default function AppNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: theme.colors.background },
+          // pages opened on top of the tabs keep clear of the gesture bar; the tabs handle their own
+          contentStyle: { backgroundColor: theme.colors.background, paddingBottom: insets.bottom },
           animation: 'slide_from_right',
         }}>
         {!token ? (
@@ -80,7 +83,7 @@ export default function AppNavigator() {
           <Stack.Screen name="Paused" component={PausedBusinessScreen} />
         ) : (
           <>
-            <Stack.Screen name="Main" component={BottomTabs} />
+            <Stack.Screen name="Main" component={BottomTabs} options={{ contentStyle: { backgroundColor: theme.colors.background, paddingBottom: 0 } }} />
             <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
             <Stack.Screen name="Attendance" component={AttendanceScreen} />
             <Stack.Screen name="Rooms" component={RoomsScreen} />

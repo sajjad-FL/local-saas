@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   Alert,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { downloadFile } from '../../api/download';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -232,7 +232,7 @@ export default function ReportsScreen({ navigation }) {
   if (!loaded) return <ScreenSkeleton navigation={navigation} kind="reports" />;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* TopBar with Brand and Theme Toggle */}
       <TopBar title="Money" navigation={navigation} />
 

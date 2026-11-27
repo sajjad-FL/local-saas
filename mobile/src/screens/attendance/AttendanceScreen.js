@@ -6,12 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   TextInput,
   Alert,
   Linking,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -115,7 +115,7 @@ function DailyAttendance({ navigation }) {
 
   if (biz?.attendanceEnabled === false) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: c.background }]}>
         <TopBar navigation={navigation} />
         <View style={styles.centerBox}>
           <Icon name="calendar-outline" size={48} color={c.textMuted} />
@@ -173,7 +173,7 @@ function DailyAttendance({ navigation }) {
   ].filter(Boolean);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: c.background }]}>
       <TopBar title="Attendance" navigation={navigation} />
       <ScrollView
         contentContainerStyle={styles.scroll}

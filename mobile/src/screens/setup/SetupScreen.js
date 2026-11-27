@@ -6,10 +6,10 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees } from '../../api/api';
@@ -434,7 +434,7 @@ export default function SetupScreen({ navigation }) {
   if (!loaded) return <ScreenSkeleton navigation={navigation} kind="setup" />;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* Universal TopBar */}
       <TopBar navigation={navigation} />
 

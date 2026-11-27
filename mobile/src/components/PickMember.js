@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Modal, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { rupees } from '../api/api';
 import Icon from './Icon';
@@ -9,15 +10,16 @@ import Avatar from './Avatar';
 export default function PickMember({ visible, members, word = 'member', onClose, onPick }) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const insets = useSafeAreaInsets();
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
   const list = (members || [])
     .filter((m) => !query || (m.name || '').toLowerCase().includes(query) || (m.phone || '').includes(query))
     .sort((a, b) => (b.balance || 0) - (a.balance || 0) || (a.name || '').localeCompare(b.name || ''));
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity activeOpacity={1} onPress={onClose} style={s.scrim} accessibilityLabel="Close" />
-      <View style={[s.sheet, { backgroundColor: c.card }]}>
+      <View style={[s.sheet, { backgroundColor: c.card, paddingBottom: 28 + insets.bottom, maxHeight: '85%' }]}>
         <View style={[s.grip, { backgroundColor: c.borderSolid }]} />
         <Text style={[s.title, { color: c.text }]}>Who paid?</Text>
         <View style={[s.search, { borderColor: c.border, backgroundColor: c.cardSubtle }]}>

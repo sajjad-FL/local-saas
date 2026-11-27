@@ -8,10 +8,10 @@ import {
   Alert,
   Linking,
   RefreshControl,
-  SafeAreaView,
   TextInput,
   Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -235,7 +235,7 @@ export default function MemberDetailScreen({ route, navigation }) {
 
   if (loading || !data) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
         <TopBar navigation={navigation} />
         <View style={styles.centerBox}>
           <Loader label="Loading member" />
@@ -314,7 +314,7 @@ export default function MemberDetailScreen({ route, navigation }) {
   });
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* TopBar */}
       <TopBar navigation={navigation} />
 

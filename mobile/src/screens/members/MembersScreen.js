@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   Linking,
   Modal as RNModal,
   KeyboardAvoidingView,
   Platform,
   Alert,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, waLink, remindMsg } from '../../api/api';
@@ -215,7 +215,7 @@ export default function MembersScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
       <TopBar title={Title} navigation={navigation} />
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -422,6 +422,7 @@ export default function MembersScreen({ navigation, route }) {
 // Collect: a bottom sheet, three taps (how much, how they paid, save)
 export function CollectSheet({ sheet, setSheet, room, late, theme, tone, onDone }) {
   const c = theme.colors;
+  const insets = useSafeAreaInsets(); // keep the buttons above the gesture bar
   const dark = theme.isDark;
   const { m, amt, mode } = sheet;
   const [custom, setCustom] = useState('');
@@ -450,10 +451,10 @@ export function CollectSheet({ sheet, setSheet, room, late, theme, tone, onDone 
   };
 
   return (
-    <RNModal visible transparent animationType="slide" onRequestClose={() => setSheet(null)}>
+    <RNModal visible transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setSheet(null)}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <Pressable style={styles.sheetScrim} onPress={() => setSheet(null)} />
-        <View style={[styles.sheet, { backgroundColor: c.card }]}>
+        <View style={[styles.sheet, { backgroundColor: c.card, paddingBottom: 24 + insets.bottom }]}>
           <View style={styles.grip} />
           <View style={styles.sheetHead}>
             {room ? (

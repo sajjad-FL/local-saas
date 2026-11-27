@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Pressable, ScrollView, StyleSheet, Modal as RNModal } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import Icon from './Icon';
 
@@ -28,6 +29,7 @@ export function CompactHeader({ title, menu = [], mainLabel, onMain }) {
   const c = theme.colors;
   const line = useLine();
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets(); // the menu opens under the ⋯ button, below the status bar
   const items = menu.filter(Boolean);
   return (
     <View style={s.head}>
@@ -43,8 +45,8 @@ export function CompactHeader({ title, menu = [], mainLabel, onMain }) {
           <Text style={s.mainText}>{mainLabel}</Text>
         </TouchableOpacity>
       ) : null}
-      <RNModal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={s.scrim} onPress={() => setOpen(false)}>
+      <RNModal visible={open} transparent statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={[s.scrim, { paddingTop: 110 + insets.top }]} onPress={() => setOpen(false)}>
           <View style={[s.menu, { backgroundColor: c.card, borderColor: line }]}>
             {items.map((it) => (
               <TouchableOpacity key={it.label} onPress={() => { setOpen(false); it.go(); }} style={s.menuItem}>

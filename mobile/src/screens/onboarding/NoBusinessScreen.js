@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useBiz } from '../../context/BizContext';
@@ -15,7 +16,7 @@ export function NoBusinessScreen() {
   const [open, setOpen] = useState(true);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
         <View style={[styles.iconWrap, { backgroundColor: theme.colors.primarySoft }]}>
           <Icon name="business-outline" size={28} color={theme.colors.primary} />
@@ -55,7 +56,7 @@ export function PausedBusinessScreen() {
     && `https://wa.me/${support.replace(/\D/g, '').replace(/^(\d{10})$/, '91$1')}?text=${encodeURIComponent(`Hi, my business ${biz?.name} is paused. Please help me resume it.`)}`;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
         <View style={[styles.iconWrap, { backgroundColor: theme.colors.warningSoft }]}>
           <Icon name="pause-circle-outline" size={30} color={theme.colors.warningDark} />

@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, SafeAreaView, Linking,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBiz } from '../../context/BizContext';
@@ -131,7 +138,7 @@ export default function DashboardScreen({ navigation }) {
 
   if (!biz) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
         <View style={styles.center}><Text style={{ color: c.textSecondary }}>No workspace selected</Text></View>
       </SafeAreaView>
     );
@@ -170,7 +177,7 @@ export default function DashboardScreen({ navigation }) {
 
   if (!membersTable.length) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
         <TopBar title="Dashboard" navigation={navigation} />
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text style={[styles.date, { color: c.textMuted }]}>{todayText}</Text>
@@ -300,7 +307,7 @@ export default function DashboardScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
       <TopBar title="Dashboard" navigation={navigation} />
       <ScrollView
         contentContainerStyle={styles.scroll}

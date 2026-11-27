@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useBiz } from '../context/BizContext';
 import Icon from '../components/Icon';
@@ -21,7 +22,8 @@ const Tab = createBottomTabNavigator();
 function TabLabel({ title, focused, color }) {
   return (
     <View style={styles.labelWrapper}>
-      <Text style={[styles.tabLabel, { color }]}>{title}</Text>
+      {/* six tabs on a narrow phone: shrink a long name to fit instead of cutting it off */}
+      <Text style={[styles.tabLabel, { color }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} allowFontScaling={false}>{title}</Text>
       {focused ? <View style={styles.tabPill} /> : <View style={styles.tabPillPlaceholder} />}
     </View>
   );
@@ -36,6 +38,9 @@ export default function BottomTabs() {
   // the same names as the web's menu: Members (or Tenants, Students…), Money
   const member = words(biz?.type).member || 'member';
   const membersLabel = member === 'member' ? 'Members' : `${member[0].toUpperCase()}${member.slice(1)}s`;
+  // sit above the phone's gesture bar or buttons (Android draws edge to edge)
+  const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom, 8);
 
   return (
     <Tab.Navigator
@@ -45,20 +50,21 @@ export default function BottomTabs() {
           backgroundColor: isDark ? '#0B0F19' : '#FFFFFF',
           borderTopColor: theme.colors.tabBarBorder,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 22 : 6,
+          height: 60 + bottom,
+          paddingBottom: bottom,
           paddingTop: 8,
           elevation: 0,
         },
         tabBarActiveTintColor: theme.colors.tabActive,
         tabBarInactiveTintColor: theme.colors.tabInactive,
+        tabBarItemStyle: { paddingHorizontal: 0 }, // six names have to fit across a small phone
       }}>
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{
           tabBarLabel: ({ color, focused }) => (
-            <TabLabel title="Dashboard" focused={focused} color={color} />
+            <TabLabel title="Home" focused={focused} color={color} />
           ),
           tabBarIcon: ({ color }) => (
             <Icon name="grid-outline" size={20} color={color} />
@@ -166,11 +172,13 @@ export default function BottomTabs() {
 const styles = StyleSheet.create({
   labelWrapper: {
     alignItems: 'center',
+    alignSelf: 'stretch',
     marginTop: 2,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '500',
+    letterSpacing: -0.2,
   },
   tabPill: {
     width: 14,

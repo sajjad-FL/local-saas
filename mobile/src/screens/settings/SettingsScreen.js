@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  SafeAreaView,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -304,7 +304,7 @@ export default function SettingsScreen({ navigation }) {
   const W = words(biz?.type);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <TopBar navigation={navigation} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, SafeAreaView, Alert, Linking, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, Linking, BackHandler } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { api, waLink, rupees } from '../../api/api';
@@ -116,7 +117,7 @@ export default function TuitionAttendance({ navigation, biz }) {
   // ── 1. the batch list ──
   if (!batchId) {
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: c.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[st.safe, { backgroundColor: c.background }]}>
         <TopBar title="Attendance" navigation={navigation} />
         <ScrollView contentContainerStyle={st.scroll} refreshControl={refresh}>
           <Text style={[st.date, { color: c.textMuted }]}>
@@ -218,7 +219,7 @@ export default function TuitionAttendance({ navigation, biz }) {
   const tellParent = (m) => Linking.openURL(waLink(m.phone, `Hi, ${m.name.split(' ')[0]} was absent from ${batch?.name || 'class'} at ${biz.name} on ${fmt(current, { day: 'numeric', month: 'short' })}. Please let us know if all is well.`));
 
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: c.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[st.safe, { backgroundColor: c.background }]}>
       <TopBar title="Attendance" navigation={navigation} />
       <ScrollView contentContainerStyle={st.scroll} refreshControl={refresh} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => setBatchId('')} style={st.back} accessibilityLabel={`All ${W.groups.toLowerCase()}`}>

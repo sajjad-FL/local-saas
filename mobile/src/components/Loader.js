@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Animated, Easing, StyleSheet, AccessibilityInfo, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, Animated, Easing, StyleSheet, AccessibilityInfo, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { BRAND_IMAGES } from './Logo';
 import TopBar from './TopBar';
@@ -141,7 +142,7 @@ export function ScreenSkeleton({ navigation, kind = 'list' }) {
     </View>
   );
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} accessibilityLabel="Loading" accessibilityRole="progressbar">
+    <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: theme.colors.background }} accessibilityLabel="Loading" accessibilityRole="progressbar">
       <TopBar navigation={navigation} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} scrollEnabled={false}>
         <Skeleton width={kind === 'dashboard' ? 90 : 130} height={24} />

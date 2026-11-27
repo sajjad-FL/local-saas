@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBiz } from '../context/BizContext';
 import { useTheme } from '../context/ThemeContext';
 import { BIZ_CONFIG } from '../constants/theme';
@@ -14,6 +15,7 @@ export default function TopBar({
   const { biz, businesses = [], switchBiz } = useBiz();
   const { theme, isDark, toggleTheme } = useTheme();
   const [bizPickerOpen, setBizPickerOpen] = useState(false);
+  const insets = useSafeAreaInsets(); // the business list opens just under the top bar
 
   const bizType = biz?.type || 'gym';
   const typeConfig = BIZ_CONFIG[bizType] || BIZ_CONFIG.gym;
@@ -101,10 +103,12 @@ export default function TopBar({
         <Modal
           visible={bizPickerOpen}
           transparent
+          statusBarTranslucent
+          navigationBarTranslucent
           animationType="fade"
           onRequestClose={() => setBizPickerOpen(false)}>
           <TouchableOpacity
-            style={styles.modalOverlay}
+            style={[styles.modalOverlay, { paddingTop: insets.top + 60 }]}
             activeOpacity={1}
             onPress={() => setBizPickerOpen(false)}>
             <View

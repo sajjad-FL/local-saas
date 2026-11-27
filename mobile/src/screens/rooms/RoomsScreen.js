@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   TextInput,
   Alert,
   Linking,
   Modal as RNModal,
   Pressable,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, waLink, remindMsg } from '../../api/api';
@@ -195,6 +195,7 @@ const daysLate = (t) => (t?.balance > 0 && t.owingSince
 
 // Tap a bed: a sheet from the bottom with what you can do there
 function BedSheet({ bed, theme, onClose, onCollect, onOpen, onAdd, onEdit, biz }) {
+  const insets = useSafeAreaInsets(); // buttons stay above the gesture bar
   const c = theme.colors;
   const t = bed.b.tenant;
   const st = STATE[bed.b.state];
@@ -208,9 +209,9 @@ function BedSheet({ bed, theme, onClose, onCollect, onOpen, onAdd, onEdit, biz }
     : (bed.room.bedRent != null ? `Rent ${rupees(bed.room.bedRent)} a month` : 'Ready for a new tenant');
   const canAct = (biz?.access ? biz.access.level : 3) >= 1;
   return (
-    <RNModal visible transparent animationType="slide" onRequestClose={onClose}>
+    <RNModal visible transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: c.card }]}>
+      <View style={[styles.sheet, { backgroundColor: c.card, paddingBottom: 26 + insets.bottom }]}>
         <View style={styles.sheetGrip} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={[styles.sheetBadge, t ? { backgroundColor: st.color } : { borderWidth: 1.5, borderColor: st.color }]}>
@@ -264,6 +265,7 @@ function BedSheet({ bed, theme, onClose, onCollect, onOpen, onAdd, onEdit, biz }
 }
 
 export default function RoomsScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const { biz } = useBiz();
   const { theme, isDark } = useTheme();
 
@@ -486,7 +488,7 @@ export default function RoomsScreen({ navigation }) {
   if (loading && rooms.length === 0) return <ScreenSkeleton navigation={navigation} kind="rooms" />;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* Universal TopBar Header */}
       <TopBar navigation={navigation} />
 
@@ -737,9 +739,9 @@ export default function RoomsScreen({ navigation }) {
       </ScrollView>
 
       {/* building picker: a short list from the bottom */}
-      <RNModal visible={buildingPicker} transparent animationType="fade" onRequestClose={() => setBuildingPicker(false)}>
+      <RNModal visible={buildingPicker} transparent statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={() => setBuildingPicker(false)}>
         <Pressable style={styles.sheetScrim} onPress={() => setBuildingPicker(false)} />
-        <View style={[styles.sheet, { backgroundColor: theme.colors.card }]}>
+        <View style={[styles.sheet, { backgroundColor: theme.colors.card, paddingBottom: 26 + insets.bottom }]}>
           <View style={styles.sheetGrip} />
           <Text style={{ fontSize: 16, fontWeight: '700', color: theme.colors.text, marginBottom: 6 }}>Building</Text>
           {[{ _id: 'all', name: 'All buildings' }, ...sortedGroups].map((g) => {

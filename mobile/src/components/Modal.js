@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import Icon from './Icon';
 
@@ -23,11 +24,14 @@ export default function Modal({
   maxHeight = '85%',
 }) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <RNModal
       visible={visible}
       transparent
+      statusBarTranslucent // draw under the system bars on every phone; the sheet pads for them
+      navigationBarTranslucent
       animationType={position === 'bottom' ? 'slide' : 'fade'}
       onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
@@ -69,7 +73,7 @@ export default function Modal({
               {/* Body */}
               <ScrollView
                 style={styles.body}
-                contentContainerStyle={styles.bodyContent}
+                contentContainerStyle={[styles.bodyContent, position === 'bottom' && { paddingBottom: 32 + insets.bottom }]}
                 keyboardShouldPersistTaps="handled">
                 {children}
               </ScrollView>

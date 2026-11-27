@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import { useTheme } from '../../context/ThemeContext';
@@ -49,7 +49,7 @@ export default function StatementScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
         <View style={styles.centerBox}>
           <Loader label="Loading your statement" />
         </View>
@@ -59,7 +59,7 @@ export default function StatementScreen({ route, navigation }) {
 
   if (error || !data) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
         <View style={styles.centerBox}>
           <Icon name="alert-circle-outline" size={48} color={theme.colors.danger} />
           <Text style={[styles.errTitle, { color: theme.colors.text }]}>Statement Unavailable</Text>
@@ -111,7 +111,7 @@ export default function StatementScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={[styles.headerBar, { borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>

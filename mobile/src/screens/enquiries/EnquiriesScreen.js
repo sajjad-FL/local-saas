@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   Linking,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees, waLink } from '../../api/api';
@@ -160,7 +160,7 @@ export default function EnquiriesScreen({ navigation, route }) {
   if (!all && loadError) {
     const missing = loadError.status === 404;
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
         <TopBar title="Enquiries" navigation={navigation} />
         <View style={{ padding: 16 }}>
           <Card style={{ alignItems: 'center', paddingVertical: 32 }}>
@@ -178,7 +178,7 @@ export default function EnquiriesScreen({ navigation, route }) {
   if (!all) return <ScreenSkeleton navigation={navigation} />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
       <TopBar title="Enquiries" navigation={navigation} />
       <ScrollView
         contentContainerStyle={styles.scroll}

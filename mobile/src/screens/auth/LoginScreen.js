@@ -7,11 +7,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView,
   TextInput,
   Image,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getApiBaseUrl, setApiBaseUrl } from '../../api/api';
@@ -145,7 +145,7 @@ export default function LoginScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: isDark ? theme.colors.background : '#F6F4FF' }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: isDark ? theme.colors.background : '#F6F4FF' }]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {mode === 'login' ? (

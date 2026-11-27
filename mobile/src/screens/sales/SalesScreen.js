@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   Alert,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBiz } from '../../context/BizContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, rupees } from '../../api/api';
@@ -87,7 +87,7 @@ export default function SalesScreen({ navigation }) {
 
   if (biz?.salesEnabled === false) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
         <TopBar title="Sales" navigation={navigation} />
         <View style={{ padding: 16 }}>
           <Card style={{ alignItems: 'center', paddingVertical: 32 }}>
@@ -288,7 +288,7 @@ export default function SalesScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
       <TopBar title="Sales" navigation={navigation} />
       <ScrollView
         contentContainerStyle={styles.scroll}
